@@ -25,10 +25,13 @@ const searchRoutes = require('./routes/searchRoutes');
 const app = express();
 const server = http.createServer(app);
 
+
+const CLIENT_URL = process.env.CLIENT_URL || "http://localhost:5173";
+
 // --- Socket.io Server Setup ---
 const io = new Server(server, {
   cors: {
-    origin: "http://localhost:5173",
+    origin: CLIENT_URL, 
     methods: ["GET", "POST"]
   }
 });
@@ -36,7 +39,7 @@ const io = new Server(server, {
 // --- Middleware ---
 
 app.use(cors({
-  origin: 'http://localhost:5173',
+  origin: CLIENT_URL, 
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'], 
   credentials: true
 }));
