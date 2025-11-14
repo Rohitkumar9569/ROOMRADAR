@@ -1,0 +1,22 @@
+# Node.js dependencies
+/client/node_modules
+/server/node_modules
+
+# Environment Variables (SECRET!)
+# This file contains your API keys and database passwords
+/.env
+*.env
+.env.*
+
+# Build output
+/client/dist
+/build
+
+# Log files
+*.log
+npm-debug.log
+yarn-error.log
+
+# OS-generated files
+.DS_Store
+Thumbs.db
