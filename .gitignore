@@ -20,3 +20,9 @@ yarn-error.log
 # OS-generated files
 .DS_Store
 Thumbs.db
+
+# Utility scripts with sensitive data
+/server/resetAdminPass.js
+/server/checkUser.js
+/server/createAdmin.js
+/server/resetAdminPass.js
