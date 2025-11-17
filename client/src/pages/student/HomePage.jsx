@@ -1,7 +1,7 @@
-// src/pages/HomePage.jsx
+// src/pages/student/HomePage.jsx
 
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import api from '../../api'; 
 import { format } from 'date-fns';
 import Header from '../../components/layout/Header';
 import SearchBar from '../../components/features/search/SearchBar';
@@ -23,7 +23,6 @@ function HomePage() {
         radius: 5,
     });
     
-    // This function now fetches ONLY filtered rooms
     const fetchRooms = async (criteria) => {
         setLoading(true);
         setError(null);
@@ -42,7 +41,7 @@ function HomePage() {
         };
 
         try {
-            const response = await axios.post('/api/rooms/search', params);
+            const response = await api.post('/rooms/search', params);
             toast.success(`${response.data.count} rooms found!`);
             setListings(response.data.data || response.data);
         } catch (err) {
@@ -54,11 +53,10 @@ function HomePage() {
         }
     };
     
-    // This function fetches ALL rooms
     const fetchAllRooms = async () => {
         setLoading(true);
         try {
-            const response = await axios.get('/api/rooms');
+            const response = await api.get('/rooms');
             setListings(response.data.data || response.data);
         } catch (err) {
            console.error("Failed to fetch all rooms:", err);
@@ -77,13 +75,11 @@ function HomePage() {
     };
 
     const handleClearSearch = () => {
-        // Reset the search criteria state to its initial values
         setSearchCriteria({
             location: null,
             moveInDate: null,
             radius: 5,
         });
-        // Fetch all rooms again, just like a page refresh
         fetchAllRooms();
         toast.success("Filters cleared!");
     };
@@ -135,7 +131,7 @@ function HomePage() {
                 )}
             </main>
 
-           
+            
             <FilterModal 
                 isOpen={isFilterModalOpen} 
                 onClose={() => setIsFilterModalOpen(false)} 
