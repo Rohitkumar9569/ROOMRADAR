@@ -1,12 +1,10 @@
-// src/components/layout/landlord/LandlordBottomNavBar.jsx
-
 import React from 'react';
 import { NavLink } from 'react-router-dom';
 import { LayoutDashboard, Calendar, List, Mail, User } from 'lucide-react';
 import { useSocket } from '../../../context/SocketContext'; 
+import { motion } from 'framer-motion'; //  Import Motion
 
 function LandlordBottomNavBar() {
-  
   const { unreadNotificationCount } = useSocket();
 
   const navItems = [
@@ -17,37 +15,55 @@ function LandlordBottomNavBar() {
     { path: '/landlord/profile', Icon: User, name: 'Me', count: 0 },
   ];
 
-  // --- [THE CHANGE IS HERE] ---
-  // Updated the active color to a professional "teal" (like WhatsApp)
-  // and set the hover color to match.
-  const navLinkClass = ({ isActive }) =>
-    `flex flex-col items-center justify-center w-full pt-2 pb-1 transition-colors duration-200 group ${
-      isActive ? 'text-teal-600' : 'text-gray-500 hover:text-teal-600'
-    }`;
-  // --- [END OF CHANGE] ---
-
   return (
-    <nav className="fixed bottom-0 left-0 right-0 h-16 bg-white border-t border-gray-200 shadow-lg md:hidden z-30">
-      <div className="flex justify-around items-center h-full">
+    //  Container: Compact (h-14), Glassmorphism, No extra padding at bottom
+    <nav className="fixed bottom-0 left-0 right-0 z-50 
+                    h-14 w-full bg-white/95 backdrop-blur-md border-t border-gray-100 
+                    md:hidden shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+      
+      <div className="flex justify-around items-center h-full px-1">
         {navItems.map((item) => (
-          <NavLink to={item.path} key={item.name} className={navLinkClass}>
+          <NavLink 
+            to={item.path} 
+            key={item.name} 
+            className="relative flex-1 flex flex-col items-center justify-center h-full"
+          >
             {({ isActive }) => (
-              <>
+              <motion.div 
+                className="relative flex flex-col items-center justify-center w-full h-full"
+                whileTap={{ scale: 0.9 }} // Click Press Effect
+              >
+                {/* ✨ Teal Water Splash Effect */}
+                {isActive && (
+                  <motion.div
+                    layoutId="landlord-nav-bubble"
+                    className="absolute inset-0 m-auto w-10 h-10 bg-teal-50 rounded-full -z-10"
+                    transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
+                  />
+                )}
+
                 <div className="relative">
                   <item.Icon 
-                    size={24} 
-                    strokeWidth={isActive ? 2.5 : 1.5} // Active = Bold, Inactive = Thin
-                    className="transition-transform duration-200 group-hover:scale-110"
+                    size={22} 
+                    strokeWidth={isActive ? 2.5 : 2}
+                    className={`transition-colors duration-200 ${isActive ? 'text-teal-600' : 'text-gray-400'}`}
                   />
+                  
                   {/* Notification Badge */}
                   {item.count > 0 && (
-                    <span className="absolute -top-1 -right-2.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-xs font-bold text-white">
+                    <span className="absolute -top-1.5 -right-1.5 flex h-4 w-4 items-center justify-center 
+                                   rounded-full bg-red-500 text-[9px] font-bold text-white ring-2 ring-white">
                       {item.count}
                     </span>
                   )}
                 </div>
-                <span className="text-xs mt-1 font-medium">{item.name}</span>
-              </>
+
+                <span className={`text-[9px] font-medium mt-0.5 transition-colors duration-200 
+                  ${isActive ? 'text-teal-600' : 'text-gray-400'}`}>
+                  {item.name}
+                </span>
+
+              </motion.div>
             )}
           </NavLink>
         ))}
