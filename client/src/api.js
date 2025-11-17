@@ -1,8 +1,16 @@
 import axios from 'axios';
 
+const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+
+// select URL 
+const BASE_URL = isLocalhost 
+  ? 'http://localhost:5000/api'                 
+  : 'https://roomradar-6nfw.onrender.com/api';  
+
+
 
 const api = axios.create({
-  baseURL: 'https://roomradar-6nfw.onrender.com/api', 
+  baseURL: BASE_URL, 
 });
 
 // --- Interceptor ---

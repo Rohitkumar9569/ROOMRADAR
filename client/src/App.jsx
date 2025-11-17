@@ -1,18 +1,29 @@
 // client/src/App.jsx
 import React, { useState, useEffect } from 'react';
-import { Outlet } from 'react-router-dom';
+// 1. Import useLocation to get the current URL path
+import { Outlet, useLocation } from 'react-router-dom'; 
 import api from './api'; // Use the centralized api instance
 import Footer from './components/layout/Footer'; 
 import SplashScreen from './components/common/SplashScreen'; 
 import { AnimatePresence } from 'framer-motion';
 
 function App() {
+  // 2. Initialize the location hook
+  const location = useLocation();
+
   const [isLoading, setIsLoading] = useState(() => {
     // Check if the splash screen animation has already played in this session
     return sessionStorage.getItem('hasAnimationPlayed') !== 'true';
   });
 
   const [listingsData, setListingsData] = useState([]);
+
+  // 3. Define a list of routes where the Footer should be HIDDEN
+  const hideFooterRoutes = ['/login', '/signup', '/forgot-password'];
+
+  // 4. Check if the current path is in the list of routes to hide
+  // returns true if footer should be shown, false if it should be hidden
+  const shouldShowFooter = !hideFooterRoutes.includes(location.pathname);
 
   useEffect(() => {
     const fetchInitialData = async () => {
@@ -49,12 +60,13 @@ function App() {
           className="flex flex-col min-h-screen"
         >
          
-          
           <main className="flex-grow">
             <Outlet context={{ listings: listingsData, setListings: setListingsData }} />
           </main>
 
-          <Footer className="hidden md:block" />
+          {/* 5. Conditionally render the Footer based on the 'shouldShowFooter' flag */}
+          {shouldShowFooter && <Footer className="hidden md:block" />}
+          
         </div>
       )}
     </AnimatePresence>

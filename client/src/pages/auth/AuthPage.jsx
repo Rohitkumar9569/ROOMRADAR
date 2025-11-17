@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
+import { useGoogleLogin } from '@react-oauth/google'; //  Import Google Hook
 import api from '../../api';
 import { useAuth } from '../../context/AuthContext';
 import toast from 'react-hot-toast';
@@ -19,7 +20,6 @@ const GoogleIcon = () => (
         <path d="M12.25 5.84C13.97 5.84 15.3 6.43 16.39 7.42L20.07 3.75C18.14 1.88 15.45 0.5 12.25 0.5C7.69 0.5 3.76 3.73 2.03 7.32L5.74 9.9C6.79 7.3 9.31 5.84 12.25 5.84Z" fill="#EA4335"/>
     </svg>
 );
-
 
 function AuthPage() {
     const [formData, setFormData] = useState({ name: '', email: '', password: '' });
@@ -39,7 +39,43 @@ function AuthPage() {
         setFormData({ ...formData, [e.target.name]: e.target.value });
     };
 
-    // Handle form submission (Login/Signup logic is unchanged)
+    // Google Login Logic
+    const handleGoogleLogin = useGoogleLogin({
+        onSuccess: async (tokenResponse) => {
+            const toastId = toast.loading('Logging in with Google...');
+            try {
+                console.log("Google Token:", tokenResponse);
+                // Send token to backend
+                const res = await api.post('/auth/google', {
+                    token: tokenResponse.access_token,
+                });
+
+                if (res.data) {
+                    login(res.data);
+                    toast.success('Google Login Successful!', { id: toastId });
+                    
+                    // Redirect logic (same as normal login)
+                    const from = location.state?.from?.pathname;
+                    const userRoles = res.data.roles || [];
+
+                    if (from === '/list-your-room' && userRoles.includes('Landlord')) {
+                        switchRole('landlord');
+                        navigate('/landlord/overview', { replace: true });
+                    } else if (from) {
+                        navigate(from, { replace: true });
+                    } else {
+                        navigate('/');
+                    }
+                }
+            } catch (error) {
+                console.error("Google Auth Error:", error);
+                toast.error('Google Login Failed', { id: toastId });
+            }
+        },
+        onError: () => toast.error('Google Login Failed'),
+    });
+
+    // Handle form submission (Email/Password)
     const handleSubmit = async (e) => {
         e.preventDefault();
         const toastId = toast.loading('Processing...');
@@ -87,13 +123,12 @@ function AuthPage() {
         }
     };
 
-    // --- [NEW] This is the new premium layout ---
     return (
         <div className="min-h-screen flex items-center justify-center bg-gray-100 p-4 font-poppins">
             {/* The form is now a centered card */}
             <div className="bg-white rounded-2xl shadow-2xl overflow-hidden max-w-md w-full p-8 sm:p-12">
                 
-                {/* 1. Logo added at the top for branding */}
+                {/* Logo added at the top for branding */}
                 <div className="text-center mb-8">
                     <Link to="/" className="text-3xl font-bold text-red-500">
                         RoomRadar
@@ -104,26 +139,26 @@ function AuthPage() {
                     {isLogin ? 'Welcome back' : 'Create your account'}
                 </h2>
 
-                {/* 2. Social Login remains the priority */}
+                {/* Social Login Button */}
                 <div className="space-y-4">
                     <button 
-                        type="button" 
+                        type="button" //  Important: type="button" prevents form submit
+                        onClick={() => handleGoogleLogin()} //  Attached handler here
                         className="w-full flex items-center justify-center py-3 px-4 border border-gray-300 rounded-lg text-gray-700 font-semibold hover:bg-gray-100 transition-colors"
-                        // onClick={() => handleSocialLogin('google')}
                     >
                         <GoogleIcon />
                         Continue with Google
                     </button>
                 </div>
 
-                {/* 3. "OR" Divider remains */}
+                {/* "OR" Divider */}
                 <div className="my-6 flex items-center">
                     <div className="flex-grow border-t border-gray-300"></div>
                     <span className="mx-4 flex-shrink text-sm text-gray-500">or</span>
                     <div className="flex-grow border-t border-gray-300"></div>
                 </div>
 
-                {/* 4. Auth Form (with animations) remains */}
+                {/* Auth Form (Email/Password) */}
                 <form onSubmit={handleSubmit} className="space-y-6">
                     
                     <AnimatePresence>
@@ -160,7 +195,7 @@ function AuthPage() {
                     </div>
                 </form>
                 
-                {/* 5. Toggle link remains at the bottom */}
+                {/* Toggle link */}
                 <div className="mt-6 text-center text-sm text-gray-600">
                     {isLogin ? "Don't have an account?" : "Already have an account?"}
                     <Link to={isLogin ? '/signup' : '/login'} className="font-medium text-indigo-600 hover:text-indigo-500 ml-1 transition-colors">
