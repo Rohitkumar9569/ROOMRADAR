@@ -1,19 +1,30 @@
 import axios from 'axios';
 
+const envUrl = import.meta.env.VITE_API_URL;
+console.log("========================================");
+console.log("🚀 DEBUG: VITE_API_URL found:", envUrl);
+console.log("🚀 DEBUG: Final Base URL:", envUrl || 'http://localhost:5000/api');
+console.log("========================================");
+
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000/api', 
+  baseURL: envUrl || 'http://localhost:5000/api', 
 });
 
-
+// Interceptor to attach JWT token to every request configuration.
 api.interceptors.request.use(
   (config) => {
     const userInfoString = localStorage.getItem('userInfo');
 
     if (userInfoString) {
-      const userInfo = JSON.parse(userInfoString);
-      
-      if (userInfo && userInfo.token) {
-        config.headers.Authorization = `Bearer ${userInfo.token}`;
+      try {
+        const userInfo = JSON.parse(userInfoString);
+        
+        if (userInfo && userInfo.token) {
+          config.headers.Authorization = `Bearer ${userInfo.token}`;
+        }
+      } catch (e) {
+        console.error("Error parsing user info from local storage.", e);
+        localStorage.removeItem('userInfo');
       }
     }
     return config;
@@ -23,7 +34,7 @@ api.interceptors.request.use(
   }
 );
 
-//  Application API Calls 
+// --- Application API Calls ---
 
 export const createApplication = (applicationData) =>
   api.post('/applications', applicationData);
