@@ -5,7 +5,7 @@ const isLocalhost = window.location.hostname === 'localhost' || window.location.
 // select URL 
 const BASE_URL = isLocalhost 
   ? 'http://localhost:5000/api'                 
-  : 'https://roomradar-bzxe.onrender.com';  
+  : 'https://roomradar-bzxe.onrender.com/api';  
 
 
 
