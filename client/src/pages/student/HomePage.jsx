@@ -43,11 +43,14 @@ function HomePage() {
         try {
             const response = await api.post('/rooms/search', params);
             toast.success(`${response.data.count} rooms found!`);
-            setListings(response.data.data || response.data);
+            
+            const roomData = response.data.data || response.data;
+            setListings(Array.isArray(roomData) ? roomData : []);
         } catch (err) {
             console.error("Failed to fetch rooms:", err);
             setError('Could not fetch rooms. Please try again later.');
             toast.error('Could not fetch rooms.');
+            setListings([]);
         } finally {
             setLoading(false);
         }
@@ -57,10 +60,12 @@ function HomePage() {
         setLoading(true);
         try {
             const response = await api.get('/rooms');
-            setListings(response.data.data || response.data);
+            
+            const roomData = response.data.data || response.data;
+            setListings(Array.isArray(roomData) ? roomData : []);
         } catch (err) {
            console.error("Failed to fetch all rooms:", err);
-           toast.error('Could not fetch rooms.');
+           setListings([]);
         } finally {
             setLoading(false);
         }
@@ -117,7 +122,7 @@ function HomePage() {
                                 <RoomCardSkeleton key={index} />
                             ))
                         ) : (
-                            listings.length > 0 ? (
+                            Array.isArray(listings) && listings.length > 0 ? (
                                 listings.map(room => (
                                     <RoomCard key={room._id} room={room} />
                                 ))
@@ -131,7 +136,6 @@ function HomePage() {
                 )}
             </main>
 
-            
             <FilterModal 
                 isOpen={isFilterModalOpen} 
                 onClose={() => setIsFilterModalOpen(false)} 

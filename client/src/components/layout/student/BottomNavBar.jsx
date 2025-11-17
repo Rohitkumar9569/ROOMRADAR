@@ -1,10 +1,8 @@
-// src/components/layout/student/BottomNavBar.jsx
-
 import React from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../context/AuthContext';
 import { Home, Heart, FileText, Mail, User } from 'lucide-react';
-import { useSocket } from '../../../context/SocketContext'; // 1. Import useSocket
+import { useSocket } from '../../../context/SocketContext';
 
 const ConditionalNavLink = ({ path, isProtected, children, ...props }) => {
     const { user } = useAuth();
@@ -25,27 +23,27 @@ const ConditionalNavLink = ({ path, isProtected, children, ...props }) => {
 };
 
 function BottomNavBar() {
-    // 2. Get the unread count from the context
     const { unreadNotificationCount } = useSocket();
 
     const navItems = [
         { path: '/', label: 'Explore', Icon: Home, isProtected: false, count: 0 },
         { path: '/profile/wishlist', label: 'Wishlist', Icon: Heart, isProtected: true, count: 0 },
-        { path: '/profile/my-applications', label: 'Applications', Icon: FileText, isProtected: true, count: 0 },
-        // 3. Pass the count to the 'Inbox' item
+        { path: '/profile/my-applications', label: 'Apps', Icon: FileText, isProtected: true, count: 0 },
         { path: '/profile/inbox', label: 'Inbox', Icon: Mail, isProtected: true, count: unreadNotificationCount },
         { path: '/profile', label: 'Profile', Icon: User, isProtected: true, count: 0 },
     ];
 
-    // The active class remains 'text-red-500' to match your brand
+    // Compact & Clean Styling Logic
     const navLinkClass = ({ isActive }) =>
-        `flex flex-col items-center justify-center w-full h-full transition-colors duration-200 group ${
-            isActive ? 'text-red-500' : 'text-gray-600 hover:text-red-500'
-        }`;
+        `relative flex flex-col items-center justify-center w-full h-full transition-all duration-200
+        ${isActive ? 'text-red-500' : 'text-gray-400 hover:text-gray-600'}`;
 
     return (
-        <nav className="fixed bottom-0 left-0 right-0 h-16 bg-white border-t border-gray-200 md:hidden z-50">
-            <div className="flex justify-around items-center h-full">
+        // ✨ FIX: h-14 (Compact Height), fixed bottom-0 (Stuck to bottom), z-50 (Always on top)
+        // pb-safe ensures background covers iPhone home bar area but content stays in h-14
+        <nav className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-gray-200 pb-[env(safe-area-inset-bottom)] md:hidden shadow-[0_-5px_10px_rgba(0,0,0,0.02)]">
+            
+            <div className="flex justify-around items-center h-14"> {/* Fixed Compact Height */}
                 {navItems.map((item) => (
                     <ConditionalNavLink 
                         path={item.path} 
@@ -56,21 +54,25 @@ function BottomNavBar() {
                     >
                         {({ isActive }) => (
                             <>
-                                {/* 4. Add a relative wrapper for the badge */}
-                                <div className="relative">
+                                <div className="relative flex flex-col items-center">
                                     <item.Icon 
-                                        size={24} 
-                                        strokeWidth={isActive ? 2.5 : 1.5} // Active = Bold
-                                        className="transition-transform duration-200 group-hover:scale-110"
+                                        size={22} // Slightly smaller icons for compact look
+                                        strokeWidth={isActive ? 2.5 : 2}
+                                        className={`mb-0.5 transition-transform duration-200 ${isActive ? 'scale-105' : ''}`}
                                     />
-                                    {/* 5. The Notification Badge */}
+
+                                    {/* Notification Badge */}
                                     {item.count > 0 && (
-                                        <span className="absolute -top-1 -right-2.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-xs font-bold text-white">
+                                        <span className="absolute -top-1.5 -right-1.5 flex h-4 w-4 items-center justify-center 
+                                                         rounded-full bg-red-500 text-[9px] font-bold text-white ring-2 ring-white">
                                             {item.count}
                                         </span>
                                     )}
+
+                                    <span className={`text-[10px] font-medium leading-none ${isActive ? 'font-bold' : ''}`}>
+                                        {item.label}
+                                    </span>
                                 </div>
-                                <span className="text-xs mt-1 font-medium">{item.label}</span>
                             </>
                         )}
                     </ConditionalNavLink>

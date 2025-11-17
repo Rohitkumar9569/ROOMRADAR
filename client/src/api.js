@@ -1,8 +1,6 @@
 import axios from 'axios';
 
-// --- Configuration ---
-// Fix: Hardcoded Render Backend URL to prevent Vercel 404 errors.
-// This ensures the frontend always talks to the correct server.
+
 const api = axios.create({
   baseURL: 'https://roomradar-6nfw.onrender.com/api', 
 });
