@@ -7,7 +7,7 @@ const http = require('http');
 const { Server } = require('socket.io');
 const path = require('path');
 
-// --- Routes Imports ---
+// --- Route Imports ---
 const authRoutes = require('./routes/auth');
 const roomRoutes = require('./routes/rooms');
 const chatRoutes = require('./routes/chatRoutes');
@@ -25,37 +25,44 @@ const searchRoutes = require('./routes/searchRoutes');
 const app = express();
 const server = http.createServer(app);
 
-
+// Allowed static origins
 const allowedOrigins = [
-  "http://localhost:5173", 
-  "https://roomradar-three.vercel.app" 
+  "http://localhost:5173",
+  "https://roomradar-three.vercel.app"
 ];
 
-const corsOptions = {
-  origin: (origin, callback) => {
-    if (!origin) return callback(null, true);
+// --- CORS Logic (Shared) ---
+// Checks if origin is allowed or ends with .vercel.app
+const checkOrigin = (origin, callback) => {
+  if (!origin) return callback(null, true);
+  
+  if (allowedOrigins.includes(origin) || origin.endsWith('.vercel.app')) {
+    callback(null, true);
+  } else {
+    console.log("Blocked by CORS:", origin);
+    callback(new Error('Not allowed by CORS'));
+  }
+};
 
-    if (allowedOrigins.includes(origin) || origin.endsWith('.vercel.app')) {
-      callback(null, true);
-    } else {
-      console.log("Blocked by CORS:", origin); 
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
+// --- Express CORS Setup ---
+const corsOptions = {
+  origin: checkOrigin,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
   credentials: true
 };
 
-const io = new Server(server, {
-  cors: {
-    origin: allowedOrigins, 
-    methods: ["GET", "POST"]
-  }
-});
-
-app.use(cors(corsOptions)); 
+app.use(cors(corsOptions));
 app.use(express.json());
 app.use(compression());
+
+// --- Socket.IO Setup ---
+const io = new Server(server, {
+  cors: {
+    origin: checkOrigin, // Applied smart CORS logic here too
+    methods: ["GET", "POST"],
+    credentials: true
+  }
+});
 
 // --- API Routes ---
 app.use('/api/auth', authRoutes);
