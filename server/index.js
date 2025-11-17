@@ -11,39 +11,41 @@ const path = require('path');
 const authRoutes = require('./routes/auth');
 const roomRoutes = require('./routes/rooms');
 const chatRoutes = require('./routes/chatRoutes');
-const uploadRoutes = require('./routes/uploadRoutes');
-const userRoutes = require('./routes/userRoutes');
-const applicationRoutes = require('./routes/applicationRoutes');
-const reviewRoutes = require('./routes/reviewRoutes');
-const apiProxyRoutes = require('./routes/apiProxyRoutes');
-const landlordRoutes = require('./routes/landlordRoutes');
-const adminRoutes = require('./routes/adminRoutes');
-const notificationRoutes = require('./routes/notificationRoutes');
-const insightsRoutes = require('./routes/insightsRoutes');
+// ... (baaki saare routes imports) ...
 const searchRoutes = require('./routes/searchRoutes');
 
 const app = express();
 const server = http.createServer(app);
 
+// --- FIX: Aapke working project jaisa CORS setup ---
+const allowedOrigins = [
+  "http://localhost:5173", // Local computer ke liye
+  "https://roomradar-three.vercel.app" // Aapki live Vercel site ke liye
+];
 
-const CLIENT_URL = process.env.CLIENT_URL || "http://localhost:5173";
+const corsOptions = {
+  origin: (origin, callback) => {
+    // allow requests with no origin (like mobile apps or curl requests)
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
+  credentials: true
+};
 
 // --- Socket.io Server Setup ---
 const io = new Server(server, {
   cors: {
-    origin: CLIENT_URL, 
+    origin: allowedOrigins, // Socket.io ke liye bhi array set karein
     methods: ["GET", "POST"]
   }
 });
 
 // --- Middleware ---
-
-app.use(cors({
-  origin: CLIENT_URL, 
-  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'], 
-  credentials: true
-}));
-
+app.use(cors(corsOptions)); // Express ke liye naya CORS options use karein
 app.use(express.json());
 app.use(compression());
 
