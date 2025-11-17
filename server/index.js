@@ -11,21 +11,28 @@ const path = require('path');
 const authRoutes = require('./routes/auth');
 const roomRoutes = require('./routes/rooms');
 const chatRoutes = require('./routes/chatRoutes');
-// ... (baaki saare routes imports) ...
+const uploadRoutes = require('./routes/uploadRoutes');
+const userRoutes = require('./routes/userRoutes');
+const applicationRoutes = require('./routes/applicationRoutes');
+const reviewRoutes = require('./routes/reviewRoutes');
+const apiProxyRoutes = require('./routes/apiProxyRoutes');
+const landlordRoutes = require('./routes/landlordRoutes');
+const adminRoutes = require('./routes/adminRoutes');
+const notificationRoutes = require('./routes/notificationRoutes');
+const insightsRoutes = require('./routes/insightsRoutes');
 const searchRoutes = require('./routes/searchRoutes');
 
 const app = express();
 const server = http.createServer(app);
 
-// --- FIX: Aapke working project jaisa CORS setup ---
+
 const allowedOrigins = [
-  "http://localhost:5173", // Local computer ke liye
-  "https://roomradar-three.vercel.app" // Aapki live Vercel site ke liye
+  "http://localhost:5173", 
+  "https://roomradar-three.vercel.app" 
 ];
 
 const corsOptions = {
   origin: (origin, callback) => {
-    // allow requests with no origin (like mobile apps or curl requests)
     if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
@@ -36,16 +43,14 @@ const corsOptions = {
   credentials: true
 };
 
-// --- Socket.io Server Setup ---
 const io = new Server(server, {
   cors: {
-    origin: allowedOrigins, // Socket.io ke liye bhi array set karein
+    origin: allowedOrigins, 
     methods: ["GET", "POST"]
   }
 });
 
-// --- Middleware ---
-app.use(cors(corsOptions)); // Express ke liye naya CORS options use karein
+app.use(cors(corsOptions)); 
 app.use(express.json());
 app.use(compression());
 
