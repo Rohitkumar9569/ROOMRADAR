@@ -1,16 +1,14 @@
 import axios from 'axios';
 
-const envUrl = import.meta.env.VITE_API_URL;
-console.log("========================================");
-console.log("🚀 DEBUG: VITE_API_URL found:", envUrl);
-console.log("🚀 DEBUG: Final Base URL:", envUrl || 'http://localhost:5000/api');
-console.log("========================================");
-
+// --- Configuration ---
+// Fix: Hardcoded Render Backend URL to prevent Vercel 404 errors.
+// This ensures the frontend always talks to the correct server.
 const api = axios.create({
-  baseURL: envUrl || 'http://localhost:5000/api', 
+  baseURL: 'https://roomradar-6nfw.onrender.com/api', 
 });
 
-// Interceptor to attach JWT token to every request configuration.
+// --- Interceptor ---
+// Automatically attaches the JWT token to every request if the user is logged in.
 api.interceptors.request.use(
   (config) => {
     const userInfoString = localStorage.getItem('userInfo');
@@ -34,7 +32,7 @@ api.interceptors.request.use(
   }
 );
 
-// --- Application API Calls ---
+// --- API Calls: Applications ---
 
 export const createApplication = (applicationData) =>
   api.post('/applications', applicationData);
@@ -56,14 +54,14 @@ export const cancelApplication = (applicationId) =>
   api.patch(`/applications/${applicationId}/cancel`);
 
 
-// --- Dashboard API Calls ---
+// --- API Calls: Dashboard ---
 
 export const getStudentDashboardSummary = () => api.get('/users/dashboard-summary/student');
 
 export const getLandlordDashboardSummary = () => api.get('/users/dashboard-summary/landlord');
 
 
-// --- Review API Calls ---
+// --- API Calls: Reviews ---
 
 export const createReview = (roomId, reviewData) => 
   api.post(`/reviews/${roomId}`, reviewData);
