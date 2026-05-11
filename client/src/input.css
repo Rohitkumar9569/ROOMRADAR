@@ -108,6 +108,12 @@
     @apply rounded-2xl border border-light-border bg-light-card shadow-sm transition-shadow dark:border-dark-border/80 dark:bg-dark-card/95 dark:shadow-[0_18px_48px_rgba(0,0,0,0.32),inset_0_1px_0_rgba(255,255,255,0.035)];
   }
 
+  .rr-smooth-card,
+  .rr-smooth-surface {
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+  }
+
   .input-field {
     @apply w-full rounded-xl border border-light-border bg-light-card px-4 py-3 text-light-text shadow-sm transition-all placeholder:text-light-muted focus:outline-none focus:ring-2 focus:ring-brand/40 dark:border-dark-border/80 dark:bg-dark-input/95 dark:text-dark-text dark:placeholder:text-dark-muted dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.035)] dark:focus:border-cyan-400/70 dark:focus:ring-cyan-400/25;
   }
@@ -3564,12 +3570,26 @@
     animation: none !important;
   }
 
+  .rr-smooth-card,
+  .rr-smooth-surface,
+  .rr-room-card,
+  .rr-listing-card-pro,
+  .app-route-surface :where(div, section, article, form, aside, li, a):not([class*="fixed"]):not([class*="absolute"]):not([class*="sticky"])[class*="bg-light-card"][class*="border"][class*="rounded"],
+  .app-route-surface :where(div, section, article, aside, li, a):not([class*="fixed"]):not([class*="absolute"]):not([class*="sticky"])[class*="bg-white"][class*="border"][class*="rounded"],
+  .app-route-surface :where(div, section, article, aside, li):not([class*="fixed"]):not([class*="absolute"]):not([class*="sticky"])[class*="bg-secondary-800"][class*="border"][class*="rounded"] {
+    contain: layout style;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+  }
+
   .rr-room-card {
     contain: layout paint style;
     transition: border-color 160ms ease;
   }
 
-  .rr-room-card:hover {
+  .rr-room-card:hover,
+  .rr-listing-card-pro:hover,
+  .app-route-surface :where(div, section, article, a, li)[class*="hover:-translate"]:hover {
     transform: none;
   }
 
@@ -3586,10 +3606,26 @@
     user-select: none;
   }
 
+  .rr-listing-card-media img,
+  .app-route-surface :where(div, section, article, li, a):not([class*="fixed"]):not([class*="absolute"])[class*="border"][class*="rounded"] img {
+    transform: none !important;
+    transition: opacity 160ms ease !important;
+    will-change: auto;
+    -webkit-user-drag: none;
+    user-select: none;
+  }
+
+  .rr-listing-card-pro:hover .rr-listing-card-media img {
+    transform: none !important;
+  }
+
   .rr-card-badge,
   .rr-card-heart-btn,
   .rr-location-badge,
-  .rr-rating-badge {
+  .rr-rating-badge,
+  .rr-listing-status-badge,
+  .rr-listing-menu-btn,
+  .rr-listing-menu {
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
   }
@@ -3605,6 +3641,12 @@
 
   .rr-card-heart-btn.is-active svg {
     filter: none;
+  }
+
+  .rr-listing-menu-btn,
+  .rr-listing-menu-btn:hover {
+    transform: none;
+    transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
   }
 
   .admin-panel-shell {
@@ -3629,9 +3671,23 @@
 
 @supports (content-visibility: auto) {
   @media (max-width: 767px) {
+    .rr-smooth-card,
+    .rr-smooth-surface,
+    .rr-listing-card-pro,
+    .app-route-surface :where(div, section, article, aside, li, a):not([class*="fixed"]):not([class*="absolute"]):not([class*="sticky"]):not([class*="overflow-y-auto"])[class*="bg-light-card"][class*="border"][class*="rounded"],
+    .app-route-surface :where(div, section, article, aside, li, a):not([class*="fixed"]):not([class*="absolute"]):not([class*="sticky"]):not([class*="overflow-y-auto"])[class*="bg-white"][class*="border"][class*="rounded"],
+    .app-route-surface :where(div, section, article, aside, li):not([class*="fixed"]):not([class*="absolute"]):not([class*="sticky"]):not([class*="overflow-y-auto"])[class*="bg-secondary-800"][class*="border"][class*="rounded"] {
+      content-visibility: auto;
+      contain-intrinsic-size: auto 14rem;
+    }
+
     .rr-room-card {
       content-visibility: auto;
       contain-intrinsic-size: 18rem 18rem;
+    }
+
+    .rr-listing-card-pro {
+      contain-intrinsic-size: auto 19rem;
     }
   }
 }
