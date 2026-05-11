@@ -1,361 +1,772 @@
-// src/pages/landlord/AddRoomPage.jsx
-
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import axios from 'axios'; // Note: Ensure you are using your 'api' instance if it's default
-import api from '../../api'; // Use your configured api instance
-import Select from 'react-select';
-import { useAuth } from '../../context/AuthContext';
-import { indianCities } from '../../data/indianCities';
+import { motion } from 'framer-motion';
+import {
+  ArrowLeft,
+  ArrowRight,
+  BedDouble,
+  Building2,
+  CalendarDays,
+  Check,
+  CheckCircle2,
+  Home,
+  ImagePlus,
+  IndianRupee,
+  Loader2,
+  MapPin,
+  ShieldCheck,
+  Sparkles,
+  Trash2,
+  UploadCloud,
+} from 'lucide-react';
 import toast from 'react-hot-toast';
-
-// Component imports (Update paths based on your new structure)
+import api from '../../api';
+import { getRoomFields, roomConfig } from '../../config/roomConfig';
 import LocationPicker from '../../components/features/rooms/LocationPicker';
 import Spinner from '../../components/common/Spinner';
 
-// Icon imports (using react-icons/fa for consistency with the file)
-import {
-    FaPlus, FaCheckCircle, FaTimes, FaTools, FaBed, FaMapMarkerAlt,
-    FaHome, FaRupeeSign, FaSpinner, FaSave, FaWifi,
-    FaBolt, FaWater, FaSnowflake, FaShower, FaCouch, FaCar, FaBuilding,
-    FaShieldAlt, FaTshirt, FaStar, FaArrowLeft, FaUsers,
-    FaFileContract, FaVideo, FaUtensils, FaStore, FaTrain, FaBus,
-    FaUniversity, FaHospital, FaRoute, FaCalendarAlt, FaClock
-} from 'react-icons/fa';
-
-// (Options and initialFormState )
-const familyStatusOptions = [{ value: 'Any', label: 'Any (Family or Bachelors)' }, { value: 'Bachelors', label: 'Bachelors Only' }, { value: 'Family', label: 'Family Only' }];
-const allowedGenderOptions = [{ value: 'Any', label: 'Any Gender' }, { value: 'Male', label: 'Male Only' }, { value: 'Female', label: 'Female Only' }];
-const roomTypeOptions = [{ value: 'Single Room', label: 'Single Room' }, { value: 'Shared Room (2 beds)', label: 'Shared Room (2 beds)' }, { value: 'Shared Room (3+ beds)', label: 'Shared Room (3+ beds)' }, { value: '1 BHK', label: 'Full 1 BHK Flat' }, { value: '2 BHK', label: 'Full 2 BHK Flat' },];
-const kitchenOptions = [{ value: 'Private', label: 'Private Kitchen' }, { value: 'Shared', label: 'Shared Kitchen' }, { value: 'None', label: 'No Kitchen Access' },];
-const depositOptions = [{ value: 'No Deposit', label: 'No Security Deposit' }, { value: '1 Month', label: '1 Month Rent' }, { value: '2 Months', label: '2 Months Rent' },];
-const distanceUnits = [{ value: 'm', label: 'm' }, { value: 'km', label: 'km' }, { value: 'min walk', label: 'min walk' },];
-const periodUnits = [{ value: 'Days', label: 'Days' }, { value: 'Months', label: 'Months' },];
-const timePeriodOptions = [{ value: 'AM', label: 'AM' }, { value: 'PM', label: 'PM' },];
-const facilitiesData = { utilities: [{ id: 'wifi', icon: FaWifi, label: 'Wi-Fi' }, { id: 'powerBackup', icon: FaBolt, label: 'Power Backup' }, { id: 'waterSupply', icon: FaWater, label: '24/7 Water' }, { id: 'geyser', icon: FaShower, label: 'Geyser' },], roomFeatures: [{ id: 'attachedWashroom', icon: FaShower, label: 'Attached Washroom' }, { id: 'ac', icon: FaSnowflake, label: 'A/C' }, { id: 'balcony', icon: FaBuilding, label: 'Balcony' }, { id: 'fullyFurnished', icon: FaCouch, label: 'Fully Furnished' },], buildingAmenities: [{ id: 'parking', icon: FaCar, label: 'Parking' }, { id: 'lift', icon: FaBuilding, label: 'Lift' }, { id: 'security', icon: FaShieldAlt, label: '24/7 Security' }, { id: 'laundry', icon: FaTshirt, label: 'Laundry Service' },] };
-const kitchenAmenitiesData = [{ id: 'fridge', label: 'Fridge' }, { id: 'microwave', label: 'Microwave' }, { id: 'waterPurifier', label: 'Water Purifier' },];
-const rulesData = [{ id: 'guestsAllowed', label: 'Guests Allowed' }, { id: 'petsAllowed', label: 'Pets Allowed' }, { id: 'smokingAllowed', label: 'Smoking Allowed' }, { id: 'drinkingAllowed', label: 'Drinking Allowed' },];
-
-const initialFormState = {
-    title: '', rent: '', description: '', roomType: '', beds: '',
-    tenantPreferences: { familyStatus: 'Any', allowedGender: 'Any', },
-    address: '', city: '', state: '', postalCode: '',
-    latitude: null,
-    longitude: null,
-    distanceCollege: { value: '', unit: 'm' }, distanceHospital: { value: '', unit: 'km' },
-    distanceMetro: { value: '', unit: 'm' }, distanceBusStand: { value: '', unit: 'm' },
-    distanceRailway: { value: '', unit: 'km' }, distanceMarket: { value: '', unit: 'm' },
-    facilities: { wifi: false, powerBackup: false, waterSupply: false, geyser: false, attachedWashroom: false, ac: false, balcony: false, fullyFurnished: false, parking: false, lift: false, security: false, laundry: false, },
-    kitchen: '', kitchenAmenities: { fridge: false, microwave: false, waterPurifier: false },
-    floor: '', videoUrl: '', securityDeposit: '',
-    noticePeriod: { value: '', unit: 'Days' }, minimumStay: { value: '', unit: 'Months' },
-    gateClosingTime: { time: '', period: 'PM', noRestriction: false },
-    rules: { guestsAllowed: false, petsAllowed: false, smokingAllowed: false, drinkingAllowed: false },
-    imageUrl: '', images: [],
+const iconMap = {
+  title: Home,
+  rent: IndianRupee,
+  beds: BedDouble,
+  roomType: Building2,
+  availableFrom: CalendarDays,
+  fullAddress: MapPin,
+  city: MapPin,
+  state: MapPin,
+  pincode: MapPin,
 };
 
+const buildInitialForm = () => {
+  const values = {};
+  roomConfig.sections.forEach((section) => {
+    section.fields.forEach((field) => {
+      if (field.type === 'boolean') values[field.key] = false;
+      else if (field.default !== undefined) values[field.key] = field.default;
+      else if (field.key === 'familyStatus') values[field.key] = 'Any';
+      else if (field.key === 'gender') values[field.key] = 'Any';
+      else values[field.key] = '';
+    });
+  });
+  return {
+    ...values,
+    latitude: null,
+    longitude: null,
+  };
+};
+
+const familyToConfigValue = (value) => {
+  if (value === 'Bachelors') return 'Bachelors Only';
+  if (value === 'Family') return 'Family Only';
+  return value || 'Any';
+};
+
+const familyToApiValue = (value) => {
+  if (value === 'Bachelors Only') return 'Bachelors';
+  if (value === 'Family Only') return 'Family';
+  return value || 'Any';
+};
+
+const toNumericInputValue = (value) => {
+  const rawValue = value && typeof value === 'object' ? value.value : value;
+  if (rawValue === undefined || rawValue === null || rawValue === '') return '';
+  const numericValue = Number(String(rawValue).replace(/[^\d.-]/g, ''));
+  return Number.isFinite(numericValue) ? numericValue : '';
+};
+
+const toFieldInputValue = (field, value) => {
+  if (field.type === 'number') return toNumericInputValue(value);
+  if (field.type === 'date') {
+    if (!value) return '';
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? '' : date.toISOString().slice(0, 10);
+  }
+  if (value && typeof value === 'object') return value.value ?? '';
+  return value ?? '';
+};
+
+const toImageUrl = (image) => {
+  if (!image) return '';
+  if (typeof image === 'string') return image;
+  return image.url || image.secure_url || image.imageUrl || '';
+};
+
+const requiredFieldsForStep = (section) => section.fields.filter((field) => field.required);
+const valueUnitFields = getRoomFields().filter((field) => field.valueUnit);
+const numberFields = getRoomFields().filter((field) => field.type === 'number');
+const dateFields = getRoomFields().filter((field) => field.type === 'date');
+
+const stepIconMap = {
+  basicDetails: Home,
+  location: MapPin,
+  amenities: Sparkles,
+  pricing: IndianRupee,
+  rules: ShieldCheck,
+  nearby: MapPin,
+  guidebook: Building2,
+  photos: ImagePlus,
+};
+
+const stepCopyMap = {
+  basicDetails: 'Name, price, room type, and core stay details.',
+  location: 'Exact address and map pin for clean discovery.',
+  amenities: 'Select only what the tenant will really get.',
+  pricing: 'Deposits, billing, and payment preferences.',
+  rules: 'House rules that prevent confusion later.',
+  nearby: 'Nearby access details for better matching.',
+  guidebook: 'Post-booking details shared after confirmation.',
+  photos: 'Real photos build trust and speed up approval.',
+};
 
 function AddRoomPage() {
-    const { user, updateUser } = useAuth();
-    const navigate = useNavigate();
-    const { id } = useParams();
-    const isEditMode = Boolean(id);
+  const navigate = useNavigate();
+  const { id } = useParams();
+  const isEditMode = Boolean(id);
+  const [formData, setFormData] = useState(() => buildInitialForm());
+  const [step, setStep] = useState(0);
+  const [errors, setErrors] = useState({});
+  const [imageFiles, setImageFiles] = useState([]);
+  const [imagePreviews, setImagePreviews] = useState([]);
+  const [submitting, setSubmitting] = useState(false);
+  const [loading, setLoading] = useState(isEditMode);
+  const [isDirty, setIsDirty] = useState(false);
+  const [priceSuggestion, setPriceSuggestion] = useState(null);
+  const [suggestingPrice, setSuggestingPrice] = useState(false);
 
-    const [formData, setFormData] = useState(initialFormState);
-    const [step, setStep] = useState(1);
-    const [highestStep, setHighestStep] = useState(1);
-    const [images, setImages] = useState([]);
-    const [imagePreviews, setImagePreviews] = useState([]);
-    const [coverImageIndex, setCoverImageIndex] = useState(0);
-    const [uploading, setUploading] = useState(false);
-    const [loadingDetails, setLoadingDetails] = useState(isEditMode);
-    const [isFormDirty, setIsFormDirty] = useState(false);
-    const [errors, setErrors] = useState({});
-    const dragItem = useRef();
-    const dragOverItem = useRef();
-    const [previewModalImage, setPreviewModalImage] = useState(null);
+  const steps = useMemo(() => [...roomConfig.sections, { id: 'photos', label: 'Photos', fields: [] }], []);
+  const currentStep = steps[step];
+  const isPhotoStep = currentStep.id === 'photos';
+  const stepProgress = Math.round(((step + 1) / steps.length) * 100);
+  const CurrentStepIcon = stepIconMap[currentStep.id] || ShieldCheck;
+  const currentStepCopy = stepCopyMap[currentStep.id] || 'Complete this listing section with accurate details.';
 
-    useEffect(() => {
-        if (isEditMode && user) {
-            const fetchRoomData = async () => {
-                setLoadingDetails(true);
-                try {
-                    const config = {
-                        headers: {
-                            Authorization: `Bearer ${user.token}`,
-                            'Cache-Control': 'no-cache',
-                        }
-                    };
-                    
-                    //  Fetch data without double destructuring
-                    const { data } = await api.get(`/rooms/${id}`, config);
+  useEffect(() => {
+    if (!isEditMode) return;
 
-                    //  Safely get the room object, just like in RoomDetailsPage
-                    const fetchedRoom = data.data || data;
+    const fetchRoom = async () => {
+      setLoading(true);
+      try {
+        const { data } = await api.get(`/rooms/${id}`);
+        const room = data.data || data;
+        const next = buildInitialForm();
 
-                    // Add a check to ensure fetchedRoom is valid
-                    if (!fetchedRoom || !fetchedRoom._id) {
-                         toast.error("Could not find room data to edit.");
-                         navigate('/landlord/my-rooms');
-                         return;
-                    }
-
-                    const newFormData = JSON.parse(JSON.stringify(initialFormState));
-
-                    //  This loop will now work because fetchedRoom is a valid object
-                    Object.keys(newFormData).forEach(key => {
-                        if (fetchedRoom[key] !== undefined && fetchedRoom[key] !== null) {
-                            if (typeof newFormData[key] === 'object' && !Array.isArray(newFormData[key]) && newFormData[key] !== null) {
-                                newFormData[key] = { ...newFormData[key], ...fetchedRoom[key] };
-                            } else {
-                                newFormData[key] = fetchedRoom[key];
-                            }
-                        }
-                    });
-
-                    if (fetchedRoom.location) {
-                        newFormData.address = fetchedRoom.location.fullAddress || '';
-                        newFormData.city = fetchedRoom.location.city || '';
-                        newFormData.state = fetchedRoom.location.state || '';
-                        newFormData.postalCode = fetchedRoom.location.postalCode || '';
-                        if (fetchedRoom.location.coordinates && fetchedRoom.location.coordinates.length === 2) {
-                            newFormData.longitude = fetchedRoom.location.coordinates[0];
-                            newFormData.latitude = fetchedRoom.location.coordinates[1];
-                        }
-                    }
-
-                    const mapUnitValueField = (fieldName) => {
-                        if (fetchedRoom[fieldName]) {
-                            newFormData[fieldName] = {
-                                value: fetchedRoom[fieldName].value !== undefined && fetchedRoom[fieldName].value !== null ? fetchedRoom[fieldName].value : '',
-                                unit: fetchedRoom[fieldName].unit || newFormData[fieldName].unit,
-                            };
-                        }
-                    };
-                    mapUnitValueField('distanceCollege');
-                    mapUnitValueField('distanceHospital');
-                    mapUnitValueField('distanceMetro');
-                    mapUnitValueField('distanceBusStand');
-                    mapUnitValueField('distanceRailway');
-                    mapUnitValueField('distanceMarket');
-                    mapUnitValueField('noticePeriod');
-                    mapUnitValueField('minimumStay');
-
-                    if (fetchedRoom.gateClosingTime) {
-                        newFormData.gateClosingTime = {
-                            time: fetchedRoom.gateClosingTime.time || '',
-                            period: fetchedRoom.gateClosingTime.period || 'PM',
-                            noRestriction: fetchedRoom.gateClosingTime.noRestriction || false,
-                        };
-                    }
-
-                    setFormData(newFormData);
-
-                    if (fetchedRoom.images && fetchedRoom.images.length > 0) {
-                        setImagePreviews(fetchedRoom.images);
-                        const coverIndex = fetchedRoom.images.indexOf(fetchedRoom.imageUrl);
-                        setCoverImageIndex(coverIndex > -1 ? coverIndex : 0);
-                    } else {
-                        setImagePreviews([]);
-                        setCoverImageIndex(0);
-                    }
-                    setHighestStep(5);
-
-                } catch (error) {
-                    // This catch block is what shows your toast message
-                    console.error("Error fetching room data:", error);
-                    toast.error("Could not fetch room details.");
-                    navigate('/landlord/my-rooms');
-                } finally {
-                    setLoadingDetails(false);
-                }
-            };
-            fetchRoomData();
-        }
-    }, [id, isEditMode, user, navigate]);
-   
-
-    useEffect(() => {
-        const dirty = Object.values(formData).some(val => val !== '' && (Array.isArray(val) ? val.length > 0 : true)) || images.length > 0;
-        setIsFormDirty(dirty);
-    }, [formData, images]);
-
-    useEffect(() => {
-        const handleBeforeUnload = (event) => { if (isFormDirty) { event.preventDefault(); event.returnValue = ''; } };
-        window.addEventListener('beforeunload', handleBeforeUnload);
-        return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-    }, [isFormDirty]);
-
-    const validateField = (name, value) => { let error = ''; switch (name) { case 'title': if (String(value).trim().length < 10) error = 'Title must be at least 10 characters long.'; break; case 'rent': if (!value || value <= 0) error = 'Please enter a valid rent.'; break; case 'description': if (String(value).trim().length < 20) error = 'Description must be at least 20 characters long.'; break; case 'roomType': if (!value) error = 'Please select a room type.'; break; case 'beds': if (!value || value <= 0) error = 'Please enter a valid number of beds.'; break; case 'address': if (String(value).trim().length < 5) error = 'Please enter a valid address.'; break; case 'city': if (!value) error = 'Please select a city.'; break; case 'location': if (!value || !value.latitude || !value.longitude) error = 'Please pick a location on the map.'; break; default: break; } setErrors(prev => ({ ...prev, [name]: error })); return !error; };
-    const handleChange = (e) => { const { name, value } = e.target; setFormData(prev => ({ ...prev, [name]: value })); validateField(name, value); };
-    const handleSelectChange = (name, selectedOption) => { const value = selectedOption ? selectedOption.value : ''; setFormData(prev => ({ ...prev, [name]: value })); validateField(name, value); };
-    const handleObjectChange = (fieldName, key, value) => { setFormData(prev => ({ ...prev, [fieldName]: { ...prev[fieldName], [key]: value } })); };
-    const handleToggle = (category, id) => { setFormData(prev => ({ ...prev, [category]: { ...prev[category], [id]: !prev[category][id] } })); };
-
-    const handleLocationChange = useCallback((locationData) => {
-        if (locationData && locationData.rawData) {
-            const { lat, lng, fullAddress, rawData } = locationData;
-            const extractedCityName = rawData.city || rawData.town || rawData.village || rawData.county;
-            let cityValueToSet = formData.city; 
-
-            if (extractedCityName) {
-                const matchedCity = indianCities.find(c =>
-                    c.value.toLowerCase() === extractedCityName.toLowerCase()
-                );
-                if (matchedCity) {
-                    cityValueToSet = matchedCity.value;
-                }
+        roomConfig.sections.forEach((section) => {
+          section.fields.forEach((field) => {
+            if (section.id === 'location') {
+              next[field.key] = field.key === 'pincode'
+                ? room.location?.pincode || room.location?.postalCode || ''
+                : room.location?.[field.key] || '';
+              return;
             }
-            setFormData(prev => ({
-                ...prev,
-                latitude: lat,
-                longitude: lng,
-                address: fullAddress || prev.address,
-                city: cityValueToSet,
-                state: rawData.state || "",
-                postalCode: rawData.postcode || "",
-            }));
-            setErrors(prev => ({ ...prev, location: '' }));
-        }
-    }, [formData.city]);
-
-    const handleFileChange = (e) => { const files = Array.from(e.target.files); if (imagePreviews.length + files.length > 5) { toast.error('You can upload a maximum of 5 photos.'); return; } setImages(prev => [...prev, ...files]); const newPreviews = files.map(file => URL.createObjectURL(file)); setImagePreviews(prev => [...prev, ...newPreviews]); };
-    const removeImage = (indexToRemove) => { const previewToRemove = imagePreviews[indexToRemove]; if (indexToRemove === coverImageIndex) { setCoverImageIndex(0); } else if (indexToRemove < coverImageIndex) { setCoverImageIndex(prev => prev - 1); } const updatedPreviews = imagePreviews.filter((_, index) => index !== indexToRemove); setImagePreviews(updatedPreviews); if (!previewToRemove.startsWith('blob:')) { setFormData(prev => ({ ...prev, images: prev.images.filter(url => url !== previewToRemove) })); } else { const blobUrlIndex = imagePreviews.filter(p => p.startsWith('blob:')).findIndex(p => p === previewToRemove); if (blobUrlIndex !== -1) { setImages(prevImages => prevImages.filter((_, i) => i !== blobUrlIndex)); } URL.revokeObjectURL(previewToRemove); } };
-    const openImageModal = (image) => setPreviewModalImage(image);
-    const closeImageModal = () => setPreviewModalImage(null);
-    const setAsCover = (index) => { setCoverImageIndex(index); toast.success("Cover photo selected!"); };
-    const handleDragStart = (e, position) => { dragItem.current = position; };
-    const handleDragEnter = (e, position) => { dragOverItem.current = position; };
-    const handleDrop = () => { if (dragItem.current === null || dragOverItem.current === null || dragItem.current === dragOverItem.current) return; const newImagePreviews = [...imagePreviews]; const dragItemContent = newImagePreviews[dragItem.current]; newImagePreviews.splice(dragItem.current, 1); newImagePreviews.splice(dragOverItem.current, 0, dragItemContent); if (dragItem.current === coverImageIndex) { setCoverImageIndex(dragOverItem.current); } else { if (dragItem.current < coverImageIndex && dragOverItem.current >= coverImageIndex) { setCoverImageIndex(prev => prev - 1); } else if (dragItem.current > coverImageIndex && dragOverItem.current <= coverImageIndex) { setCoverImageIndex(prev => prev + 1); } } setImagePreviews(newImagePreviews); dragItem.current = null; dragOverItem.current = null; };
-    const uploadImages = async () => { if (images.length === 0) return []; const imageUrls = []; try { const config = { headers: { 'Content-Type': 'multipart/form-data', Authorization: `Bearer ${user.token}` } }; for (const imageFile of images) { const formData = new FormData(); formData.append('image', imageFile); const { data } = await api.post('/upload', formData, config); imageUrls.push(data.imageUrl); } return imageUrls; } catch (err) { toast.error('Image upload failed.'); return null; } };
-
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        let isStepValid = true;
-        if (step === 1) { isStepValid = ['title', 'rent', 'description', 'roomType', 'beds'].every(field => validateField(field, formData[field])); }
-        else if (step === 2) { const isTextFieldsValid = ['address', 'city'].every(field => validateField(field, formData[field])); const isLocationPicked = validateField('location', { latitude: formData.latitude, longitude: formData.longitude }); isStepValid = isTextFieldsValid && isLocationPicked; }
-        if (!isStepValid) { toast.error('Please fix the errors before proceeding.'); return; }
-        if (step < 5) { setStep(step + 1); if (step + 1 > highestStep) { setHighestStep(step + 1); } window.scrollTo(0, 0); return; }
-        if (step === 5 && imagePreviews.length === 0) { toast.error('Please upload at least one room photo.'); return; }
-        setUploading(true);
-        setIsFormDirty(false);
-        const newImageUrls = await uploadImages();
-        if (newImageUrls === null) { setUploading(false); setIsFormDirty(true); return; }
-        const existingImageUrls = imagePreviews.filter(p => !p.startsWith('blob:'));
-        const finalImageUrls = [...existingImageUrls];
-        imagePreviews.forEach(preview => { if (preview.startsWith('blob:')) { finalImageUrls.push(newImageUrls.shift()); } });
-        if (finalImageUrls.length === 0) { toast.error("At least one image is required."); setUploading(false); setIsFormDirty(true); return; }
-        try {
-            const dataToSend = { ...formData };
-            dataToSend.location = {
-                type: 'Point',
-                coordinates: [dataToSend.longitude, dataToSend.latitude],
-                fullAddress: dataToSend.address,
-                city: dataToSend.city,
-                state: dataToSend.state,
-                postalCode: dataToSend.postalCode,
-            };
-            delete dataToSend.address;
-            delete dataToSend.city;
-            delete dataToSend.latitude;
-            delete dataToSend.longitude;
-            delete dataToSend.state;
-            delete dataToSend.postalCode;
-            const roomData = { ...dataToSend, rent: Number(dataToSend.rent), imageUrl: finalImageUrls[coverImageIndex], images: finalImageUrls, };
-            const config = { headers: { 'Authorization': `Bearer ${user.token}` } };
-            
-            if (isEditMode) {
-                await api.put(`/rooms/${id}`, roomData, config);
-                toast.success('Room updated successfully!');
-                setIsFormDirty(false); 
-                navigate('/landlord/my-rooms'); 
-            } else {
-                await api.post('/rooms', roomData, config);
-                const updatedUser = {
-                    ...user,
-                    roles: [...(user.roles || []), 'Landlord'].filter((v, i, a) => a.indexOf(v) === i)
-                };
-                updateUser(updatedUser);
-                toast.success('Your room has been listed successfully!');
-                setIsFormDirty(false);
-                setTimeout(() => navigate('/landlord/overview'), 100);
+            if (field.key === 'familyStatus') {
+              next.familyStatus = familyToConfigValue(room.familyStatus || room.tenantPreferences?.familyStatus);
+              return;
             }
-        } catch (err) {
-            console.error('FINAL SUBMISSION FAILED:', err);
-            toast.error(err.response?.data?.message || (isEditMode ? 'Failed to update room.' : 'Failed to add room.'));
-            setIsFormDirty(true);
-        } finally {
-            setUploading(false);
+            if (field.key === 'gender') {
+              next.gender = room.gender || room.tenantPreferences?.allowedGender || 'Any';
+              return;
+            }
+            if (section.id === 'amenities') {
+              next[field.key] = Boolean(room.facilities?.[field.key] ?? room[field.key]);
+              return;
+            }
+            if (section.id === 'rules') {
+              const ruleValue = room.rules?.[field.key] ?? room[field.key] ?? next[field.key];
+              next[field.key] = field.type === 'number' ? toNumericInputValue(ruleValue) : toFieldInputValue(field, ruleValue);
+              return;
+            }
+            if (field.valueUnit) {
+              next[field.key] = toNumericInputValue(room[field.key] ?? next[field.key]);
+              return;
+            }
+            if (field.type === 'number') {
+              next[field.key] = toNumericInputValue(room[field.key] ?? next[field.key]);
+              return;
+            }
+            next[field.key] = field.type === 'date'
+              ? toFieldInputValue(field, room[field.key] ?? next[field.key])
+              : room[field.key] ?? next[field.key];
+          });
+        });
+
+        if (room.location?.coordinates?.length === 2) {
+          next.longitude = room.location.coordinates[0];
+          next.latitude = room.location.coordinates[1];
         }
+
+        setFormData(next);
+        const existingImages = (room.images?.length ? room.images : room.imageUrl ? [room.imageUrl] : [])
+          .map(toImageUrl)
+          .filter(Boolean);
+        setImagePreviews(existingImages);
+      } catch (error) {
+        toast.error('Could not load this room for editing.');
+        navigate('/landlord/my-rooms');
+      } finally {
+        setLoading(false);
+      }
     };
 
-    const handleStepClick = (targetStep) => { if (targetStep <= highestStep) { setStep(targetStep); } };
+    fetchRoom();
+  }, [id, isEditMode, navigate]);
 
-    // (renderFormStep function )
-    const renderFormStep = () => {
-        const customSelectStyles = {
-            control: (base, state) => ({ ...base, borderRadius: '0.5rem', borderWidth: '1px', borderColor: state.isFocused ? '#6366F1' : '#E5E7EB', backgroundColor: 'white', padding: '0.4rem', boxShadow: state.isFocused ? '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)' : '0 1px 2px 0 rgb(0 0 0 / 0.05)', transition: 'all 0.3s ease-in-out', '&:hover': { borderColor: '#A5B4FC' } }),
-            menu: (base) => ({ ...base, zIndex: 9999, borderRadius: '0.5rem' })
-        };
-        const unitSelectStyles = { control: (base, state) => ({ ...base, borderRadius: '0.5rem', borderWidth: '1px', backgroundColor: 'white', minWidth: '100px', boxShadow: '0 1px 2px 0 rgb(0 0 0 / 0.05)', borderColor: state.isFocused ? '#6366F1' : '#E5E7EB', '&:hover': { borderColor: '#A5B4FC' } }), menu: (base) => ({ ...base, zIndex: 51 }) };
-        const timePeriodSelectStyles = { control: (base) => ({ ...base, borderRadius: '0.5rem', borderWidth: '1px', backgroundColor: 'white', minWidth: '90px', boxShadow: '0 1px 2px 0 rgb(0 0 0 / 0.05)', '&:hover': { borderColor: '#A5B4FC' } }), menu: (base) => ({ ...base, zIndex: 51 }) };
-
-        return (<div className="space-y-6"> {step === 1 && (<div className="animate-fade-in"> <h3 className="text-2xl font-bold text-gray-800">1. Basic Details</h3> <div className="relative group mt-6"> <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-indigo-600 transition-colors"><FaHome className="h-5 w-5" /></span> <input type="text" id="title" name="title" value={formData.title} onChange={handleChange} className="peer block w-full rounded-lg border border-gray-200 bg-white p-4 pl-10 shadow-sm transition-all duration-300 focus:border-indigo-500 focus:shadow-md focus:ring-1 focus:ring-indigo-500 placeholder:text-transparent" placeholder="Room Title" /> <label htmlFor="title" className="absolute left-10 top-4 text-gray-500 transition-all duration-300 peer-placeholder-shown:top-4 peer-placeholder-shown:text-base peer-focus:-top-2.5 peer-focus:text-indigo-600 peer-focus:text-sm bg-slate-50 px-1 peer-[&:not(:placeholder-shown)]:-top-2.5 peer-[&:not(:placeholder-shown)]:text-sm peer-[&:not(:placeholder-shown)]:text-indigo-600">Room Title <span className="text-red-500">*</span></label> {errors.title && <p className="mt-1 text-xs text-red-500">{errors.title}</p>} </div> <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6"> <div className="relative group"><span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-indigo-600"><FaRupeeSign className="h-5 w-5" /></span><input type="number" id="rent" name="rent" value={formData.rent} onChange={handleChange} className="peer block w-full rounded-lg border border-gray-200 bg-white p-4 pl-10 shadow-sm transition-all duration-300 focus:border-indigo-500 focus:shadow-md focus:ring-1 focus:ring-indigo-500 placeholder:text-transparent" placeholder="Rent" /><label htmlFor="rent" className="absolute left-10 top-4 text-gray-500 transition-all duration-300 peer-placeholder-shown:top-4 peer-placeholder-shown:text-base peer-focus:-top-2.5 peer-focus:text-indigo-600 peer-focus:text-sm bg-slate-50 px-1 peer-[&:not(:placeholder-shown)]:-top-2.5 peer-[&:not(:placeholder-shown)]:text-sm peer-[&:not(:placeholder-shown)]:text-indigo-600">Rent per month <span className="text-red-500">*</span></label>{errors.rent && <p className="mt-1 text-xs text-red-500">{errors.rent}</p>}</div> <div className="relative group"><span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-indigo-600"><FaBed className="h-5 w-5" /></span><input type="number" id="beds" name="beds" value={formData.beds} onChange={handleChange} className="peer block w-full rounded-lg border border-gray-200 bg-white p-4 pl-10 shadow-sm transition-all duration-300 focus:border-indigo-500 focus:shadow-md focus:ring-1 focus:ring-indigo-500 placeholder:text-transparent" placeholder="Beds" /><label htmlFor="beds" className="absolute left-10 top-4 text-gray-500 transition-all duration-300 peer-placeholder-shown:top-4 peer-placeholder-shown:text-base peer-focus:-top-2.5 peer-focus:text-indigo-600 peer-focus:text-sm bg-slate-50 px-1 peer-[&:not(:placeholder-shown)]:-top-2.5 peer-[&:not(:placeholder-shown)]:text-sm peer-[&:not(:placeholder-shown)]:text-indigo-600">Number of Beds <span className="text-red-500">*</span></label>{errors.beds && <p className="mt-1 text-xs text-red-500">{errors.beds}</p>}</div> </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
-                <div><label className="block text-sm font-semibold text-gray-700 mb-2">Room Type <span className="text-red-500">*</span></label><Select styles={customSelectStyles} name="roomType" options={roomTypeOptions} onChange={(opt) => handleSelectChange('roomType', opt)} value={roomTypeOptions.find(o => o.value === formData.roomType)} placeholder="Select room type..." />{errors.roomType && <p className="mt-1 text-xs text-red-500">{errors.roomType}</p>}</div>
-                <div><label className="block text-sm font-semibold text-gray-700 mb-2">Family Status <span className="text-red-500">*</span></label><Select styles={customSelectStyles} name="familyStatus" options={familyStatusOptions} onChange={(opt) => handleObjectChange('tenantPreferences', 'familyStatus', opt.value)} value={familyStatusOptions.find(o => o.value === formData.tenantPreferences.familyStatus)} /></div>
-            </div>
-            <div className="mt-6">
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Allowed Gender <span className="text-red-500">*</span></label>
-                <Select
-                    styles={customSelectStyles}
-                    name="allowedGender"
-                    options={allowedGenderOptions}
-                    onChange={(opt) => handleObjectChange('tenantPreferences', 'allowedGender', opt.value)}
-                    value={allowedGenderOptions.find(o => o.value === formData.tenantPreferences.allowedGender)}
-                    isDisabled={formData.tenantPreferences.familyStatus === 'Family'}
-                />
-                {formData.tenantPreferences.familyStatus === 'Family' && <p className="mt-1 text-xs text-gray-500">Gender preference is not applicable for families.</p>}
-            </div>
-            <div className="relative group mt-6"> <textarea id="description" name="description" value={formData.description} onChange={handleChange} rows="3" className="peer block w-full rounded-lg border border-gray-200 bg-white p-4 shadow-sm transition-all duration-300 focus:border-indigo-500 focus:shadow-md focus:ring-1 focus:ring-indigo-500 placeholder:text-transparent" placeholder="Description"></textarea> <label htmlFor="description" className="absolute left-3 top-4 text-gray-500 transition-all duration-300 peer-placeholder-shown:top-4 peer-placeholder-shown:text-base peer-focus:-top-2.5 peer-focus:text-indigo-600 peer-focus:text-sm bg-slate-50 px-1 peer-[&:not(:placeholder-shown)]:-top-2.5 peer-[&:not(:placeholder-shown)]:text-sm peer-[&:not(:placeholder-shown)]:text-indigo-600">Detailed Description <span className="text-red-500">*</span></label> {errors.description && <p className="mt-1 text-xs text-red-500">{errors.description}</p>} </div> </div>)} {step === 2 && (<div className="animate-fade-in"> <h3 className="text-2xl font-bold text-gray-800">2. Location & Proximity</h3> <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6"> <div className="relative group"><span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-indigo-600"><FaMapMarkerAlt className="h-5 w-5" /></span><input type="text" id="address" name="address" value={formData.address} onChange={handleChange} className="peer block w-full rounded-lg border border-gray-200 bg-white p-4 pl-10 shadow-sm transition-all duration-300 focus:border-indigo-500 focus:shadow-md focus:ring-1 focus:ring-indigo-500 placeholder:text-transparent" placeholder="Full Address" /><label htmlFor="address" className="absolute left-10 top-4 text-gray-500 transition-all duration-300 peer-placeholder-shown:top-4 peer-placeholder-shown:text-base peer-focus:-top-2.5 peer-focus:text-indigo-600 peer-focus:text-sm bg-slate-50 px-1 peer-[&:not(:placeholder-shown)]:-top-2.5 peer-[&:not(:placeholder-shown)]:text-sm peer-[&:not(:placeholder-shown)]:text-indigo-600">Full Address <span className="text-red-500">*</span></label>{errors.address && <p className="mt-1 text-xs text-red-500">{errors.address}</p>}</div> <div><label className="block text-sm font-semibold text-gray-700 mb-2">City <span className="text-red-500">*</span></label><Select id="city" name="city" options={indianCities} onChange={(opt) => handleSelectChange('city', opt)} value={indianCities.find(c => c.value === formData.city)} placeholder="Search and select a city" isClearable isSearchable required styles={customSelectStyles} />{errors.city && <p className="mt-1 text-xs text-red-500">{errors.city}</p>}</div> </div>
-            <div className="mt-6">
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Pinpoint Location on Map <span className="text-red-500">*</span>
-                </label>
-                <LocationPicker onLocationChange={handleLocationChange} />
-                {errors.location && <p className="mt-1 text-xs text-red-500">{errors.location}</p>}
-                {formData.latitude && formData.longitude && (
-                    <div className="mt-3 p-2 bg-green-100 text-green-800 text-xs rounded-md">
-                        Location pinned at: Lat: {formData.latitude.toFixed(4)}, Lng: {formData.longitude.toFixed(4)}
-                    </div>
-                )}
-            </div>
-            <hr className="my-6 border-gray-200" /> <h4 className="font-semibold text-lg text-gray-800">Distances (Optional)</h4> <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-4"> <div><label className="block text-sm font-semibold text-gray-700 mb-2">To nearest College</label><div className="flex items-center space-x-2"><div className="relative flex-grow"><span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400"><FaUniversity className="h-5 w-5" /></span><input type="number" value={formData.distanceCollege.value} onChange={(e) => handleObjectChange('distanceCollege', 'value', e.target.value)} placeholder="e.g., 500" className="block w-full rounded-lg border border-gray-200 bg-white p-3 pl-10 shadow-sm transition-all duration-300 focus:border-indigo-500 focus:shadow-md focus:ring-1 focus:ring-indigo-500" /></div><Select options={distanceUnits} value={distanceUnits.find(u => u.value === formData.distanceCollege.unit)} onChange={(opt) => handleObjectChange('distanceCollege', 'unit', opt.value)} styles={unitSelectStyles} /></div></div> <div><label className="block text-sm font-semibold text-gray-700 mb-2">To nearest Hospital</label><div className="flex items-center space-x-2"><div className="relative flex-grow"><span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400"><FaHospital className="h-5 w-5" /></span><input type="number" value={formData.distanceHospital.value} onChange={(e) => handleObjectChange('distanceHospital', 'value', e.target.value)} placeholder="e.g., 1" className="block w-full rounded-lg border border-gray-200 bg-white p-3 pl-10 shadow-sm transition-all duration-300 focus:border-indigo-500 focus:shadow-md focus:ring-1 focus:ring-indigo-500" /></div><Select options={distanceUnits} value={distanceUnits.find(u => u.value === formData.distanceHospital.unit)} onChange={(opt) => handleObjectChange('distanceHospital', 'unit', opt.value)} styles={unitSelectStyles} /></div></div> <div><label className="block text-sm font-semibold text-gray-700 mb-2">To nearest Metro</label><div className="flex items-center space-x-2"><div className="relative flex-grow"><span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400"><FaTrain className="h-5 w-5" /></span><input type="number" value={formData.distanceMetro.value} onChange={(e) => handleObjectChange('distanceMetro', 'value', e.target.value)} placeholder="e.g., 5" className="block w-full rounded-lg border border-gray-200 bg-white p-3 pl-10 shadow-sm transition-all duration-300 focus:border-indigo-500 focus:shadow-md focus:ring-1 focus:ring-indigo-500" /></div><Select options={distanceUnits} value={distanceUnits.find(u => u.value === formData.distanceMetro.unit)} onChange={(opt) => handleObjectChange('distanceMetro', 'unit', opt.value)} styles={unitSelectStyles} /></div></div> <div><label className="block text-sm font-semibold text-gray-700 mb-2">To nearest Bus Stand</label><div className="flex items-center space-x-2"><div className="relative flex-grow"><span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400"><FaBus className="h-5 w-5" /></span><input type="number" value={formData.distanceBusStand.value} onChange={(e) => handleObjectChange('distanceBusStand', 'value', e.target.value)} placeholder="e.g., 200" className="block w-full rounded-lg border border-gray-200 bg-white p-3 pl-10 shadow-sm transition-all duration-300 focus:border-indigo-500 focus:shadow-md focus:ring-1 focus:ring-indigo-500" /></div><Select options={distanceUnits} value={distanceUnits.find(u => u.value === formData.distanceBusStand.unit)} onChange={(opt) => handleObjectChange('distanceBusStand', 'unit', opt.value)} styles={unitSelectStyles} /></div></div> <div><label className="block text-sm font-semibold text-gray-700 mb-2">To nearest Railway</label><div className="flex items-center space-x-2"><div className="relative flex-grow"><span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400"><FaRoute className="h-5 w-5" /></span><input type="number" value={formData.distanceRailway.value} onChange={(e) => handleObjectChange('distanceRailway', 'value', e.target.value)} placeholder="e.g., 2" className="block w-full rounded-lg border border-gray-200 bg-white p-3 pl-10 shadow-sm transition-all duration-300 focus:border-indigo-500 focus:shadow-md focus:ring-1 focus:ring-indigo-500" /></div><Select options={distanceUnits} value={distanceUnits.find(u => u.value === formData.distanceRailway.unit)} onChange={(opt) => handleObjectChange('distanceRailway', 'unit', opt.value)} styles={unitSelectStyles} /></div></div> <div><label className="block text-sm font-semibold text-gray-700 mb-2">To nearest Market</label><div className="flex items-center space-x-2"><div className="relative flex-grow"><span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400"><FaStore className="h-5 w-5" /></span><input type="number" value={formData.distanceMarket.value} onChange={(e) => handleObjectChange('distanceMarket', 'value', e.target.value)} placeholder="e.g., 100" className="block w-full rounded-lg border border-gray-200 bg-white p-3 pl-10 shadow-sm transition-all duration-300 focus:border-indigo-500 focus:shadow-md focus:ring-1 focus:ring-indigo-500" /></div><Select options={distanceUnits} value={distanceUnits.find(u => u.value === formData.distanceMarket.unit)} onChange={(opt) => handleObjectChange('distanceMarket', 'unit', opt.value)} styles={unitSelectStyles} /></div></div> </div> </div>)} {step === 3 && (<div className="animate-fade-in"> <h3 className="text-2xl font-bold text-gray-800">3. Amenities & Features</h3> {Object.entries(facilitiesData).map(([category, items]) => (<div key={category} className="mt-6"> <h4 className="font-semibold text-lg text-gray-800 mb-4 flex items-center"> {category === 'utilities' && <FaTools className="mr-3 text-indigo-500" />} {category === 'roomFeatures' && <FaBed className="mr-3 text-indigo-500" />} {category === 'buildingAmenities' && <FaBuilding className="mr-3 text-indigo-500" />} {category.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())} </h4> <div className="grid grid-cols-2 md:grid-cols-4 gap-4"> {items.map(item => (<button type="button" key={item.id} onClick={() => handleToggle('facilities', item.id)} className={`flex items-center justify-center text-center p-3 rounded-lg border-2 text-sm font-medium transition-all duration-200 ${formData.facilities[item.id] ? 'bg-indigo-600 text-white border-indigo-700 shadow-md' : 'bg-white text-gray-700 border-gray-300 hover:border-indigo-400 hover:bg-indigo-50'}`}> <item.icon className={`mr-3 h-5 w-5 ${formData.facilities[item.id] ? 'text-white' : 'text-indigo-500'}`} /> {item.label} </button>))} </div> </div>))} <hr className="my-6 border-gray-200" /> <div className="mt-6"> <h4 className="font-semibold text-lg text-gray-800 mb-4 flex items-center"><FaUtensils className="mr-3 text-indigo-500" /> Kitchen</h4> <Select name="kitchen" options={kitchenOptions} onChange={(opt) => handleSelectChange('kitchen', opt)} value={kitchenOptions.find(o => o.value === formData.kitchen)} placeholder="Select kitchen availability..." styles={customSelectStyles} /> {formData.kitchen && formData.kitchen !== 'None' && (<div className="mt-4 pl-2"> <p className="text-sm font-semibold text-gray-700 mb-2">Kitchen Includes:</p> <div className="flex flex-wrap gap-4"> {kitchenAmenitiesData.map(item => (<button type="button" key={item.id} onClick={() => handleToggle('kitchenAmenities', item.id)} className={`p-3 rounded-lg border-2 text-sm font-medium transition-all duration-200 ${formData.kitchenAmenities[item.id] ? 'bg-indigo-600 text-white border-indigo-700' : 'bg-white text-gray-700 border-gray-300 hover:border-indigo-400'}`}> {item.label} </button>))} </div> </div>)} </div> <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-6 mt-6 border-t border-gray-200"> <div className="relative group"><span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-indigo-600"><FaBuilding className="h-5 w-5" /></span><input type="text" name="floor" value={formData.floor} onChange={handleChange} placeholder="e.g., 3rd out of 5" className="peer block w-full rounded-lg border border-gray-200 bg-white p-4 pl-10 shadow-sm transition-all duration-300 focus:border-indigo-500 focus:shadow-md focus:ring-1 focus:ring-indigo-500 placeholder:text-transparent" /><label htmlFor="floor" className="absolute left-10 top-4 text-gray-500 transition-all duration-300 peer-placeholder-shown:top-4 peer-placeholder-shown:text-base peer-focus:-top-2.5 peer-focus:text-indigo-600 peer-focus:text-sm bg-slate-50 px-1 peer-[&:not(:placeholder-shown)]:-top-2.5 peer-[&:not(:placeholder-shown)]:text-sm peer-[&:not(:placeholder-shown)]:text-indigo-600">Floor</label></div> <div className="relative group"><span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-indigo-600"><FaVideo className="h-5 w-5" /></span><input type="text" name="videoUrl" value={formData.videoUrl} onChange={handleChange} placeholder="https://youtube.com/watch?v=..." className="peer block w-full rounded-lg border border-gray-200 bg-white p-4 pl-10 shadow-sm transition-all duration-300 focus:border-indigo-500 focus:shadow-md focus:ring-1 focus:ring-indigo-500 placeholder:text-transparent" /><label htmlFor="videoUrl" className="absolute left-10 top-4 text-gray-500 transition-all duration-300 peer-placeholder-shown:top-4 peer-placeholder-shown:text-base peer-focus:-top-2.5 peer-focus:text-indigo-600 peer-focus:text-sm bg-slate-50 px-1 peer-[&:not(:placeholder-shown)]:-top-2.5 peer-[&:not(:placeholder-shown)]:text-sm peer-[&:not(:placeholder-shown)]:text-indigo-600">Video Tour URL (Optional)</label></div> </div> </div>)} {step === 4 && (<div className="animate-fade-in"> <h3 className="text-2xl font-bold text-gray-800">4. Rules & Policies</h3> <p className="text-gray-500 mt-2">Set clear expectations for your future tenants.</p> <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6"> <div><label className="block text-sm font-semibold text-gray-700 mb-2">Security Deposit</label><Select name="securityDeposit" options={depositOptions} onChange={(opt) => handleSelectChange('securityDeposit', opt)} value={depositOptions.find(o => o.value === formData.securityDeposit)} styles={customSelectStyles} placeholder="Select deposit amount" /></div> <div><label className="block text-sm font-semibold text-gray-700 mb-2">Notice Period</label><div className="flex items-center space-x-2"><div className="relative flex-grow"><span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400"><FaCalendarAlt className="h-5 w-5" /></span><input type="number" value={formData.noticePeriod.value} onChange={(e) => handleObjectChange('noticePeriod', 'value', e.target.value)} placeholder="e.g., 30" className="block w-full rounded-lg border border-gray-200 bg-white p-3 pl-10 shadow-sm transition-all duration-300 focus:border-indigo-500 focus:shadow-md focus:ring-1 focus:ring-indigo-500" /></div><Select options={periodUnits} value={periodUnits.find(u => u.value === formData.noticePeriod.unit)} onChange={(opt) => handleObjectChange('noticePeriod', 'unit', opt.value)} styles={unitSelectStyles} /></div></div> <div><label className="block text-sm font-semibold text-gray-700 mb-2">Minimum Stay (Lock-in)</label><div className="flex items-center space-x-2"><div className="relative flex-grow"><span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400"><FaFileContract className="h-5 w-5" /></span><input type="number" value={formData.minimumStay.value} onChange={(e) => handleObjectChange('minimumStay', 'value', e.target.value)} placeholder="e.g., 6" className="block w-full rounded-lg border border-gray-200 bg-white p-3 pl-10 shadow-sm transition-all duration-300 focus:border-indigo-500 focus:shadow-md focus:ring-1 focus:ring-indigo-500" /></div><Select options={periodUnits} value={periodUnits.find(u => u.value === formData.minimumStay.unit)} onChange={(opt) => handleObjectChange('minimumStay', 'unit', opt.value)} styles={unitSelectStyles} /></div></div> <div> <label className="block text-sm font-semibold text-gray-700 mb-2">Gate Closing Time</label> <div className="flex items-center space-x-4"> <div className="flex-grow"> <div className={`flex items-center space-x-2 transition-opacity duration-300 ${formData.gateClosingTime.noRestriction ? 'opacity-50' : 'opacity-100'}`}> <div className="relative flex-grow"> <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400"><FaClock className="h-5 w-5" /></span> <input type="text" value={formData.gateClosingTime.time} onChange={(e) => handleObjectChange('gateClosingTime', 'time', e.target.value)} placeholder="e.g., 11:00" className="block w-full rounded-lg border border-gray-200 bg-white p-3 pl-10 shadow-sm transition-all duration-300 focus:border-indigo-500 focus:shadow-md focus:ring-1 focus:ring-indigo-500" disabled={formData.gateClosingTime.noRestriction} /> </div> <Select options={timePeriodOptions} value={timePeriodOptions.find(p => p.value === formData.gateClosingTime.period)} onChange={(opt) => handleObjectChange('gateClosingTime', 'period', opt.value)} styles={timePeriodSelectStyles} isDisabled={formData.gateClosingTime.noRestriction} /> </div> </div> <div className="flex items-center"> <input type="checkbox" id="noRestriction" checked={formData.gateClosingTime.noRestriction} onChange={(e) => handleObjectChange('gateClosingTime', 'noRestriction', e.target.checked)} className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-600" /> <label htmlFor="noRestriction" className="ml-2 text-sm font-medium text-gray-700">No Restriction</label> </div> </div> </div> </div> <div className="mt-6"> <h4 className="font-semibold text-lg text-gray-800 mb-4 flex items-center pt-6 border-t border-gray-200"><FaUsers className="mr-3 text-indigo-500" /> Other Rules</h4> <div className="grid grid-cols-2 md:grid-cols-4 gap-4"> {rulesData.map(item => (<button type="button" key={item.id} onClick={() => handleToggle('rules', item.id)} className={`p-3 rounded-lg border-2 text-sm font-medium transition-all duration-200 ${formData.rules[item.id] ? 'bg-indigo-600 text-white border-indigo-700' : 'bg-white text-gray-700 border-gray-300 hover:border-indigo-400'}`}> {item.label} </button>))} </div> </div> </div>)} {step === 5 && (<div className="animate-fade-in"> <h3 className="text-2xl font-bold text-gray-800">5. Room Photos <span className="text-red-500">*</span></h3> <p className="text-gray-500 mt-2">Upload clear photos. Drag to reorder. Click the star to set a cover photo. (Max 5)</p> <input id="file-upload" type="file" multiple onChange={handleFileChange} className="sr-only" accept="image/png, image/jpeg" /> <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4 mt-6"> {imagePreviews.map((preview, index) => (<div key={index} className="relative group aspect-square cursor-grab" draggable onDragStart={(e) => handleDragStart(e, index)} onDragEnter={(e) => handleDragEnter(e, index)} onDragEnd={handleDrop} onDragOver={(e) => e.preventDefault()}> <img src={preview} alt={`preview ${index + 1}`} className="h-full w-full object-cover rounded-lg border-2 border-gray-200" /> {index === coverImageIndex && (<div className="absolute top-0 left-0 bg-indigo-600 text-white text-xs font-bold px-2 py-1 rounded-br-lg rounded-tl-md flex items-center"><FaStar className="mr-1" /> Cover</div>)} <div className="absolute inset-0 bg-black bg-opacity-50 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity rounded-lg"> {index !== coverImageIndex && (<button type="button" onClick={() => setAsCover(index)} className="text-white text-xs bg-black bg-opacity-70 px-2 py-1 rounded mb-2">Set as Cover</button>)} <button type="button" onClick={() => openImageModal(preview)} className="text-white text-xs bg-black bg-opacity-70 px-2 py-1 rounded">View</button> </div> <button type="button" onClick={() => removeImage(index)} className="absolute top-0 right-0 -translate-y-1/2 translate-x-1/2 bg-red-500 text-white rounded-full p-1.5 shadow-md"><FaTimes size={12} /></button> </div>))} {imagePreviews.length < 5 && (<label htmlFor="file-upload" className="cursor-pointer aspect-square rounded-lg border-2 border-dashed border-gray-400 flex flex-col items-center justify-center text-gray-400 hover:border-indigo-600 hover:text-indigo-600 transition-colors"><FaPlus className="h-8 w-8" /><span className="text-sm font-semibold mt-1">Add Photo</span></label>)} </div> </div>)} </div>);
+  useEffect(() => {
+    const warnBeforeUnload = (event) => {
+      if (!isDirty) return;
+      event.preventDefault();
+      event.returnValue = '';
     };
+    window.addEventListener('beforeunload', warnBeforeUnload);
+    return () => window.removeEventListener('beforeunload', warnBeforeUnload);
+  }, [isDirty]);
 
-    if (loadingDetails) { return <div className="flex justify-center items-center min-h-screen"><FaSpinner className="animate-spin text-indigo-600 h-16 w-16" /></div>; }
+  useEffect(() => {
+    if (!formData.city || !formData.roomType) {
+      setPriceSuggestion(null);
+      return undefined;
+    }
+
+    const timer = setTimeout(async () => {
+      try {
+        setSuggestingPrice(true);
+        const { data } = await api.post('/rooms/suggest-price', {
+          city: formData.city,
+          roomType: formData.roomType,
+          location: { city: formData.city, state: formData.state }
+        });
+        setPriceSuggestion(data);
+      } catch (error) {
+        setPriceSuggestion(null);
+      } finally {
+        setSuggestingPrice(false);
+      }
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [formData.city, formData.roomType, formData.state]);
+
+  const updateField = (key, value) => {
+    setIsDirty(true);
+    setFormData((prev) => ({ ...prev, [key]: value }));
+    if (errors[key]) setErrors((prev) => ({ ...prev, [key]: '' }));
+  };
+
+  const validateSection = (section) => {
+    const nextErrors = {};
+    requiredFieldsForStep(section).forEach((field) => {
+      const value = formData[field.key];
+      if (value === undefined || value === null || String(value).trim() === '') {
+        nextErrors[field.key] = `${field.label} is required.`;
+      }
+    });
+
+    if (section.id === 'location' && (!formData.latitude || !formData.longitude)) {
+      nextErrors.mapLocation = 'Please choose the exact map location.';
+    }
+
+    setErrors(nextErrors);
+    return Object.keys(nextErrors).length === 0;
+  };
+
+  const handleNext = () => {
+    if (!isPhotoStep && !validateSection(currentStep)) {
+      toast.error('Please complete required fields.');
+      return;
+    }
+    if (isPhotoStep) return;
+    setStep((prev) => Math.min(prev + 1, steps.length - 1));
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleBack = () => {
+    setStep((prev) => Math.max(prev - 1, 0));
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleLocationChange = useCallback((locationData) => {
+    if (!locationData) return;
+    const raw = locationData.rawData || {};
+    setIsDirty(true);
+    setFormData((prev) => ({
+      ...prev,
+      latitude: locationData.lat,
+      longitude: locationData.lng,
+      fullAddress: locationData.fullAddress || prev.fullAddress,
+      city: raw.city || raw.town || raw.village || prev.city,
+      state: raw.state || prev.state,
+      pincode: raw.postcode || prev.pincode,
+    }));
+    setErrors((prev) => ({ ...prev, mapLocation: '' }));
+  }, []);
+
+  const handleFileChange = (event) => {
+    const files = Array.from(event.target.files || []);
+    if (!files.length) return;
+    if (imagePreviews.length + files.length > 8) {
+      toast.error('Upload up to 8 high-quality photos.');
+      return;
+    }
+    setIsDirty(true);
+    setImageFiles((prev) => [...prev, ...files]);
+    setImagePreviews((prev) => [...prev, ...files.map((file) => URL.createObjectURL(file))]);
+  };
+
+  const removeImage = (index) => {
+    setIsDirty(true);
+    const preview = imagePreviews[index];
+    setImagePreviews((prev) => prev.filter((_, itemIndex) => itemIndex !== index));
+    if (preview?.startsWith('blob:')) {
+      URL.revokeObjectURL(preview);
+      setImageFiles((prev) => prev.filter((_, itemIndex) => itemIndex !== index));
+    }
+  };
+
+  const uploadImages = async () => {
+    if (!imageFiles.length) return [];
+    const uploaded = [];
+    for (const file of imageFiles) {
+      const payload = new FormData();
+      payload.append('image', file);
+      const { data } = await api.post('/upload', payload, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      uploaded.push(data.imageUrl);
+    }
+    return uploaded;
+  };
+
+  const buildPayload = async () => {
+    const uploaded = await uploadImages();
+    const existing = imagePreviews
+      .map(toImageUrl)
+      .filter((image) => image && !image.startsWith('blob:'));
+    const finalImages = [...existing, ...uploaded];
+    const normalizedData = { ...formData };
+
+    numberFields.forEach((field) => {
+      if (normalizedData[field.key] !== '' && normalizedData[field.key] !== null && normalizedData[field.key] !== undefined) {
+        normalizedData[field.key] = Number(normalizedData[field.key]);
+      } else {
+        delete normalizedData[field.key];
+      }
+    });
+
+    dateFields.forEach((field) => {
+      const value = normalizedData[field.key];
+      if (!value) {
+        delete normalizedData[field.key];
+        return;
+      }
+
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) {
+        delete normalizedData[field.key];
+      }
+    });
+
+    valueUnitFields.forEach((field) => {
+      const value = normalizedData[field.key];
+      if (value === '' || value === null || value === undefined || Number.isNaN(Number(value))) {
+        delete normalizedData[field.key];
+        return;
+      }
+      normalizedData[field.key] = {
+        value: Number(value),
+        unit: field.unit || '',
+      };
+    });
+
+    const facilities = {};
+    const rules = {};
+    roomConfig.sections.forEach((section) => {
+      section.fields.forEach((field) => {
+        if (section.id === 'amenities') {
+          facilities[field.key] = Boolean(formData[field.key]);
+          delete normalizedData[field.key];
+        }
+        if (section.id === 'rules') {
+          delete normalizedData[field.key];
+          const value = formData[field.key];
+          if (field.type === 'number') {
+            const numericValue = toNumericInputValue(value);
+            if (numericValue !== '') rules[field.key] = Number(numericValue);
+            return;
+          }
+          rules[field.key] = value;
+        }
+      });
+    });
+
+    return {
+      ...normalizedData,
+      rent: Number(normalizedData.rent),
+      beds: Number(normalizedData.beds),
+      familyStatus: familyToApiValue(normalizedData.familyStatus),
+      gender: normalizedData.gender,
+      tenantPreferences: {
+        familyStatus: familyToApiValue(normalizedData.familyStatus),
+        allowedGender: normalizedData.gender,
+      },
+      location: {
+        type: 'Point',
+        coordinates: [Number(normalizedData.longitude), Number(normalizedData.latitude)],
+        fullAddress: normalizedData.fullAddress,
+        locality: normalizedData.locality,
+        landmark: normalizedData.landmark,
+        city: normalizedData.city,
+        state: normalizedData.state,
+        postalCode: normalizedData.pincode,
+        pincode: normalizedData.pincode,
+      },
+      facilities,
+      rules,
+      imageUrl: finalImages[0],
+      images: finalImages,
+    };
+  };
+
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    if (!imagePreviews.length) {
+      toast.error('Please upload at least one real room photo.');
+      return;
+    }
+
+    for (const section of roomConfig.sections) {
+      if (!validateSection(section)) {
+        setStep(steps.findIndex((item) => item.id === section.id));
+        toast.error(`Please complete ${section.label}.`);
+        return;
+      }
+    }
+
+    setSubmitting(true);
+    try {
+      const payload = await buildPayload();
+      if (isEditMode) {
+        const { data: updatedRoom } = await api.put(`/rooms/${id}`, payload);
+        toast.success(
+          updatedRoom?.status === 'Pending'
+            ? 'Room edits submitted for admin approval.'
+            : 'Room updated successfully.'
+        );
+      } else {
+        await api.post('/rooms', payload);
+        toast.success('Room submitted for admin review.');
+      }
+      setIsDirty(false);
+      navigate('/landlord/my-rooms');
+    } catch (error) {
+      toast.error(error.response?.data?.error || error.response?.data?.message || 'Could not save room.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const renderField = (field) => {
+    const Icon = iconMap[field.key] || Sparkles;
+    const isDenseOptionStep = currentStep.id === 'amenities' || currentStep.id === 'rules';
+    const commonLabel = (
+      <label htmlFor={field.key} className="text-[13px] font-black text-slate-800 dark:text-slate-100 sm:text-sm">
+        {field.label}{field.required ? <span className="text-brand"> *</span> : null}
+      </label>
+    );
+
+    if (field.type === 'boolean') {
+      return (
+        <button
+          key={field.key}
+          type="button"
+          onClick={() => updateField(field.key, !formData[field.key])}
+          className={`relative flex min-h-[4.25rem] flex-col justify-between rounded-[1.1rem] border p-3 text-left transition active:scale-[0.98] sm:min-h-12 sm:flex-row sm:items-center sm:px-4 sm:py-3 ${
+            formData[field.key]
+              ? 'border-brand/35 bg-gradient-to-br from-rose-50 via-white to-cyan-50 text-brand shadow-[0_12px_26px_rgba(255,56,92,0.10)] dark:border-cyan-300/30 dark:from-cyan-300/12 dark:via-slate-900/75 dark:to-brand/10 dark:text-cyan-100'
+              : 'border-slate-200/80 bg-white/82 text-slate-500 hover:border-brand/50 dark:border-slate-700/80 dark:bg-slate-900/70 dark:text-slate-400'
+          }`}
+        >
+          <span className={`max-w-full pr-7 font-black leading-tight ${isDenseOptionStep ? 'text-[11px] sm:text-[13px]' : 'text-[13px] sm:text-sm'}`}>
+            {field.label}
+          </span>
+          <span className={`absolute right-2.5 top-2.5 flex h-6 w-6 items-center justify-center rounded-full sm:static ${formData[field.key] ? 'bg-brand text-white shadow-sm dark:bg-cyan-400 dark:text-slate-950' : 'bg-slate-100 dark:bg-slate-800'}`}>
+            {formData[field.key] ? <Check className="h-4 w-4" /> : null}
+          </span>
+        </button>
+      );
+    }
+
+    if (field.type === 'textarea') {
+      return (
+        <div key={field.key} className="md:col-span-2">
+          {commonLabel}
+          <textarea
+            id={field.key}
+            rows={4}
+            value={toFieldInputValue(field, formData[field.key])}
+            onChange={(event) => updateField(field.key, event.target.value)}
+            className="input-field mt-2 min-h-28 resize-none rounded-[1.15rem] text-[15px]"
+          />
+          {errors[field.key] && <p className="mt-1 text-sm font-semibold text-brand">{errors[field.key]}</p>}
+        </div>
+      );
+    }
+
+    if (field.type === 'select') {
+      return (
+        <div key={field.key}>
+          {commonLabel}
+          <select
+            id={field.key}
+            value={toFieldInputValue(field, formData[field.key])}
+            onChange={(event) => updateField(field.key, event.target.value)}
+            className="input-field mt-2 h-12 rounded-[1.15rem] text-[15px]"
+          >
+            <option value="">Select {field.label}</option>
+            {field.options.map((option) => <option key={option} value={option}>{option}</option>)}
+          </select>
+          {errors[field.key] && <p className="mt-1 text-sm font-semibold text-brand">{errors[field.key]}</p>}
+        </div>
+      );
+    }
 
     return (
-        <>
-            <div className="w-full max-w-4xl mx-auto bg-slate-50 rounded-2xl shadow-lg p-4 sm:p-6 md:p-8 my-10">
-                <div className="text-center mb-8"> <h1 className="text-3xl sm:text-4xl font-extrabold text-gray-800 mb-2 tracking-tight">{isEditMode ? 'Edit Your Room' : 'Add a New Room'}</h1> <p className="text-gray-500 text-sm sm:text-base">Follow these 5 simple steps to get your room listed.</p> </div>
-                <div className="flex items-start justify-center space-x-1 sm:space-x-2 md:space-x-4 mb-10">
-                    {['Details', 'Location', 'Amenities', 'Rules', 'Photos'].map((label, index) => {
-                        const stepNumber = index + 1;
-                        return (<React.Fragment key={label}> <div className={`flex flex-col items-center text-center w-14 sm:w-16 ${stepNumber <= highestStep ? 'cursor-pointer' : 'cursor-default'}`} onClick={() => handleStepClick(stepNumber)}> <div className={`h-10 w-10 sm:h-12 sm:w-12 rounded-full border-2 flex items-center justify-center font-bold text-lg transition-all duration-300 ${step >= stepNumber ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-gray-400 border-gray-300'}`}> {step > stepNumber ? <FaCheckCircle /> : stepNumber} </div> <p className={`mt-2 text-[10px] sm:text-xs font-semibold transition-colors duration-300 ${step >= stepNumber ? 'text-indigo-600' : 'text-gray-400'}`}>{label}</p> </div> {index < 4 && (<div className={`flex-1 h-1 mt-5 sm:mt-6 rounded-full transition-colors duration-500 ${step > stepNumber ? 'bg-indigo-600' : 'bg-gray-300'}`}></div>)} </React.Fragment>);
-                    })}
-                </div>
-                <form onSubmit={handleSubmit} noValidate>
-                    {renderFormStep()}
-                    <div className="mt-10 flex items-center justify-between">
-                        <button type="button" onClick={() => { if (step > 1) { setStep(step - 1); window.scrollTo(0, 0); } else { navigate('/landlord/my-rooms'); } }} className="px-4 py-2 sm:px-6 sm:py-3 border border-gray-300 rounded-lg text-sm font-semibold text-gray-700 hover:bg-gray-50 flex items-center disabled:opacity-50 disabled:cursor-not-allowed"> <FaArrowLeft className="mr-2" /> {step > 1 ? 'Previous' : 'Back to My Rooms'} </button>
-                        <button type="submit" disabled={uploading} className="px-5 py-3 sm:px-8 sm:py-3 rounded-lg text-sm font-semibold text-white bg-indigo-600 shadow-lg shadow-indigo-500/50 transition-all duration-300 transform hover:-translate-y-1 hover:shadow-xl disabled:opacity-50 flex items-center justify-center"> {uploading ? (<><FaSpinner className="animate-spin mr-3" /> Submitting...</>) : (step < 5 ? 'Next Step' : (isEditMode ? (<><FaSave className="mr-2" /> Save Changes</>) : (<><FaPlus className="mr-2" /> List Room</>)))} </button>
-                    </div>
-                </form>
-            </div>
-            {previewModalImage && (<div className="fixed inset-0 bg-black bg-opacity-80 flex justify-center items-center z-50 animate-fade-in" onClick={closeImageModal}> <img src={previewModalImage} alt="Large preview" className="max-h-[90vh] max-w-[90vw] object-contain rounded-lg shadow-2xl" onClick={(e) => e.stopPropagation()} /> <button onClick={closeImageModal} className="absolute top-4 right-4 bg-white text-gray-800 rounded-full p-2 shadow-lg"><FaTimes size={20} /></button> </div>)}
-        </>
+      <div key={field.key}>
+        {commonLabel}
+        <div className="relative mt-2">
+          <Icon className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-cyan-600 dark:text-cyan-300 sm:h-5 sm:w-5" />
+          <input
+            id={field.key}
+            type={field.type}
+            value={toFieldInputValue(field, formData[field.key])}
+            min={field.type === 'number' ? 0 : undefined}
+            onChange={(event) => updateField(field.key, event.target.value)}
+            className="input-field h-12 rounded-[1.15rem] pl-11 text-[15px] sm:pl-12"
+          />
+        </div>
+        {errors[field.key] && <p className="mt-1 text-sm font-semibold text-brand">{errors[field.key]}</p>}
+      </div>
     );
+  };
+
+  if (loading) return <div className="flex min-h-screen items-center justify-center"><Spinner /></div>;
+
+  return (
+    <form onSubmit={handleSubmit} className="min-h-screen overflow-x-hidden bg-[radial-gradient(circle_at_top_left,rgba(6,182,212,0.09),transparent_22rem),linear-gradient(180deg,#f8fafc_0%,#eef4f8_100%)] px-2 pb-32 pt-3 text-slate-900 dark:bg-[radial-gradient(circle_at_top_left,rgba(6,182,212,0.16),transparent_22rem),linear-gradient(180deg,#0f172a_0%,#111827_100%)] dark:text-slate-50 sm:px-6 sm:pb-10 sm:pt-4 lg:px-8">
+      <div className="mx-auto max-w-6xl">
+        <div className="mb-4 overflow-hidden rounded-[1.65rem] border border-white/75 bg-white/82 shadow-[0_18px_50px_rgba(15,23,42,0.08)] backdrop-blur-xl dark:border-white/10 dark:bg-slate-900/72 dark:shadow-[0_24px_70px_rgba(0,0,0,0.34)] sm:rounded-[2rem]">
+          <div className="h-1.5 bg-slate-100 dark:bg-slate-800">
+            <div
+              className="h-full rounded-r-full bg-gradient-to-r from-brand via-rose-400 to-cyan-400 transition-all duration-500"
+              style={{ width: `${stepProgress}%` }}
+            />
+          </div>
+          <div className="p-4 sm:p-5 md:flex md:items-center md:justify-between md:gap-5">
+            <div className="min-w-0">
+              <button type="button" onClick={() => navigate('/landlord/my-rooms')} className="mb-3 inline-flex min-h-9 items-center gap-2 rounded-full border border-slate-200/80 bg-white/70 px-3 text-[12px] font-black text-slate-600 shadow-sm transition hover:text-brand dark:border-slate-700/70 dark:bg-slate-950/40 dark:text-slate-300 sm:text-sm">
+                <ArrowLeft className="h-4 w-4" />
+                Back to listings
+              </button>
+              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-brand sm:text-[11px]">{isEditMode ? 'Edit listing' : 'New listing'}</p>
+              <h1 className="mt-1 max-w-[18rem] text-[clamp(20px,5.8vw,28px)] font-black leading-tight tracking-tight sm:max-w-none">
+                {isEditMode ? 'Upgrade Your Room Listing' : 'Create a Premium Room Listing'}
+              </h1>
+              <p className="mt-2 max-w-2xl text-[13px] font-semibold leading-6 text-slate-500 dark:text-slate-400 sm:text-sm">
+                Complete only real property details. Edits go for admin approval when required.
+              </p>
+            </div>
+            <div className="mt-4 grid grid-cols-[auto_1fr] items-center gap-3 rounded-[1.35rem] border border-brand/15 bg-gradient-to-br from-brand/10 via-white/70 to-cyan-400/10 p-3 dark:border-cyan-300/15 dark:from-cyan-300/10 dark:via-slate-950/20 dark:to-brand/10 md:mt-0 md:min-w-[13rem]">
+              <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-brand shadow-sm dark:bg-slate-950/55 dark:text-cyan-200">
+                <CurrentStepIcon className="h-5 w-5" />
+              </span>
+              <div className="min-w-0">
+                <p className="text-[10px] font-black uppercase tracking-[0.16em] text-brand dark:text-cyan-200">
+                  Step {step + 1} of {steps.length}
+                </p>
+                <p className="truncate text-[12px] font-black text-slate-700 dark:text-slate-200">{currentStep.label}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="no-scrollbar -mx-2 mb-4 flex gap-2 overflow-x-auto px-2 pb-1 sm:mx-0 sm:px-0 md:grid md:grid-cols-4 md:overflow-visible lg:grid-cols-8">
+          {steps.map((item, index) => {
+            const StepIcon = stepIconMap[item.id] || ShieldCheck;
+            const isActive = index === step;
+            const isComplete = index < step;
+            return (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => setStep(index)}
+                className={`flex min-h-[3.25rem] w-[8.35rem] flex-shrink-0 items-center gap-2 rounded-[1.15rem] border px-3 py-2 text-left transition active:scale-[0.98] md:w-auto ${
+                  isActive
+                    ? 'border-brand/40 bg-gradient-to-br from-brand to-rose-500 text-white shadow-[0_14px_34px_rgba(255,56,92,0.24)]'
+                    : isComplete
+                      ? 'border-emerald-200 bg-emerald-50/90 text-emerald-700 dark:border-emerald-400/20 dark:bg-emerald-400/10 dark:text-emerald-100'
+                      : 'border-white/75 bg-white/78 text-slate-500 shadow-sm backdrop-blur dark:border-white/10 dark:bg-slate-900/65 dark:text-slate-400'
+                }`}
+              >
+                <span className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-xl ${isActive ? 'bg-white/18 text-white' : isComplete ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-400/15 dark:text-emerald-100' : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-300'}`}>
+                  {isComplete ? <Check className="h-4 w-4" /> : <StepIcon className="h-4 w-4" />}
+                </span>
+                <span className="min-w-0">
+                  <span className="block truncate text-[11px] font-black leading-tight sm:text-xs">{item.label}</span>
+                  <span className={`mt-0.5 block text-[9px] font-black uppercase tracking-[0.08em] ${isActive ? 'text-white/78' : 'text-slate-400 dark:text-slate-500'}`}>
+                    {index + 1}/{steps.length}
+                  </span>
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        <motion.section
+          key={currentStep.id}
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.35 }}
+          className="overflow-hidden rounded-[1.65rem] border border-white/75 bg-white/86 shadow-[0_18px_50px_rgba(15,23,42,0.08)] backdrop-blur-xl dark:border-white/10 dark:bg-slate-900/74 dark:shadow-[0_24px_70px_rgba(0,0,0,0.36)] sm:rounded-[2rem]"
+        >
+          <div className="border-b border-slate-100/90 bg-gradient-to-br from-white/80 to-slate-50/70 p-4 dark:border-slate-800/80 dark:from-slate-900/70 dark:to-slate-950/35 sm:p-5">
+            <div className="flex items-start gap-3">
+              <span className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-brand/12 to-cyan-400/14 text-brand ring-1 ring-brand/10 dark:text-cyan-200 dark:ring-cyan-300/10">
+                <CurrentStepIcon className="h-5 w-5" />
+              </span>
+              <div className="min-w-0">
+                <p className="text-[10px] font-black uppercase tracking-[0.16em] text-cyan-600 dark:text-cyan-300">
+                  {isEditMode ? 'Listing upgrade' : 'Listing setup'}
+                </p>
+                <h2 className="mt-1 truncate text-[clamp(18px,5vw,24px)] font-black leading-tight tracking-tight">{currentStep.label}</h2>
+                <p className="mt-1 text-[13px] font-semibold leading-5 text-slate-500 dark:text-slate-400 sm:text-sm">{currentStepCopy}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="p-4 sm:p-5 md:p-7">
+            {!isPhotoStep ? (
+            <>
+              <div className={`grid ${
+                currentStep.id === 'amenities'
+                  ? 'grid-cols-2 gap-3 lg:grid-cols-3'
+                  : currentStep.id === 'rules'
+                    ? 'grid-cols-2 gap-3 md:grid-cols-2 lg:grid-cols-3'
+                    : 'gap-4 md:grid-cols-2'
+              }`}>
+                {currentStep.fields.map(renderField)}
+              </div>
+
+              {currentStep.id === 'location' && (
+                <div className="mt-7">
+                  <div className="mb-3 flex items-center justify-between gap-3">
+                    <h3 className="text-[clamp(16px,4.5vw,20px)] font-black">Exact Map Location</h3>
+                    {errors.mapLocation && <p className="text-sm font-semibold text-brand">{errors.mapLocation}</p>}
+                  </div>
+                  <div className="overflow-hidden rounded-[1.35rem] border border-slate-200 bg-white/70 dark:border-slate-700 dark:bg-slate-950/25">
+                    <LocationPicker onLocationChange={handleLocationChange} />
+                  </div>
+                </div>
+              )}
+
+              {priceSuggestion && ['basicDetails', 'location'].includes(currentStep.id) && (
+                <div className="mt-5 rounded-[1.35rem] border border-brand/20 bg-gradient-to-br from-brand/10 to-cyan-400/10 p-4 text-sm text-slate-800 dark:text-slate-100">
+                  <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                    <div>
+                      <p className="font-black text-brand dark:text-cyan-200">Price suggestion</p>
+                      {priceSuggestion.suggestedRent ? (
+                        <p className="mt-1 font-semibold">
+                          ₹{Number(priceSuggestion.suggestedRent).toLocaleString('en-IN')}/month based on {priceSuggestion.sampleSize} comparable listing{priceSuggestion.sampleSize === 1 ? '' : 's'}.
+                        </p>
+                      ) : (
+                        <p className="mt-1 font-semibold">{priceSuggestion.explanation}</p>
+                      )}
+                    </div>
+                    {priceSuggestion.suggestedRent && (
+                      <button type="button" onClick={() => updateField('rent', priceSuggestion.suggestedRent)} className="btn-outline bg-white dark:bg-slate-950/40">
+                        Use suggestion
+                      </button>
+                    )}
+                  </div>
+                  {priceSuggestion.explanation && <p className="mt-2 text-xs font-semibold text-slate-500 dark:text-slate-400">{priceSuggestion.explanation}</p>}
+                </div>
+              )}
+
+              {suggestingPrice && ['basicDetails', 'location'].includes(currentStep.id) && (
+                <div className="mt-5 flex items-center gap-2 rounded-[1.35rem] border border-slate-200 bg-white/70 p-4 text-sm font-semibold text-slate-500 dark:border-slate-700 dark:bg-slate-950/25 dark:text-slate-400">
+                  <Loader2 className="h-4 w-4 animate-spin text-brand" />
+                  Calculating price suggestion from real listings...
+                </div>
+              )}
+            </>
+          ) : (
+            <div>
+              <label htmlFor="room-photos" className="group flex min-h-36 cursor-pointer flex-col items-center justify-center rounded-[1.35rem] border border-dashed border-cyan-300/70 bg-gradient-to-br from-cyan-50/90 via-white/80 to-rose-50/70 p-4 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.75)] transition hover:border-brand hover:from-brand/5 dark:border-cyan-300/20 dark:from-cyan-300/8 dark:via-slate-950/20 dark:to-brand/8 sm:min-h-44 sm:p-6">
+                <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-brand shadow-[0_14px_34px_rgba(15,23,42,0.10)] ring-1 ring-slate-200/70 transition group-active:scale-95 dark:bg-slate-950/70 dark:text-cyan-200 dark:ring-white/10">
+                  <UploadCloud className="h-6 w-6" />
+                </span>
+                <span className="mt-3 text-[clamp(16px,4.5vw,20px)] font-black">Upload real room photos</span>
+                <span className="mt-1 max-w-[17rem] text-[13px] font-semibold leading-5 text-slate-500 dark:text-slate-400">Clear, real photos improve trust and approval speed.</span>
+                <span className="mt-3 rounded-full bg-white/85 px-3 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-brand shadow-sm dark:bg-slate-950/60 dark:text-cyan-200">
+                  Up to 8 images
+                </span>
+              </label>
+              <input id="room-photos" type="file" accept="image/png,image/jpeg,image/webp" multiple className="sr-only" onChange={handleFileChange} />
+
+              <div className="mt-5 grid grid-cols-2 gap-3 md:grid-cols-4">
+                {imagePreviews.map((preview, index) => (
+                  <div key={preview} className="group relative aspect-[16/11] overflow-hidden rounded-[1.05rem] bg-slate-100 shadow-sm ring-1 ring-slate-200/80 dark:bg-slate-800 dark:ring-slate-700/80">
+                    <img src={preview} alt={`Room ${index + 1}`} className="h-full w-full object-cover" />
+                    {index === 0 && (
+                      <span className="absolute left-2 top-2 rounded-full bg-brand px-2.5 py-1 text-[10px] font-black text-white shadow-sm">Cover</span>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => removeImage(index)}
+                      className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full bg-slate-950/60 text-white shadow-sm backdrop-blur transition md:opacity-0 md:group-hover:opacity-100"
+                      aria-label="Remove image"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          </div>
+        </motion.section>
+
+        <div className="mt-5 mb-28 rounded-[1.5rem] border border-white/80 bg-white/92 p-3 shadow-[0_18px_50px_rgba(15,23,42,0.12)] backdrop-blur-xl dark:border-white/10 dark:bg-slate-900/88 dark:shadow-[0_24px_70px_rgba(0,0,0,0.38)] sm:mb-0 sm:p-5">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0">
+              <p className="text-[10px] font-black uppercase tracking-[0.16em] text-cyan-600 dark:text-cyan-300 sm:text-[11px]">
+                Step {step + 1} of {steps.length}
+              </p>
+              <p className="mt-1 text-[12px] font-semibold leading-5 text-slate-500 dark:text-slate-400 sm:text-sm sm:leading-6">
+                {isPhotoStep
+                  ? 'Review photos and submit when the listing is ready for admin approval.'
+                  : 'Complete this section, then continue to the next listing detail.'}
+              </p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 sm:flex sm:flex-shrink-0 sm:items-center">
+              <button type="button" onClick={handleBack} disabled={step === 0} className="btn-outline min-h-11 justify-center rounded-[1.05rem] px-4 text-sm disabled:opacity-40">
+                Back
+              </button>
+              {isPhotoStep ? (
+                <button type="submit" disabled={submitting} className="btn-primary inline-flex min-h-11 items-center justify-center gap-1.5 rounded-[1.05rem] px-3 text-sm shadow-[0_14px_34px_rgba(255,56,92,0.20)]">
+                  {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+                  <span className="whitespace-nowrap">{isEditMode ? 'Save Changes' : 'Submit Listing'}</span>
+                </button>
+              ) : (
+                <button type="button" onClick={handleNext} className="btn-primary inline-flex min-h-11 items-center justify-center gap-1.5 rounded-[1.05rem] px-3 text-sm shadow-[0_14px_34px_rgba(255,56,92,0.20)]">
+                  Continue
+                  <ArrowRight className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    </form>
+  );
 }
 
 export default AddRoomPage;

@@ -30,7 +30,7 @@ exports.createReview = asyncHandler(async (req, res) => {
     throw new Error('You have already submitted a review for this booking.');
   }
 
-  const room = await Room.findById(roomId);
+  const room = await Room.findOne({ _id: roomId, isDeleted: { $ne: true } });
   if (!room) {
       res.status(404);
       throw new Error('Room not found');
@@ -65,7 +65,7 @@ exports.createReview = asyncHandler(async (req, res) => {
  */
 exports.getReviewsForRoom = asyncHandler(async (req, res) => {
   const reviews = await Review.find({ room: req.params.roomId })
-    .populate('student', 'name profileImage') 
+    .populate('student', 'name profilePicture avatarUrl verificationLevel trustScore') 
     .sort({ createdAt: -1 }); 
 
   res.status(200).json(reviews);

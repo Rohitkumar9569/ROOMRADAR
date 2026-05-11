@@ -8,28 +8,45 @@ const {
     getAllUsers,
     getUserDetails,
     getAllRooms,
+    getRoomReviewDetails,
     deleteRoom,
     updateUserStatus,
     updateUserRoles,
     verifyUser,
     revokeVerification,
     getUserSignups,
-    getRecentActivities
+    getRecentActivities,
+    getAnalyticsReport,
+    getVerificationCenter,
+    getRevenueReport,
+    getSupportTickets,
+    getAuditLogs,
+    getPlatformSettings,
+    updatePlatformSettings
 } = require('../controllers/adminController');
 const { protect, restrictTo } = require('../middleware/authMiddleware');
+const { updateSupportTicket } = require('../controllers/supportController');
 
 // Protect all routes in this file for Admin access only
-router.use(protect, restrictTo('Admin'));
+router.use(protect, restrictTo('Admin', 'Super_Admin', 'Moderator', 'Support'));
 
 // Dashboard and Stats routes
 router.route('/stats').get(getDashboardStats);
 router.route('/stats/user-signups').get(getUserSignups);
 router.route('/pending-rooms').get(getPendingRooms);
 router.route('/activities').get(getRecentActivities);
+router.route('/analytics').get(getAnalyticsReport);
+router.route('/verifications').get(getVerificationCenter);
+router.route('/revenue').get(getRevenueReport);
+router.route('/tickets').get(getSupportTickets);
+router.route('/tickets/:id').patch(updateSupportTicket);
+router.route('/logs').get(getAuditLogs);
+router.route('/settings').get(getPlatformSettings).patch(updatePlatformSettings);
 
 // Management Pages
 router.route('/users').get(getAllUsers);
 router.route('/rooms').get(getAllRooms);
+router.route('/rooms/:id/details').get(getRoomReviewDetails);
 
 // Actions on a specific user
 router.route('/users/:id/details').get(getUserDetails);

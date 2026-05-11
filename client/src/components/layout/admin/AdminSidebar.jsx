@@ -1,34 +1,88 @@
 import React from 'react';
-import { NavLink, Link } from 'react-router-dom';
-import { LayoutDashboard, Users, Home, LogOut } from 'lucide-react';
+import { NavLink, Link, useLocation } from 'react-router-dom';
+import { LogOut, Moon, ShieldCheck, Sun } from 'lucide-react';
 import { useAuth } from '../../../context/AuthContext';
+import { useTheme } from '../../../context/ThemeContext';
+import { adminNavigation } from '../../../config/adminNavigation';
 
 const AdminSidebar = () => {
-    const { logout } = useAuth();
-    const getNavLinkClass = ({ isActive }) => 
-        `flex items-center gap-3 px-4 py-2 rounded-lg transition-colors ${
-            isActive ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:bg-slate-100'
-        }`;
+    const { user, logout } = useAuth();
+    const { isDarkMode, toggleTheme } = useTheme();
+    const location = useLocation();
+
+    const isItemActive = (path) => {
+        const [pathname, query] = path.split('?');
+        if (location.pathname !== pathname) return false;
+        if (query) return location.search === `?${query}`;
+        return location.search === '';
+    };
 
     return (
-        <aside className="hidden md:flex flex-col w-64 h-screen p-4 bg-white border-r fixed">
-            <Link to="/admin/dashboard" className="text-2xl font-bold text-indigo-600 mb-8">
-                RoomRadar Admin
+        <aside className="fixed inset-y-0 left-0 z-40 hidden w-72 flex-col border-r border-light-border bg-white/90 p-4 text-light-text shadow-sm backdrop-blur-xl dark:border-dark-border dark:bg-dark-sidebar/95 dark:text-dark-text md:flex">
+            <Link to="/admin/dashboard" className="mb-5 flex items-center gap-3 rounded-3xl border border-light-border bg-light-card p-3 shadow-sm dark:border-dark-border dark:bg-dark-card">
+                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-cyan-500/12 text-cyan-500">
+                    <ShieldCheck className="h-5 w-5" />
+                </div>
+                <div>
+                    <p className="text-lg font-black tracking-tight">
+                        <span className="text-brand">Room</span><span className="text-cyan-500">Radar</span>
+                    </p>
+                    <p className="text-[10px] font-black uppercase tracking-[0.22em] text-light-muted dark:text-dark-muted">Admin OS</p>
+                </div>
             </Link>
-            <nav className="flex flex-col gap-2 flex-grow">
-                <NavLink to="/admin/dashboard" className={getNavLinkClass}>
-                    <LayoutDashboard size={20} /> Dashboard
-                </NavLink>
-                <NavLink to="/admin/users" className={getNavLinkClass}>
-                    <Users size={20} /> Users
-                </NavLink>
-                <NavLink to="/admin/rooms" className={getNavLinkClass}>
-                    <Home size={20} /> Rooms
-                </NavLink>
+
+            <div className="mb-5 rounded-3xl border border-light-border bg-light-card p-3 dark:border-dark-border dark:bg-dark-card">
+                <p className="truncate text-sm font-bold">{user?.name || 'Administrator'}</p>
+                <p className="truncate text-xs font-medium text-light-muted dark:text-dark-muted">{user?.email}</p>
+                <div className="mt-3 flex flex-wrap gap-1.5">
+                    {(user?.roles || ['Admin']).filter(role => ['Admin', 'Super_Admin', 'Moderator', 'Support'].includes(role)).map(role => (
+                        <span key={role} className="rounded-full bg-cyan-500/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-cyan-600 dark:text-cyan-300">
+                            {role.replace('_', ' ')}
+                        </span>
+                    ))}
+                </div>
+            </div>
+
+            <nav className="min-h-0 flex-1 space-y-5 overflow-y-auto pr-1">
+                {adminNavigation.map((section) => (
+                    <div key={section.section}>
+                        <p className="mb-2 px-3 text-[10px] font-black uppercase tracking-[0.2em] text-light-muted dark:text-dark-muted">
+                            {section.section}
+                        </p>
+                        <div className="space-y-1">
+                            {section.items.map((item) => {
+                                const active = isItemActive(item.path);
+                                return (
+                                    <NavLink
+                                        key={item.name}
+                                        to={item.path}
+                                        className={`group flex items-center gap-3 rounded-2xl border-l-2 px-3 py-2.5 text-sm font-semibold transition-all ${
+                                            active
+                                                ? 'border-cyan-500 bg-cyan-500/10 text-cyan-600 dark:text-cyan-300'
+                                                : 'border-transparent text-light-muted hover:bg-light-bg hover:text-light-text dark:text-dark-muted dark:hover:bg-dark-input dark:hover:text-dark-text'
+                                        }`}
+                                    >
+                                        <item.icon className={`h-4 w-4 ${active ? 'text-cyan-500' : 'text-light-muted group-hover:text-cyan-500 dark:text-dark-muted'}`} />
+                                        <span>{item.name}</span>
+                                    </NavLink>
+                                );
+                            })}
+                        </div>
+                    </div>
+                ))}
             </nav>
-            <div className="mt-auto">
-                <button onClick={logout} className="w-full flex items-center gap-3 px-4 py-2 rounded-lg text-red-500 hover:bg-red-50">
-                    <LogOut size={20} /> Log Out
+
+            <div className="mt-4 space-y-2 border-t border-light-border pt-4 dark:border-dark-border">
+                <button
+                    type="button"
+                    onClick={toggleTheme}
+                    className="flex w-full items-center justify-between rounded-2xl border border-light-border bg-light-card px-3 py-2.5 text-sm font-semibold transition-all hover:border-cyan-400 dark:border-dark-border dark:bg-dark-card"
+                >
+                    <span>{isDarkMode ? 'Light mode' : 'Dark mode'}</span>
+                    {isDarkMode ? <Sun className="h-4 w-4 text-amber-400" /> : <Moon className="h-4 w-4 text-cyan-500" />}
+                </button>
+                <button onClick={logout} className="flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-bold text-red-500 transition-all hover:bg-red-500/10">
+                    <LogOut size={18} /> Log out
                 </button>
             </div>
         </aside>

@@ -13,13 +13,13 @@ import { format } from 'date-fns';
 import api from '../../../api';
 
 const SuggestionsBox = ({ suggestions, onSelect }) => (
-    <motion.ul initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="absolute top-full mt-2 w-full bg-white rounded-lg shadow-lg border max-h-60 overflow-y-auto z-50">
+    <motion.ul initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="absolute left-0 top-full z-[99999] mt-3 max-h-72 w-full overflow-y-auto rounded-3xl border border-light-border bg-white shadow-2xl shadow-slate-900/25 dark:border-dark-border dark:bg-dark-card">
         {suggestions.map((place) => (
-            <li key={place.properties.place_id} onClick={() => onSelect(place)} className="px-4 py-3 cursor-pointer hover:bg-gray-100 flex items-center gap-3 border-b last:border-0">
-                <MapPinIcon className="h-5 w-5 text-gray-400" />
+            <li key={place.properties.place_id} onClick={() => onSelect(place)} className="flex cursor-pointer items-center gap-3 border-b border-light-border px-4 py-3 hover:bg-cyan-500/10 dark:border-dark-border dark:hover:bg-dark-input last:border-0">
+                <MapPinIcon className="h-5 w-5 text-cyan-500" />
                 <div>
-                    <p className="font-semibold text-sm">{place.properties.address_line1}</p>
-                    <p className="text-xs text-gray-500">{place.properties.address_line2}</p>
+                    <p className="text-sm font-black text-light-text dark:text-dark-text">{place.properties.address_line1}</p>
+                    <p className="text-xs font-semibold text-light-muted dark:text-dark-muted">{place.properties.address_line2}</p>
                 </div>
             </li>
         ))}
@@ -49,7 +49,7 @@ function SearchBar({ criteria, onCriteriaChange, onSearch, onClear, onFilterClic
             const { data } = await api.get(`/search/autocomplete?text=${encodeURIComponent(searchText)}`);
             setSuggestions(data.features || []);
         } catch (error) {
-            console.error('Error fetching suggestions:', error);
+            setSuggestions([]);
         }
     };
 
@@ -102,17 +102,17 @@ function SearchBar({ criteria, onCriteriaChange, onSearch, onClear, onFilterClic
     }, []);
 
     return (
-        <div className="flex items-center gap-2 w-full">
-            <div ref={searchBarRef} className="relative flex-grow bg-white border rounded-full h-16 flex items-center shadow-md justify-between pr-2">
+        <div className="relative z-[9999] flex w-full items-center gap-2">
+            <div ref={searchBarRef} className="relative z-[9999] flex min-h-14 flex-grow items-center justify-between rounded-[1.35rem] border border-white/70 bg-white p-1 pr-1.5 shadow-2xl shadow-slate-950/20 backdrop-blur-xl dark:border-dark-border dark:bg-dark-sidebar sm:min-h-16 sm:rounded-2xl sm:pr-2">
                 <div className="relative flex-grow h-full">
-                    <button onClick={() => setActivePopover('location')} className="w-full h-full px-4 md:px-6 text-left rounded-full hover:bg-gray-100 flex items-center gap-2">
-                        <FaLocationArrow className="text-gray-500 flex-shrink-0 cursor-pointer hover:text-red-500" onClick={(e) => { e.stopPropagation(); handleCurrentLocation(); }}/>
+                    <button type="button" onClick={() => setActivePopover('location')} className="flex min-h-12 w-full items-center gap-2 rounded-[1rem] px-3 text-left hover:bg-light-bg dark:hover:bg-dark-input sm:min-h-14 md:px-5">
+                        <FaLocationArrow className="h-4 w-4 flex-shrink-0 cursor-pointer text-cyan-500 hover:text-cyan-600 sm:h-auto sm:w-auto" onClick={(e) => { e.stopPropagation(); handleCurrentLocation(); }}/>
                         <div className="flex-grow">
-                            <label className="text-xs font-bold">Location</label>
-                            <input type="text" value={query} onChange={(e) => { setQuery(e.target.value); onCriteriaChange({ location: null }); }} placeholder="Search destinations" className="w-full bg-transparent outline-none text-sm placeholder-gray-400" />
+                            <label className="text-[11px] font-black text-light-text dark:text-dark-text sm:text-xs">Location</label>
+                            <input type="text" value={query} onChange={(e) => { setQuery(e.target.value); onCriteriaChange({ location: null }); }} placeholder="Search destination" className="w-full bg-transparent text-[13px] font-semibold text-light-text outline-none placeholder:text-light-muted dark:text-dark-text dark:placeholder:text-dark-muted sm:text-sm" />
                         </div>
                         {criteria.location && (
-                            <button onClick={handleClear} className="pr-2">
+                            <button type="button" onClick={handleClear} className="pr-2">
                                 <XCircleIcon className="h-5 w-5 text-gray-400 hover:text-gray-600"/>
                             </button>
                         )}
@@ -120,16 +120,16 @@ function SearchBar({ criteria, onCriteriaChange, onSearch, onClear, onFilterClic
                     <AnimatePresence>{activePopover === 'location' && <SuggestionsBox suggestions={suggestions} onSelect={handleSelectSuggestion} />}</AnimatePresence>
                 </div>
                 
-                <div className="h-8 w-px bg-gray-200 hidden md:block"></div>
+                <div className="hidden h-8 w-px bg-light-border dark:bg-dark-border md:block"></div>
 
                 {/* REVERT TO CLICKABLE BUTTONS & ADD POPOVERS FOR DESKTOP */}
                 <div className="relative hidden md:block">
-                    <button onClick={() => setActivePopover('move-in')} className="w-48 h-full px-6 text-left rounded-full hover:bg-gray-100">
-                        <label className="text-xs font-bold">Move-in Date</label>
-                        <p className="text-sm text-gray-500">{criteria.moveInDate ? format(criteria.moveInDate, 'MMM dd, yyyy') : 'Add date'}</p>
+                    <button type="button" onClick={() => setActivePopover('move-in')} className="min-h-14 w-44 rounded-xl px-5 text-left hover:bg-light-bg dark:hover:bg-dark-input">
+                        <label className="text-xs font-black text-light-text dark:text-dark-text">Move-in Date</label>
+                        <p className="text-sm font-semibold text-light-muted dark:text-dark-muted">{criteria.moveInDate ? format(criteria.moveInDate, 'MMM dd, yyyy') : 'Add date'}</p>
                     </button>
                     <AnimatePresence>{activePopover === 'move-in' && (
-                        <motion.div initial={{opacity: 0}} animate={{opacity: 1}} exit={{opacity: 0}} className="absolute top-full mt-2 left-1/2 -translate-x-1/2 z-50">
+                        <motion.div initial={{opacity: 0}} animate={{opacity: 1}} exit={{opacity: 0}} className="absolute left-1/2 top-full z-[9999] mt-2 -translate-x-1/2">
                             <DateRange
                                 ranges={[{ startDate: criteria.moveInDate || new Date(), endDate: criteria.moveInDate || new Date(), key: 'selection' }]}
                                 onChange={item => { onCriteriaChange({ moveInDate: item.selection.startDate }); setActivePopover('radius'); }}
@@ -139,16 +139,16 @@ function SearchBar({ criteria, onCriteriaChange, onSearch, onClear, onFilterClic
                     )}</AnimatePresence>
                 </div>
 
-                <div className="h-8 w-px bg-gray-200 hidden md:block"></div>
-                
+                <div className="hidden h-8 w-px bg-light-border dark:bg-dark-border md:block"></div>
+
                 <div className="relative hidden md:block">
-                    <button onClick={() => setActivePopover('radius')} className="w-48 h-full px-6 text-left rounded-full hover:bg-gray-100">
-                        <label className="text-xs font-bold">Radius</label>
-                        <p className="text-sm text-gray-500">{criteria.radius} km</p>
+                    <button type="button" onClick={() => setActivePopover('radius')} className="min-h-14 w-36 rounded-xl px-5 text-left hover:bg-light-bg dark:hover:bg-dark-input">
+                        <label className="text-xs font-black text-light-text dark:text-dark-text">Radius</label>
+                        <p className="text-sm font-semibold text-light-muted dark:text-dark-muted">{criteria.radius} km</p>
                     </button>
                     <AnimatePresence>{activePopover === 'radius' && (
-                        <motion.div initial={{opacity: 0}} animate={{opacity: 1}} exit={{opacity: 0}} className="absolute top-full mt-2 right-0 bg-white p-4 rounded-lg shadow-lg border z-50 w-64">
-                            <label className="text-sm font-semibold">Search Radius: {criteria.radius} km</label>
+                        <motion.div initial={{opacity: 0}} animate={{opacity: 1}} exit={{opacity: 0}} className="absolute right-0 top-full z-[9999] mt-2 w-64 rounded-2xl border border-light-border bg-white p-4 shadow-2xl dark:border-dark-border dark:bg-dark-card">
+                            <label className="text-sm font-semibold text-light-text dark:text-dark-text">Search Radius: {criteria.radius} km</label>
                             <input
                                 type="range"
                                 min="1" max="20"
@@ -160,13 +160,13 @@ function SearchBar({ criteria, onCriteriaChange, onSearch, onClear, onFilterClic
                     )}</AnimatePresence>
                 </div>
 
-                <button onClick={onSearch} className="bg-red-500 text-white font-bold h-12 w-12 rounded-full flex items-center justify-center hover:bg-red-600 transition-all flex-shrink-0 ml-2">
-                    <MagnifyingGlassIcon className="h-5 w-5" />
+                <button type="button" onClick={onSearch} className="ml-1.5 flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-[1rem] bg-brand font-bold text-white transition-all hover:bg-red-600 active:scale-[0.97] sm:ml-2 sm:h-12 sm:w-12 sm:rounded-2xl">
+                    <MagnifyingGlassIcon className="h-[18px] w-[18px] sm:h-5 sm:w-5" />
                 </button>
             </div>
 
-            <button onClick={onFilterClick} className="p-3 border rounded-full shadow-md md:hidden">
-                <AdjustmentsHorizontalIcon className="h-6 w-6" />
+            <button type="button" onClick={onFilterClick} className="rounded-[1.15rem] border border-white/70 bg-white/95 p-2.5 shadow-xl shadow-slate-950/15 md:hidden dark:border-dark-border dark:bg-dark-sidebar">
+                <AdjustmentsHorizontalIcon className="h-5 w-5" />
             </button>
         </div>
     );

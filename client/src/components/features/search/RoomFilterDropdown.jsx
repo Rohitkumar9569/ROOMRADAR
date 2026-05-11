@@ -27,19 +27,20 @@ const RoomFilterDropdown = ({ rooms, selectedRoomId, onSelectRoom }) => {
     return (
         <div ref={dropdownRef} className="relative w-full sm:w-64">
             <button
+                type="button"
                 onClick={() => setIsOpen(!isOpen)}
-                className="w-full bg-white border border-slate-300 text-slate-700 font-medium py-2 px-4 rounded-lg flex items-center justify-between"
+                className="flex w-full items-center justify-between rounded-2xl border border-light-border bg-light-card px-4 py-3 text-sm font-bold text-light-text shadow-sm transition hover:border-brand/40 dark:border-dark-border dark:bg-dark-card dark:text-dark-text"
             >
                 <span className="truncate">{selectedRoom.title}</span>
                 <FaChevronDown className={`transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
             </button>
 
             {isOpen && (
-                <div className="absolute top-full mt-2 w-full bg-white border border-slate-200 rounded-lg shadow-lg z-10">
+                <div className="absolute top-full z-50 mt-2 w-full overflow-hidden rounded-2xl border border-light-border bg-light-card shadow-2xl dark:border-dark-border dark:bg-dark-card">
                     <ul className="max-h-60 overflow-y-auto">
                         <li
                             onClick={() => handleSelect('all')}
-                            className="px-4 py-2 hover:bg-indigo-50 cursor-pointer"
+                            className="cursor-pointer px-4 py-3 text-sm font-bold text-light-text transition hover:bg-brand/10 hover:text-brand dark:text-dark-text dark:hover:bg-dark-input"
                         >
                             Show All Rooms
                         </li>
@@ -47,7 +48,7 @@ const RoomFilterDropdown = ({ rooms, selectedRoomId, onSelectRoom }) => {
                             <li
                                 key={room._id}
                                 onClick={() => handleSelect(room._id)}
-                                className="px-4 py-2 hover:bg-indigo-50 cursor-pointer truncate"
+                                className="cursor-pointer truncate px-4 py-3 text-sm font-bold text-light-muted transition hover:bg-brand/10 hover:text-brand dark:text-dark-muted dark:hover:bg-dark-input"
                             >
                                 {room.title}
                             </li>

@@ -1,356 +1,296 @@
-import React, { useState, useEffect, useCallback, Fragment } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
-import { Menu, Transition } from '@headlessui/react';
+import React, { useCallback, useEffect, useState } from 'react';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import api from '../../api';
 import toast from 'react-hot-toast';
 import Spinner from '../../components/common/Spinner';
-import { Mail, Calendar, ShieldCheck, UserX, Home, FileText, ArrowLeft, X, BadgeCheck, MoreVertical, XCircle } from 'lucide-react';
+import { ArrowLeft, BadgeCheck, Calendar, FileText, Home, Mail, ShieldCheck, UserX, X } from 'lucide-react';
 import { format } from 'date-fns';
+import { confirmToast } from '../../utils/confirmToast';
 
-// Reusable modal for editing user roles, consistent with other management pages.
+const allRoles = ['Student', 'Landlord', 'Admin', 'Super_Admin', 'Moderator', 'Support'];
+
+const displayRole = (role) => (role === 'Student' ? 'Travelling' : role.replace('_', ' '));
+
+const roleTone = (role) => {
+  if (['Admin', 'Super_Admin'].includes(role)) return 'bg-red-500/10 text-red-600 dark:text-red-300';
+  if (role === 'Landlord') return 'bg-cyan-500/10 text-cyan-600 dark:text-cyan-300';
+  if (['Moderator', 'Support'].includes(role)) return 'bg-violet-500/10 text-violet-600 dark:text-violet-300';
+  return 'bg-blue-500/10 text-blue-600 dark:text-blue-300';
+};
+
+const statusTone = (status) =>
+  status === 'Banned'
+    ? 'bg-red-500/10 text-red-600 dark:text-red-300'
+    : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-300';
+
 const EditRoleModal = ({ user, onClose, onSave }) => {
-    const allRoles = ['Student', 'Landlord', 'Admin'];
-    const [selectedRoles, setSelectedRoles] = useState([...user.roles]);
+  const [selectedRoles, setSelectedRoles] = useState([...user.roles]);
 
-    const handleRoleToggle = (role) => {
-        setSelectedRoles(prev => 
-            prev.includes(role) ? prev.filter(r => r !== role) : [...prev, role]
-        );
-    };
+  const handleRoleToggle = (role) => {
+    setSelectedRoles((prev) => prev.includes(role) ? prev.filter((item) => item !== role) : [...prev, role]);
+  };
 
-    const handleSave = () => {
-        onSave(user._id, selectedRoles);
-    };
-
-    return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
-            <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md mx-4">
-                <div className="flex justify-between items-center mb-4">
-                    <h2 className="text-xl font-bold text-slate-800">Edit Roles for {user.name}</h2>
-                    <button onClick={onClose}><X className="h-6 w-6 text-gray-500 hover:text-gray-800"/></button>
-                </div>
-                <div className="space-y-2">
-                    {allRoles.map(role => (
-                        <label key={role} className="flex items-center space-x-3">
-                            <input
-                                type="checkbox"
-                                className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                                checked={selectedRoles.includes(role)}
-                                onChange={() => handleRoleToggle(role)}
-                            />
-                            <span>{role}</span>
-                        </label>
-                    ))}
-                </div>
-                <div className="mt-6 flex justify-end gap-4">
-                    <button onClick={onClose} className="px-4 py-2 rounded-lg text-gray-700 bg-gray-100 hover:bg-gray-200">Cancel</button>
-                    <button onClick={handleSave} className="px-4 py-2 rounded-lg text-white bg-indigo-600 hover:bg-indigo-700">Save Changes</button>
-                </div>
-            </div>
+  return (
+    <div className="fixed inset-0 z-[10050] flex items-end justify-center bg-black/50 p-4 backdrop-blur-sm sm:items-center">
+      <div className="w-full max-w-lg rounded-3xl border border-light-border bg-light-card p-5 shadow-2xl dark:border-dark-border dark:bg-dark-card">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-cyan-500">RBAC</p>
+            <h2 className="mt-1 text-xl font-black">Edit roles</h2>
+            <p className="mt-1 text-sm font-semibold text-light-muted dark:text-dark-muted">{user.name}</p>
+          </div>
+          <button onClick={onClose} className="rounded-full p-2 text-light-muted transition hover:bg-light-bg dark:text-dark-muted dark:hover:bg-dark-input">
+            <X className="h-5 w-5" />
+          </button>
         </div>
-    );
-};
-
-// The ActionsDropdown now dynamically toggles the verification button.
-const ActionsDropdown = ({ user, onBan, onEditRoles, onVerificationToggle }) => {
-    const isBanned = user.status === 'Banned';
-
-    return (
-        <Menu as="div" className="relative inline-block text-left z-10">
-            <div>
-                <Menu.Button className="inline-flex justify-center w-full rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
-                    Actions
-                    <MoreVertical className="-mr-1 ml-2 h-5 w-5" aria-hidden="true" />
-                </Menu.Button>
-            </div>
-            <Transition
-                as={Fragment}
-                enter="transition ease-out duration-100"
-                enterFrom="transform opacity-0 scale-95"
-                enterTo="transform opacity-100 scale-100"
-                leave="transition ease-in duration-75"
-                leaveFrom="transform opacity-100 scale-100"
-                leaveTo="transform opacity-0 scale-95"
+        <div className="mt-5 grid gap-2 sm:grid-cols-2">
+          {allRoles.map((role) => (
+            <button
+              type="button"
+              key={role}
+              onClick={() => handleRoleToggle(role)}
+              className={`rounded-2xl border px-4 py-3 text-left text-sm font-bold transition-all ${
+                selectedRoles.includes(role)
+                  ? 'border-cyan-400 bg-cyan-500/10 text-cyan-600 dark:text-cyan-300'
+                  : 'border-light-border bg-light-bg text-light-muted hover:border-cyan-300 dark:border-dark-border dark:bg-dark-input dark:text-dark-muted'
+              }`}
             >
-                <Menu.Items className="origin-top-right absolute right-0 mt-2 w-56 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none z-10">
-                    <div className="p-2 space-y-2">
-                        <Menu.Item>
-                            <button onClick={onEditRoles} className="w-full flex items-center justify-center gap-2 rounded-lg font-semibold px-4 py-2.5 transition-colors bg-indigo-600 text-white hover:bg-indigo-700">
-                                <ShieldCheck size={18} /> Edit Roles
-                            </button>
-                        </Menu.Item>
-                        
-                        {/* Conditional rendering for the verification toggle button */}
-                        {user.isVerified ? (
-                            <Menu.Item>
-                                <button 
-                                    onClick={onVerificationToggle}
-                                    className="w-full flex items-center justify-center gap-2 rounded-lg font-semibold px-4 py-2.5 transition-colors bg-white text-orange-600 border border-orange-600 hover:bg-orange-50"
-                                >
-                                    <XCircle size={18} /> Revoke Verification
-                                </button>
-                            </Menu.Item>
-                        ) : (
-                            <Menu.Item>
-                                <button 
-                                    onClick={onVerificationToggle} 
-                                    className="w-full flex items-center justify-center gap-2 rounded-lg font-semibold px-4 py-2.5 transition-colors bg-white text-sky-600 border border-sky-600 hover:bg-sky-50"
-                                >
-                                    <BadgeCheck size={18} /> Mark as Verified
-                                </button>
-                            </Menu.Item>
-                        )}
-
-                        <Menu.Item>
-                            <button onClick={onBan} className={`w-full flex items-center justify-center gap-2 rounded-lg font-semibold px-4 py-2.5 transition-colors ${isBanned ? 'bg-green-600 text-white hover:bg-green-700' : 'bg-red-600 text-white hover:bg-red-700'}`}>
-                                <UserX size={18} /> {isBanned ? 'Unban User' : 'Ban User'}
-                            </button>
-                        </Menu.Item>
-                    </div>
-                </Menu.Items>
-            </Transition>
-        </Menu>
-    );
+              {displayRole(role)}
+            </button>
+          ))}
+        </div>
+        <div className="mt-6 grid grid-cols-2 gap-3">
+          <button onClick={onClose} className="btn-outline">Cancel</button>
+          <button onClick={() => onSave(user._id, selectedRoles)} className="btn-primary">Save roles</button>
+        </div>
+      </div>
+    </div>
+  );
 };
 
-
-const StatBox = ({ label, value }) => (
-    <div>
-        <p className="text-sm font-medium text-slate-500">{label}</p>
-        <p className="text-lg font-semibold text-slate-800">{value}</p>
-    </div>
+const StatBox = ({ label, value, icon: Icon }) => (
+  <div className="rounded-3xl bg-light-bg p-4 dark:bg-dark-input">
+    <Icon className="mb-3 h-5 w-5 text-cyan-500" />
+    <p className="text-xs font-black uppercase tracking-wide text-light-muted dark:text-dark-muted">{label}</p>
+    <p className="mt-1 text-xl font-black">{value}</p>
+  </div>
 );
 
-const UserSummary = ({ user, onBan, onEditRoles, onVerificationToggle }) => {
-    const getRoleClass = (role) => {
-        switch (role) {
-            case 'Admin': return 'bg-red-100 text-red-800';
-            case 'Landlord': return 'bg-sky-100 text-sky-800';
-            default: return 'bg-blue-100 text-blue-800';
-        }
-    };
-
-    const getStatusClass = (status) => {
-        return status === 'Banned' ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800';
-    };
-
-    return (
-        <div className="bg-white p-4 sm:p-6 rounded-lg shadow-md border">
-            <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6">
-                <div className="h-24 w-24 rounded-full bg-slate-800 flex items-center justify-center text-white text-4xl font-semibold overflow-hidden flex-shrink-0">
-                    {user.name?.charAt(0).toUpperCase()}
-                </div>
-                <div className="text-center sm:text-left flex-grow w-full">
-                    <div className="flex justify-between items-start">
-                         <div>
-                            <div className="flex items-center justify-center sm:justify-start gap-2 mb-1">
-                                <h1 className="text-2xl font-bold text-slate-900 break-all">{user.name}</h1>
-                                {user.isVerified && (
-                                    <div title="Verified User">
-                                        <BadgeCheck className="h-6 w-6 text-sky-500" />
-                                    </div>
-                                )}
-                            </div>
-                            <div className="flex flex-wrap justify-center sm:justify-start gap-2 mb-4">
-                                {user.roles.map(role => (
-                                    <span key={role} className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getRoleClass(role)}`}>{role}</span>
-                                ))}
-                            </div>
-                        </div>
-                        <div className="flex-shrink-0">
-                           <ActionsDropdown user={user} onBan={onBan} onEditRoles={onEditRoles} onVerificationToggle={onVerificationToggle} />
-                        </div>
-                    </div>
-                    <div className="flex flex-col sm:flex-row items-center justify-center sm:justify-start gap-2 sm:gap-4 text-sm text-slate-500 mt-2 sm:mt-0">
-                        <span className="flex items-center gap-1.5 break-all"><Mail size={16} />{user.email}</span>
-                        <span className="flex items-center gap-1.5"><Calendar size={16} />Joined {format(new Date(user.createdAt), 'dd MMM, yyyy')}</span>
-                    </div>
-                </div>
-            </div>
-            <div className="border-t mt-6 pt-4 grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
-                <StatBox label="Applications" value={user.applications?.length ?? 0} />
-                <StatBox label="Listings" value={user.roles.includes('Landlord') ? (user.listings?.length ?? 0) : 'N/A'} />
-                <StatBox label="Reviews Given" value={0} /> 
-                <StatBox label="Verified" value={user.isVerified ? 'Yes' : 'No'} />
-            </div>
-        </div>
-    );
-};
-
 const UserDetailTabs = ({ user }) => {
-    const [activeTab, setActiveTab] = useState('applications');
+  const [activeTab, setActiveTab] = useState('applications');
+  const tabs = [
+    { id: 'applications', label: 'Applications', icon: FileText },
+    ...(user.roles.includes('Landlord') ? [{ id: 'listings', label: 'Listings', icon: Home }] : []),
+  ];
 
-    const renderTabContent = () => {
-        switch (activeTab) {
-            case 'applications':
-                return (
-                    <div className="space-y-3">
-                        {user.applications?.length > 0 ? user.applications.map(app => (
-                            <div key={app._id} className="bg-white p-4 rounded-md border flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
-                                <div>
-                                    <p className="font-semibold text-slate-700 break-all">{app.room?.title || 'Deleted Room'}</p>
-                                    <p className="text-sm text-slate-500">Applied: {format(new Date(app.createdAt), 'dd MMM, yyyy')}</p>
-                                </div>
-                                <span className="px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800 capitalize self-start sm:self-center">{app.status}</span>
-                            </div>
-                        )) : <p className="text-slate-500 text-center py-8">No applications found.</p>}
-                    </div>
-                );
-            case 'listings':
-                return (
-                    <div className="space-y-3">
-                        {user.listings?.length > 0 ? user.listings.map(room => (
-                            <div key={room._id} className="bg-white p-4 rounded-md border flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
-                                <div>
-                                    <p className="font-semibold text-slate-700 break-all">{room.title}</p>
-                                    <p className="text-sm text-slate-500">Created: {format(new Date(room.createdAt), 'dd MMM, yyyy')}</p>
-                                </div>
-                                <Link to={`/admin/rooms/${room._id}/review`} className="text-sm font-semibold text-indigo-600 hover:underline self-start sm:self-center">View Room</Link>
-                            </div>
-                        )) : <p className="text-slate-500 text-center py-8">No listings found.</p>}
-                    </div>
-                );
-            default:
-                return null;
-        }
-    };
+  const rows = activeTab === 'applications' ? (user.applications || []) : (user.listings || []);
 
-    return (
-        <div className="mt-8">
-            <div className="border-b border-gray-200">
-                <nav className="-mb-px flex space-x-6 overflow-x-auto">
-                    <button onClick={() => setActiveTab('applications')} className={`whitespace-nowrap pb-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'applications' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
-                        <FileText className="inline-block mr-2 h-5 w-5" /> Applications
-                    </button>
-                    {user.roles.includes('Landlord') && (
-                        <button onClick={() => setActiveTab('listings')} className={`whitespace-nowrap pb-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'listings' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
-                           <Home className="inline-block mr-2 h-5 w-5" /> Listings
-                        </button>
-                    )}
-                </nav>
-            </div>
-            <div className="mt-6">
-                {renderTabContent()}
-            </div>
-        </div>
-    );
+  return (
+    <div className="rounded-3xl border border-light-border bg-light-card p-4 shadow-sm dark:border-dark-border dark:bg-dark-card sm:p-5">
+      <div className="flex gap-2 overflow-x-auto pb-3">
+        {tabs.map((tab) => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            className={`inline-flex items-center gap-2 whitespace-nowrap rounded-full px-4 py-2 text-xs font-black transition ${
+              activeTab === tab.id
+                ? 'bg-cyan-500 text-white shadow-lg shadow-cyan-500/20'
+                : 'border border-light-border bg-light-bg text-light-muted hover:border-cyan-300 dark:border-dark-border dark:bg-dark-input dark:text-dark-muted'
+            }`}
+          >
+            <tab.icon className="h-4 w-4" />
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      <div className="space-y-3">
+        {rows.length > 0 ? rows.map((item) => (
+          <div key={item._id} className="rounded-2xl border border-light-border bg-light-bg p-4 dark:border-dark-border dark:bg-dark-input">
+            {activeTab === 'applications' ? (
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="break-words font-black">{item.room?.title || 'Deleted room'}</p>
+                  <p className="mt-1 text-xs font-semibold text-light-muted dark:text-dark-muted">Applied {format(new Date(item.createdAt), 'dd MMM yyyy')}</p>
+                </div>
+                <span className={`self-start rounded-full px-2.5 py-1 text-[10px] font-black uppercase ${statusTone(item.status)}`}>{item.status}</span>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="break-words font-black">{item.title}</p>
+                  <p className="mt-1 text-xs font-semibold text-light-muted dark:text-dark-muted">Created {format(new Date(item.createdAt), 'dd MMM yyyy')}</p>
+                </div>
+                <Link to={`/admin/rooms/${item._id}/review`} className="self-start rounded-full bg-cyan-500/10 px-3 py-1.5 text-xs font-black text-cyan-600 dark:text-cyan-300">
+                  View room
+                </Link>
+              </div>
+            )}
+          </div>
+        )) : (
+          <div className="rounded-3xl border border-dashed border-light-border p-10 text-center dark:border-dark-border">
+            <p className="font-black">No {activeTab} found</p>
+            <p className="mt-1 text-sm font-semibold text-light-muted dark:text-dark-muted">This user's activity will appear here.</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
 };
 
 const AdminUserDetailsPage = () => {
-    const { userId } = useParams();
-    const navigate = useNavigate();
-    const [user, setUser] = useState(null);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState(null);
-    const [isModalOpen, setIsModalOpen] = useState(false);
+  const { userId } = useParams();
+  const navigate = useNavigate();
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
-    const fetchUserDetails = useCallback(async () => {
-        setLoading(true);
+  const fetchUserDetails = useCallback(async () => {
+    setLoading(true);
+    try {
+      const { data } = await api.get(`/admin/users/${userId}/details?t=${Date.now()}`);
+      setUser(data);
+      setError(null);
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to fetch user details.');
+      setError('Could not load user data.');
+    } finally {
+      setLoading(false);
+    }
+  }, [userId]);
+
+  useEffect(() => {
+    fetchUserDetails();
+  }, [fetchUserDetails]);
+
+  const handleBanUser = async () => {
+    const isBanned = user.status === 'Banned';
+    const action = isBanned ? 'unban' : 'ban';
+    const newStatus = isBanned ? 'Active' : 'Banned';
+
+    confirmToast({
+      title: `${action.charAt(0).toUpperCase() + action.slice(1)} this user?`,
+      confirmLabel: action.charAt(0).toUpperCase() + action.slice(1),
+      onConfirm: async () => {
         try {
-            const cacheBust = `?t=${new Date().getTime()}`;
-            const { data } = await api.get(`/admin/users/${userId}/details${cacheBust}`);
-            setUser(data);
+          await api.patch(`/admin/users/${user._id}/status`, { status: newStatus });
+          toast.success(`User successfully ${action}ned.`);
+          setUser((currentUser) => ({ ...currentUser, status: newStatus }));
         } catch (err) {
-            toast.error(err.response?.data?.message || 'Failed to fetch user details.');
-            setError('Could not load user data.');
-        } finally {
-            setLoading(false);
+          toast.error(err.response?.data?.message || `Failed to ${action} user.`);
         }
-    }, [userId]);
+      },
+    });
+  };
 
-    useEffect(() => {
-        fetchUserDetails();
-    }, [fetchUserDetails]);
+  const handleUpdateRoles = async (id, newRoles) => {
+    try {
+      await api.patch(`/admin/users/${id}/roles`, { roles: newRoles });
+      toast.success('User roles updated successfully.');
+      setUser((currentUser) => ({ ...currentUser, roles: newRoles }));
+      setIsModalOpen(false);
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to update roles.');
+    }
+  };
 
-    const handleBanUser = async () => {
-        const isBanned = user.status === 'Banned';
-        const action = isBanned ? "unban" : "ban";
-        const newStatus = isBanned ? "Active" : "Banned";
-        
-        if (window.confirm(`Are you sure you want to ${action} this user?`)) {
-            try {
-                await api.patch(`/admin/users/${user._id}/status`, { status: newStatus });
-                toast.success(`User successfully ${action}ned.`);
-                setUser(currentUser => ({ ...currentUser, status: newStatus }));
-            } catch (error) {
-                toast.error(error.response?.data?.message || `Failed to ${action} user.`);
-            }
-        }
-    };
-
-    const handleUpdateRoles = async (userId, newRoles) => {
+  const handleVerificationToggle = async () => {
+    const isCurrentlyVerified = user.isVerified;
+    confirmToast({
+      title: `${isCurrentlyVerified ? 'Revoke verification for' : 'Verify'} this user?`,
+      confirmLabel: isCurrentlyVerified ? 'Revoke' : 'Verify',
+      tone: isCurrentlyVerified ? 'danger' : 'success',
+      onConfirm: async () => {
         try {
-            await api.patch(`/admin/users/${userId}/roles`, { roles: newRoles });
-            toast.success("User roles updated successfully.");
-            setUser(currentUser => ({ ...currentUser, roles: newRoles }));
-            setIsModalOpen(false);
-        } catch (error) {
-            toast.error(error.response?.data?.message || 'Failed to update roles.');
+          const endpoint = isCurrentlyVerified
+            ? `/admin/users/${user._id}/revoke-verification`
+            : `/admin/users/${user._id}/verify`;
+          await api.patch(endpoint);
+          toast.success(`User verification has been ${isCurrentlyVerified ? 'revoked' : 'confirmed'}.`);
+          setUser((currentUser) => ({ ...currentUser, isVerified: !isCurrentlyVerified }));
+        } catch (err) {
+          toast.error(err.response?.data?.message || 'Failed to update verification status.');
         }
-    };
-    
-    // This single function now handles both verifying and revoking.
-    const handleVerificationToggle = async () => {
-        const isCurrentlyVerified = user.isVerified;
-        const actionText = isCurrentlyVerified ? 'revoke verification for' : 'verify';
-        const newVerifiedStatus = !isCurrentlyVerified;
+      },
+    });
+  };
 
-        if (window.confirm(`Are you sure you want to ${actionText} this user?`)) {
-            try {
-                const endpoint = isCurrentlyVerified 
-                    ? `/admin/users/${user._id}/revoke-verification` 
-                    : `/admin/users/${user._id}/verify`;
-                
-                await api.patch(endpoint);
-                toast.success(`User verification has been ${isCurrentlyVerified ? 'revoked' : 'confirmed'}.`);
-                
-                // Optimistic UI Update for immediate feedback
-                setUser(currentUser => ({ ...currentUser, isVerified: newVerifiedStatus }));
-            } catch (error) {
-                toast.error(error.response?.data?.message || 'Failed to update verification status.');
-            }
-        }
-    };
+  if (loading) return <div className="flex min-h-screen items-center justify-center"><Spinner /></div>;
+  if (error) return <div className="min-h-screen bg-light-bg p-8 text-center text-red-500 dark:bg-dark-bg">{error}</div>;
 
-    if (loading) {
-        return <div className="flex justify-center items-center h-screen"><Spinner /></div>;
-    }
+  return (
+    <div className="min-h-screen bg-light-bg px-4 py-5 text-light-text dark:bg-dark-bg dark:text-dark-text sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-7xl space-y-6">
+        <button onClick={() => navigate('/admin/users')} className="inline-flex items-center gap-2 rounded-full border border-light-border bg-light-card px-4 py-2 text-sm font-bold transition hover:border-cyan-300 dark:border-dark-border dark:bg-dark-card">
+          <ArrowLeft className="h-4 w-4" /> Back to users
+        </button>
 
-    if (error) {
-        return <div className="text-center p-8 text-red-500">{error}</div>;
-    }
-
-    return (
-        <>
-            <div className="p-4 sm:p-8 bg-slate-50 min-h-screen">
-                <div className="max-w-7xl mx-auto">
-                    <div className="mb-6">
-                        <button onClick={() => navigate('/admin/users')} className="inline-flex items-center gap-2 text-sm font-medium text-slate-600 hover:text-slate-900">
-                            <ArrowLeft size={16} /> Back to User List
-                        </button>
+        {user && (
+          <>
+            <div className="overflow-hidden rounded-[2rem] border border-light-border bg-light-card shadow-sm dark:border-dark-border dark:bg-dark-card">
+              <div className="bg-gradient-to-br from-cyan-500 via-cyan-600 to-dark-sidebar p-6 text-white sm:p-8">
+                <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className="flex h-20 w-20 items-center justify-center rounded-3xl bg-white/15 text-3xl font-black ring-1 ring-white/25 backdrop-blur">
+                      {user.name?.charAt(0).toUpperCase()}
                     </div>
-                    {user && (
-                        <div className="space-y-8">
-                           <UserSummary 
-                                user={user}
-                                onBan={handleBanUser}
-                                onEditRoles={() => setIsModalOpen(true)}
-                                onVerificationToggle={handleVerificationToggle}
-                           />
-                           <UserDetailTabs user={user} />
-                        </div>
-                    )}
+                    <div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h1 className="break-words text-2xl font-black tracking-tight sm:text-3xl">{user.name}</h1>
+                        {user.isVerified && <BadgeCheck className="h-6 w-6 text-emerald-300" />}
+                      </div>
+                      <p className="mt-1 flex items-center gap-2 text-sm font-semibold text-cyan-50">
+                        <Mail className="h-4 w-4" /> {user.email}
+                      </p>
+                      <p className="mt-1 flex items-center gap-2 text-sm font-semibold text-cyan-50">
+                        <Calendar className="h-4 w-4" /> Joined {format(new Date(user.createdAt), 'dd MMM yyyy')}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                    <button onClick={() => setIsModalOpen(true)} className="rounded-2xl bg-white/15 px-4 py-2 text-sm font-black backdrop-blur transition hover:bg-white/25">
+                      Edit roles
+                    </button>
+                    <button onClick={handleVerificationToggle} className="rounded-2xl bg-white/15 px-4 py-2 text-sm font-black backdrop-blur transition hover:bg-white/25">
+                      {user.isVerified ? 'Revoke verify' : 'Verify'}
+                    </button>
+                    <button onClick={handleBanUser} className="rounded-2xl bg-red-500 px-4 py-2 text-sm font-black transition hover:bg-red-600">
+                      {user.status === 'Banned' ? 'Unban' : 'Ban'}
+                    </button>
+                  </div>
                 </div>
+              </div>
+
+              <div className="grid gap-4 p-5 sm:grid-cols-2 lg:grid-cols-4">
+                <StatBox label="Applications" value={user.applications?.length ?? 0} icon={FileText} />
+                <StatBox label="Listings" value={user.roles.includes('Landlord') ? (user.listings?.length ?? 0) : 'N/A'} icon={Home} />
+                <StatBox label="Verification" value={user.isVerified ? 'Verified' : 'Needs review'} icon={ShieldCheck} />
+                <StatBox label="Status" value={user.status || 'Active'} icon={UserX} />
+              </div>
             </div>
-            {isModalOpen && user && (
-                <EditRoleModal 
-                    user={user} 
-                    onClose={() => setIsModalOpen(false)} 
-                    onSave={handleUpdateRoles} 
-                />
-            )}
-        </>
-    );
+
+            <div className="flex flex-wrap gap-2">
+              {user.roles.map((role) => (
+                <span key={role} className={`rounded-full px-3 py-1.5 text-xs font-black uppercase tracking-wide ${roleTone(role)}`}>
+                  {displayRole(role)}
+                </span>
+              ))}
+              <span className={`rounded-full px-3 py-1.5 text-xs font-black uppercase tracking-wide ${statusTone(user.status || 'Active')}`}>
+                {user.status || 'Active'}
+              </span>
+            </div>
+
+            <UserDetailTabs user={user} />
+          </>
+        )}
+      </div>
+
+      {isModalOpen && user && (
+        <EditRoleModal user={user} onClose={() => setIsModalOpen(false)} onSave={handleUpdateRoles} />
+      )}
+    </div>
+  );
 };
 
 export default AdminUserDetailsPage;

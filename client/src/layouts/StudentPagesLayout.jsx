@@ -1,10 +1,10 @@
 import React, { useEffect } from 'react';
-import { Outlet } from 'react-router-dom';
+import { Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import BottomNavBar from '../components/layout/student/BottomNavBar'; 
 
 function StudentPagesLayout() {
     const { switchRole, activeRole } = useAuth();
+    const location = useLocation();
 
     useEffect(() => {
         if (activeRole !== 'student') {
@@ -12,11 +12,16 @@ function StudentPagesLayout() {
         }
     }, [activeRole, switchRole]);
 
+    const isProfileSection = location.pathname.startsWith('/profile');
+    const isHomePage = location.pathname === '/';
+    const needsTopPadding = !isHomePage && !isProfileSection;
+
     return (
-        <>
-            <Outlet />
-            <BottomNavBar />
-        </>
+        <div className="min-h-screen bg-light-bg text-light-text dark:bg-dark-bg dark:text-dark-text">
+            <div className={needsTopPadding ? 'pt-16 md:pt-0' : ''}>
+                <Outlet />
+            </div>
+        </div>
     );
 }
 

@@ -7,12 +7,16 @@ const {
   getWishlist,
   getStudentDashboardSummary,
   getLandlordDashboardSummary,
+  updateProfile,
+  getCurrentUser,
 } = require('../controllers/userController');
 
 const { protect, restrictTo } = require('../middleware/authMiddleware');
 
 
 router.get('/wishlist', protect, getWishlist);
+router.get('/me', protect, getCurrentUser);
+router.put('/profile', protect, updateProfile);
 
 
 router.post('/wishlist', protect, addToWishlist);

@@ -1,153 +1,407 @@
-// src/pages/student/HomePage.jsx
-
-import React, { useState, useEffect } from 'react';
-import api from '../../api'; 
-import { format } from 'date-fns';
+import React, { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import api from '../../api';
 import Header from '../../components/layout/Header';
 import SearchBar from '../../components/features/search/SearchBar';
 import RoomCard from '../../components/features/rooms/RoomCard';
 import RoomCardSkeleton from '../../components/common/RoomCardSkeleton';
 import FilterModal from '../../components/features/rooms/FilterModal';
-import { FaMap } from 'react-icons/fa';
-import toast from 'react-hot-toast';
+import { useAuth } from '../../context/AuthContext';
+import {
+  ArrowRight,
+  BadgeCheck,
+  BedDouble,
+  Building2,
+  CheckCircle2,
+  Handshake,
+  Home,
+  Hotel,
+  MapPin,
+  MessageCircle,
+  Search,
+  ShieldCheck,
+  Users,
+} from 'lucide-react';
+import backgroundImage from '../../assets/background_img.jpg';
+
+const categories = [
+  { id: 'All', label: 'All', Icon: Home },
+  { id: 'Rooms', label: 'Rooms', Icon: BedDouble },
+  { id: 'PG', label: 'PG', Icon: Building2 },
+  { id: 'Flats', label: 'Flats', Icon: Home },
+  { id: 'Studio', label: 'Studio', Icon: Hotel },
+  { id: 'Roommates', label: 'Roommates', Icon: Users },
+  { id: 'Shared Room', label: 'Shared', Icon: Handshake },
+];
+
+const formatCount = (value) => Number(value || 0).toLocaleString('en-IN');
+
+const SectionHeader = ({ eyebrow, title, action }) => (
+  <div className="mb-3 flex items-end justify-between gap-3 sm:mb-5">
+    <div>
+      <p className="text-[10px] font-medium uppercase tracking-[0.07em] text-cyan-600 dark:text-cyan-300">{eyebrow}</p>
+      <h2 className="mt-1 text-[16px] font-semibold leading-tight tracking-normal text-light-text dark:text-dark-text sm:text-xl">{title}</h2>
+    </div>
+    {action}
+  </div>
+);
+
+const RoomsGrid = ({ rooms, loading }) => {
+  if (loading) {
+    return (
+      <div className="mobile-room-grid grid gap-3 sm:gap-5 lg:[grid-template-columns:repeat(auto-fill,minmax(280px,1fr))]">
+        {Array.from({ length: 8 }).map((_, index) => <RoomCardSkeleton key={index} />)}
+      </div>
+    );
+  }
+
+  if (!rooms.length) {
+    return (
+      <div className="rounded-3xl border border-dashed border-light-border bg-light-card p-10 text-center dark:border-dark-border dark:bg-dark-card">
+        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-cyan-500/10 text-cyan-600 dark:text-cyan-300">
+          <MapPin className="h-7 w-7" />
+        </div>
+        <h3 className="mt-5 text-xl font-black">No rooms available yet</h3>
+        <p className="mx-auto mt-2 max-w-md text-sm font-semibold leading-6 text-light-muted dark:text-dark-muted">
+          As landlords publish verified rooms, real listings will appear here automatically.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mobile-room-grid grid gap-3 sm:gap-5 lg:[grid-template-columns:repeat(auto-fill,minmax(280px,1fr))]">
+      {rooms.map((room) => <RoomCard key={room._id} room={room} />)}
+    </div>
+  );
+};
 
 function HomePage() {
-    const [listings, setListings] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState(null);
-    const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
-    
-    const [searchCriteria, setSearchCriteria] = useState({
-        location: null,
-        moveInDate: null,
-        radius: 5,
-    });
-    
-    const fetchRooms = async (criteria) => {
-        setLoading(true);
-        setError(null);
-        
-        if (!criteria.location) {
-            toast.error("Please select a location first.");
-            setLoading(false);
-            return;
-        }
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const [stats, setStats] = useState({ totalRooms: 0, totalCities: 0, totalUsers: 0, verifiedRooms: 0 });
+  const [cities, setCities] = useState([]);
+  const [popularRooms, setPopularRooms] = useState([]);
+  const [recommendedRooms, setRecommendedRooms] = useState([]);
+  const [categoryRooms, setCategoryRooms] = useState([]);
+  const [activeCategory, setActiveCategory] = useState('All');
+  const [loading, setLoading] = useState(true);
+  const [categoryLoading, setCategoryLoading] = useState(false);
+  const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
+  const [searchCriteria, setSearchCriteria] = useState({ location: null, moveInDate: null, radius: 5 });
+  const [searchInNav, setSearchInNav] = useState(false);
 
-        const params = {
-            latitude: criteria.location.properties.lat,
-            longitude: criteria.location.properties.lon,
-            radius: criteria.radius,
-            moveInDate: criteria.moveInDate ? format(criteria.moveInDate, 'yyyy-MM-dd') : null,
-        };
+  const trustStats = useMemo(() => [
+    { label: 'Verified rooms', value: formatCount(stats.verifiedRooms || stats.totalRooms), Icon: ShieldCheck },
+    { label: 'Published listings', value: formatCount(stats.totalRooms), Icon: Building2 },
+    { label: 'Active cities', value: formatCount(stats.totalCities), Icon: MapPin },
+  ], [stats]);
 
-        try {
-            const response = await api.post('/rooms/search', params);
-            toast.success(`${response.data.count} rooms found!`);
-            
-            const roomData = response.data.data || response.data;
-            setListings(Array.isArray(roomData) ? roomData : []);
-        } catch (err) {
-            console.error("Failed to fetch rooms:", err);
-            setError('Could not fetch rooms. Please try again later.');
-            toast.error('Could not fetch rooms.');
-            setListings([]);
-        } finally {
-            setLoading(false);
-        }
+  useEffect(() => {
+    let frameId = null;
+    const updateSearchState = () => {
+      frameId = null;
+      setSearchInNav(window.scrollY > 300);
     };
-    
-    const fetchAllRooms = async () => {
-        setLoading(true);
-        try {
-            const response = await api.get('/rooms');
-            
-            const roomData = response.data.data || response.data;
-            setListings(Array.isArray(roomData) ? roomData : []);
-        } catch (err) {
-           console.error("Failed to fetch all rooms:", err);
-           setListings([]);
-        } finally {
-            setLoading(false);
-        }
+    const handleScroll = () => {
+      if (frameId) return;
+      frameId = window.requestAnimationFrame(updateSearchState);
     };
+    handleScroll();
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+      if (frameId) window.cancelAnimationFrame(frameId);
+    };
+  }, []);
 
-    const handleCriteriaChange = (newCriteria) => {
-        setSearchCriteria(prev => ({ ...prev, ...newCriteria }));
+  useEffect(() => {
+    const fetchLandingData = async () => {
+      setLoading(true);
+      try {
+        const [statsRes, citiesRes, popularRes, recommendedRes] = await Promise.all([
+          api.get('/stats'),
+          api.get('/stats/cities'),
+          api.get('/rooms?sort=views&limit=8'),
+          api.get('/rooms/recommended?limit=8'),
+        ]);
+
+        setStats(statsRes.data || {});
+        setCities(Array.isArray(citiesRes.data) ? citiesRes.data : []);
+        setPopularRooms(popularRes.data.data || popularRes.data || []);
+        setRecommendedRooms(recommendedRes.data.data || recommendedRes.data || []);
+      } catch (error) {
+        setPopularRooms([]);
+        setRecommendedRooms([]);
+      } finally {
+        setLoading(false);
+      }
     };
 
-    const handleSearch = () => {
-        fetchRooms(searchCriteria);
+    fetchLandingData();
+  }, []);
+
+  useEffect(() => {
+    const fetchCategoryRooms = async () => {
+      setCategoryLoading(true);
+      try {
+        const typeParam = activeCategory === 'All' ? '' : `&type=${encodeURIComponent(activeCategory)}`;
+        const { data } = await api.get(`/rooms?sort=views&limit=8${typeParam}`);
+        setCategoryRooms(data.data || data || []);
+      } catch (error) {
+        setCategoryRooms([]);
+      } finally {
+        setCategoryLoading(false);
+      }
     };
 
-    const handleClearSearch = () => {
-        setSearchCriteria({
-            location: null,
-            moveInDate: null,
-            radius: 5,
-        });
-        fetchAllRooms();
-        toast.success("Filters cleared!");
-    };
-    
-    useEffect(() => {
-        fetchAllRooms();
-    }, []);
+    fetchCategoryRooms();
+  }, [activeCategory]);
 
-    return (
-        <div className="font-sans bg-white">
-            <div className="hidden lg:block">
-                <Header />
+  const handleCriteriaChange = (newCriteria) => {
+    setSearchCriteria((prev) => ({ ...prev, ...newCriteria }));
+  };
+
+  const handleSearch = () => {
+    const params = new URLSearchParams();
+    if (searchCriteria.location?.properties) {
+      const props = searchCriteria.location.properties;
+      if (props.city || props.address_line1) params.set('city', props.city || props.address_line1);
+      if (props.lat) params.set('latitude', props.lat);
+      if (props.lon) params.set('longitude', props.lon);
+    }
+    if (searchCriteria.radius) params.set('radius', searchCriteria.radius);
+    if (searchCriteria.moveInDate) params.set('moveInDate', searchCriteria.moveInDate.toISOString());
+    navigate(`/rooms?${params.toString()}`);
+  };
+
+  const handleClearSearch = () => {
+    setSearchCriteria({ location: null, moveInDate: null, radius: 5 });
+  };
+
+  const handleCityClick = (cityName) => {
+    navigate(`/rooms?city=${encodeURIComponent(cityName)}`);
+  };
+
+  const heroRoom = popularRooms[0] || categoryRooms[0] || recommendedRooms[0];
+  const heroImage = heroRoom?.images?.[0]?.url || heroRoom?.images?.[0] || heroRoom?.imageUrl || backgroundImage;
+  const heroRoomCity = heroRoom?.location?.city || heroRoom?.city || cities[0]?.name || 'Verified city';
+  const heroRoomTitle = heroRoom?.title || 'Verified rooms near campus';
+  const heroRoomRent = Number(heroRoom?.rent || cities[0]?.avgRent || 0);
+  const heroRoomBeds = Number(heroRoom?.beds || 1);
+  const heroRoomType = heroRoom?.roomType || heroRoom?.type || `${heroRoomBeds} bed${heroRoomBeds > 1 ? 's' : ''}`;
+
+  return (
+    <div className="min-h-screen bg-light-bg text-light-text dark:bg-dark-bg dark:text-dark-text">
+      <Header />
+      <section className="relative flex min-h-[100svh] flex-col overflow-hidden">
+        <img src={heroImage} alt="Premium RoomRadar stay" className="absolute inset-0 h-full w-full object-cover object-[center_58%]" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_16%,rgba(255,255,255,0.10),transparent_26%),linear-gradient(180deg,rgba(0,0,0,0.62)_0%,rgba(0,0,0,0.30)_38%,rgba(0,0,0,0.72)_100%)]" />
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-40 bg-gradient-to-b from-black/56 via-black/18 to-transparent" />
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-72 bg-gradient-to-b from-transparent via-slate-950/26 to-light-bg dark:via-dark-bg/58 dark:to-dark-bg" />
+
+        <div className="relative z-10 mx-auto flex min-h-[100svh] w-full max-w-7xl flex-1 flex-col justify-between px-5 pb-[calc(var(--rr-bottom-nav-height)+1.1rem)] pt-[calc(var(--rr-nav-height)+1.05rem)] text-center sm:items-center sm:justify-center sm:px-6 sm:pb-8 sm:pt-24 lg:px-8">
+          <div className="mx-auto flex w-full max-w-md flex-col items-center sm:max-w-4xl">
+            <div className="mb-3 inline-flex max-w-full items-center justify-center gap-2 rounded-full border border-cyan-200/22 bg-cyan-300/10 px-2.5 py-1.5 text-white shadow-lg shadow-cyan-950/20 backdrop-blur-xl sm:mb-5 sm:px-4 sm:py-2">
+              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-cyan-300/18 text-cyan-200">
+                <ShieldCheck className="h-3.5 w-3.5" />
+              </span>
+              <span className="truncate text-[10px] font-black uppercase tracking-[0.09em] text-white/92 sm:text-xs">Verified room discovery</span>
             </div>
 
-            <div className="sticky top-0 z-40 bg-white/90 backdrop-blur-md py-4 border-b">
-                <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-                    <SearchBar 
-                        criteria={searchCriteria}
-                        onCriteriaChange={handleCriteriaChange}
-                        onSearch={handleSearch} 
-                        onFilterClick={() => setIsFilterModalOpen(true)}
-                        onClear={handleClearSearch}
-                    />
-                </div>
-            </div>
+            <h1 className="max-w-[14ch] text-center text-[clamp(31px,9.4vw,60px)] font-black leading-[0.96] tracking-[-0.045em] text-white drop-shadow-[0_16px_32px_rgba(0,0,0,0.42)] sm:max-w-[18ch] sm:leading-[1.02]">
+              <span className="block sm:inline">Find Your Perfect</span>
+              <span className="block sm:inline sm:ml-3">Room</span>
+            </h1>
+            <p className="mt-3 max-w-[30ch] text-center text-[clamp(13px,3.7vw,17px)] font-semibold leading-[1.45] text-white/82 sm:mt-5 sm:max-w-[38ch]">
+              Search verified listings, compare real prices, and request safely from one clean view.
+            </p>
 
-            <main className="px-4 sm:px-6 md:px-10 lg:px-16 pb-8 pt-8">
-                 <h2 className="text-2xl font-bold mb-6">Popular Homes</h2>
-                {error ? (
-                    <div className="text-center text-red-500 mt-16">{error}</div>
-                ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-6 gap-y-8">
-                        {loading ? (
-                            Array.from({ length: 8 }).map((_, index) => (
-                                <RoomCardSkeleton key={index} />
-                            ))
-                        ) : (
-                            Array.isArray(listings) && listings.length > 0 ? (
-                                listings.map(room => (
-                                    <RoomCard key={room._id} room={room} />
-                                ))
-                            ) : (
-                                <div className="col-span-full text-center text-gray-500 mt-16">
-                                    <p>No rooms found for your search criteria.</p>
-                                </div>
-                            )
-                        )}
-                    </div>
-                )}
-            </main>
-
-            <FilterModal 
-                isOpen={isFilterModalOpen} 
-                onClose={() => setIsFilterModalOpen(false)} 
+            <div className={`relative z-50 mt-5 w-full max-w-3xl rounded-[1.65rem] bg-white/[0.08] p-1 shadow-[0_20px_60px_-26px_rgba(0,0,0,0.75)] ring-1 ring-white/14 backdrop-blur-md transition-all duration-300 sm:mx-auto sm:mt-8 sm:bg-transparent sm:p-0 sm:shadow-none sm:ring-0 sm:backdrop-blur-0 ${searchInNav ? 'translate-y-3 opacity-0 pointer-events-none' : 'translate-y-0 opacity-100'}`}>
+              <SearchBar
                 criteria={searchCriteria}
                 onCriteriaChange={handleCriteriaChange}
-                onApplyFilters={() => {
-                    setIsFilterModalOpen(false);
-                    handleSearch();
-                }}
-            />
+                onSearch={handleSearch}
+                onFilterClick={() => setIsFilterModalOpen(true)}
+                onClear={handleClearSearch}
+              />
+            </div>
+
+            <div className="relative z-10 mt-4 grid w-full max-w-md grid-cols-3 overflow-hidden rounded-[1.35rem] border border-white/12 bg-slate-950/42 shadow-2xl shadow-black/18 backdrop-blur-xl sm:mx-auto sm:mt-8 sm:max-w-2xl sm:gap-4 sm:overflow-visible sm:border-0 sm:bg-transparent sm:shadow-none sm:backdrop-blur-0">
+              {trustStats.map(({ label, value, Icon }, index) => (
+                <div key={label} className={`min-w-0 p-3 text-center sm:rounded-2xl sm:border sm:border-white/10 sm:bg-white/95 sm:p-5 sm:shadow-lg sm:backdrop-blur-sm dark:sm:bg-dark-sidebar/95 ${index > 0 ? 'border-l border-white/10 sm:border-l-white/10' : ''}`}>
+                  <Icon className="mx-auto h-4 w-4 text-cyan-300 sm:h-5 sm:w-5 sm:text-cyan-500" />
+                  <p className="mt-1.5 text-xl font-black text-cyan-200 sm:mt-3 sm:text-3xl sm:text-cyan-600 dark:sm:text-cyan-300">{value}</p>
+                  <p className="mt-0.5 text-[9.5px] font-bold leading-tight text-white/64 sm:mt-1 sm:text-sm sm:text-gray-600 dark:sm:text-gray-400">{label}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="mt-5 w-full max-w-md sm:hidden">
+            <div className="rounded-[1.45rem] border border-white/16 bg-slate-950/30 p-3 text-white shadow-2xl shadow-black/24 backdrop-blur-2xl">
+              <button
+                type="button"
+                onClick={() => navigate(heroRoom?._id ? `/rooms/${heroRoom._id}` : '/rooms')}
+                className="flex w-full items-center justify-between gap-3 text-left transition active:scale-[0.985]"
+              >
+                <div className="min-w-0">
+                  <p className="text-[9px] font-black uppercase tracking-[0.12em] text-cyan-100/90">Featured now</p>
+                  <h2 className="mt-1 truncate text-sm font-black tracking-[-0.02em]">{heroRoomTitle}</h2>
+                  <p className="mt-1 flex items-center gap-1 truncate text-[11px] font-bold text-white/68">
+                    <MapPin className="h-3 w-3 flex-shrink-0 text-cyan-200" />
+                    {heroRoomCity}
+                    <span className="mx-1 h-1 w-1 rounded-full bg-white/35" />
+                    {heroRoomType}
+                  </p>
+                </div>
+                <span className="flex flex-shrink-0 flex-col items-end rounded-2xl bg-white/16 px-3 py-2 text-right ring-1 ring-white/12">
+                  <span className="text-sm font-black">{heroRoomRent ? `₹${formatCount(heroRoomRent)}` : 'Explore'}</span>
+                  <span className="text-[9px] font-black uppercase text-white/58">{heroRoomRent ? '/month' : 'rooms'}</span>
+                </span>
+              </button>
+            </div>
+          </div>
         </div>
-    );
+      </section>
+
+      <main className="mx-auto max-w-7xl px-3 pb-28 sm:px-6 lg:px-8">
+        <section className="mt-6">
+          <div className="flex gap-3 overflow-x-auto pb-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {categories.map((category) => (
+              <button
+                key={category.id}
+                type="button"
+                onClick={() => setActiveCategory(category.id)}
+                className={`flex min-h-9 flex-shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-2 text-xs font-semibold transition-all sm:min-h-10 sm:gap-2 sm:px-5 sm:py-2.5 sm:text-sm ${
+                  activeCategory === category.id
+                    ? 'bg-cyan-500 text-white shadow-lg shadow-cyan-500/25'
+                    : 'border border-light-border bg-light-card text-light-muted hover:border-cyan-400 hover:text-cyan-700 dark:border-dark-border dark:bg-dark-card dark:text-dark-muted dark:hover:text-cyan-300'
+                }`}
+              >
+                <category.Icon className="h-4 w-4" />
+                <span>{category.label}</span>
+              </button>
+            ))}
+          </div>
+        </section>
+
+        <section className="mt-10">
+          <SectionHeader
+            eyebrow="Browse by category"
+            title={`${activeCategory} available now`}
+            action={(
+              <button onClick={() => navigate(activeCategory === 'All' ? '/rooms' : `/rooms?type=${encodeURIComponent(activeCategory)}`)} className="inline-flex min-h-9 items-center gap-1.5 rounded-full border border-light-border bg-light-card px-3 text-xs font-semibold text-light-text transition hover:border-cyan-400 hover:text-cyan-600 dark:border-dark-border dark:bg-dark-card dark:text-dark-text">
+                View all
+                <ArrowRight className="h-4 w-4" />
+              </button>
+            )}
+          />
+          <RoomsGrid rooms={categoryRooms} loading={categoryLoading || loading} />
+        </section>
+
+        <section className="mt-12">
+          <SectionHeader eyebrow="Popular near you" title="Most viewed verified rooms" />
+          <RoomsGrid rooms={popularRooms} loading={loading} />
+        </section>
+
+        {user && (
+          <section className="mt-10 sm:mt-12">
+            <SectionHeader eyebrow="Recommended for you" title="Rooms matched from current demand" />
+            <RoomsGrid rooms={recommendedRooms} loading={loading} />
+          </section>
+        )}
+
+        {cities.length > 0 && (
+          <section className="mt-12">
+            <SectionHeader eyebrow="Live cities" title="Popular cities from real listings" />
+            <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-2 sm:gap-4 lg:grid-cols-4">
+              {cities.map((city) => (
+                <button
+                  key={city.name}
+                  type="button"
+                  onClick={() => handleCityClick(city.name)}
+                  className="group min-w-0 overflow-hidden rounded-2xl border border-light-border bg-light-card/95 p-3 text-left shadow-sm transition hover:-translate-y-1 hover:border-cyan-400/50 hover:shadow-xl dark:border-dark-border dark:bg-dark-card/95 sm:rounded-3xl sm:p-5"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-xl bg-cyan-500/10 text-cyan-600 dark:text-cyan-300 sm:h-12 sm:w-12 sm:rounded-2xl">
+                      <MapPin className="h-4 w-4 sm:h-6 sm:w-6" />
+                    </div>
+                    {city.avgRent > 0 && (
+                      <span className="rounded-full bg-brand/10 px-2 py-1 text-[8px] font-black text-brand sm:text-xs">
+                        ₹{formatCount(city.avgRent)}
+                      </span>
+                    )}
+                  </div>
+                  <h3 className="mt-3 truncate text-[12px] font-black uppercase tracking-[-0.01em] text-light-text dark:text-dark-text sm:mt-5 sm:text-lg">
+                    {city.name}
+                  </h3>
+                  <p className="mt-1 text-[10px] font-bold leading-tight text-light-muted dark:text-dark-muted sm:text-sm">
+                    {formatCount(city.count)} rooms
+                  </p>
+                  {city.avgRent > 0 && (
+                    <p className="mt-1 text-[9px] font-black uppercase text-cyan-600 dark:text-cyan-300 sm:mt-3 sm:text-xs">Avg /month</p>
+                  )}
+                </button>
+              ))}
+            </div>
+          </section>
+        )}
+
+        <section className="mt-10 grid gap-2.5 sm:mt-12 sm:gap-4 md:grid-cols-3">
+          {[
+            { title: 'Search', text: 'Use city, date, radius, and filters to find the right room.', Icon: Search },
+            { title: 'Request', text: 'Send a booking request with profile and stay details.', Icon: MessageCircle },
+            { title: 'Move In', text: 'Confirm after host approval and keep the record in your dashboard.', Icon: CheckCircle2 },
+          ].map(({ title, text, Icon }) => (
+            <div key={title} className="card flex items-start gap-3 p-3.5 sm:block sm:p-6">
+              <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-2xl bg-cyan-500/10 text-cyan-600 dark:text-cyan-300 sm:h-auto sm:w-auto sm:bg-transparent">
+                <Icon className="h-5 w-5 sm:h-7 sm:w-7" />
+              </span>
+              <div className="min-w-0">
+                <h3 className="text-sm font-black text-light-text dark:text-dark-text sm:mt-5 sm:text-lg">{title}</h3>
+                <p className="mt-1 text-[11px] font-semibold leading-5 text-light-muted dark:text-dark-muted sm:mt-2 sm:text-sm sm:leading-6">{text}</p>
+              </div>
+            </div>
+          ))}
+        </section>
+
+        <section className="mt-10 rounded-3xl border border-light-border bg-light-card/95 p-3 text-light-text shadow-sm dark:border-dark-border dark:bg-dark-card/95 dark:text-dark-text sm:mt-12 sm:p-6 md:p-8">
+          <div className="grid grid-cols-3 gap-2 sm:gap-4">
+            <div className="min-w-0 rounded-2xl bg-light-bg p-2.5 text-center dark:bg-dark-input sm:flex sm:items-center sm:gap-3 sm:bg-transparent sm:p-0 sm:text-left dark:sm:bg-transparent">
+              <span className="mx-auto flex h-8 w-8 items-center justify-center rounded-xl bg-cyan-500/10 text-cyan-600 dark:text-cyan-300 sm:mx-0 sm:h-11 sm:w-11 sm:rounded-2xl">
+                <BadgeCheck className="h-4 w-4 sm:h-6 sm:w-6" />
+              </span>
+              <span className="mt-1 block text-[10px] font-black leading-tight sm:mt-0 sm:text-lg">{formatCount(stats.verifiedRooms || stats.totalRooms)} Verified</span>
+            </div>
+            <div className="min-w-0 rounded-2xl bg-light-bg p-2.5 text-center dark:bg-dark-input sm:flex sm:items-center sm:gap-3 sm:bg-transparent sm:p-0 sm:text-left dark:sm:bg-transparent">
+              <span className="mx-auto flex h-8 w-8 items-center justify-center rounded-xl bg-cyan-500/10 text-cyan-600 dark:text-cyan-300 sm:mx-0 sm:h-11 sm:w-11 sm:rounded-2xl">
+                <ShieldCheck className="h-4 w-4 sm:h-6 sm:w-6" />
+              </span>
+              <span className="mt-1 block text-[10px] font-black leading-tight sm:mt-0 sm:text-lg">Safe Booking</span>
+            </div>
+            <div className="min-w-0 rounded-2xl bg-light-bg p-2.5 text-center dark:bg-dark-input sm:flex sm:items-center sm:gap-3 sm:bg-transparent sm:p-0 sm:text-left dark:sm:bg-transparent">
+              <span className="mx-auto flex h-8 w-8 items-center justify-center rounded-xl bg-cyan-500/10 text-cyan-600 dark:text-cyan-300 sm:mx-0 sm:h-11 sm:w-11 sm:rounded-2xl">
+                <Home className="h-4 w-4 sm:h-6 sm:w-6" />
+              </span>
+              <span className="mt-1 block text-[10px] font-black leading-tight sm:mt-0 sm:text-lg">{formatCount(stats.totalCities)} Cities</span>
+            </div>
+          </div>
+        </section>
+      </main>
+
+      <FilterModal
+        isOpen={isFilterModalOpen}
+        onClose={() => setIsFilterModalOpen(false)}
+        criteria={searchCriteria}
+        onCriteriaChange={handleCriteriaChange}
+        onApplyFilters={() => {
+          setIsFilterModalOpen(false);
+          handleSearch();
+        }}
+      />
+    </div>
+  );
 }
 
 export default HomePage;

@@ -11,34 +11,39 @@ const {
   deleteRoom,
   createBooking,
   searchRooms,
-  updateRoomStatus
+  updateRoomStatus,
+  getRecommendedRooms,
+  getPriceRange,
+  getSimilarRooms
 } = require('../controllers/roomController');
 const { protect, restrictTo } = require('../middleware/authMiddleware');
-
-// Checkpoint
-router.use((req, res, next) => {
-  console.log(`[ROUTER]: Request received for: ${req.originalUrl}`);
-  next();
-});
-
-
+const { bookingRateLimiter } = require('../middleware/rateLimiter');
+const { validateRoomConfig } = require('../middleware/roomConfigValidation');
+const { roomConfig } = require('../utils/roomConfigUtils');
+const { suggestPrice, getRoomSentiment } = require('../controllers/aiFeatureController');
 
 //  General public routes
 router.route('/').get(getAllRooms);
+router.get('/config/fields', (req, res) => res.json(roomConfig));
 
 // Specific search route
 router.route('/search').post(searchRooms);
+router.route('/recommended').get(getRecommendedRooms);
+router.route('/price-range').get(getPriceRange);
+router.route('/similar/:id').get(getSimilarRooms);
+router.route('/suggest-price').post(protect, restrictTo('Student', 'Landlord'), suggestPrice);
 
 //  Specific protected routes
 router.route('/my-rooms').get(protect, restrictTo('Landlord'), getMyRooms);
 
 //Protected POST route for creating
-router.route('/').post(protect, createRoom);
+router.route('/').post(protect, validateRoomConfig, createRoom);
 
 // Booking route
-router.route('/:id/book').post(protect, restrictTo('Student'), createBooking);
+router.route('/:id/book').post(bookingRateLimiter, protect, restrictTo('Student'), createBooking);
 
 router.route('/:id/status').patch(protect, restrictTo('Landlord'), updateRoomStatus);
+router.route('/:id/sentiment').get(getRoomSentiment);
 
 // Wildcard/Dynamic routes 
 router.route('/:id')

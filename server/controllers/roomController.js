@@ -1,31 +1,254 @@
 const Room = require('../models/Room');
 const User = require('../models/User');
+const mongoose = require('mongoose');
 const asyncHandler = require('express-async-handler');
 const Application = require('../models/Application');
+const Notification = require('../models/Notification');
+const jwt = require('jsonwebtoken');
+const { getFilterableFields } = require('../utils/roomConfigUtils');
+const { sanitizeDateRange, toOptionalDate } = require('../utils/dateUtils');
+
+const LANDLORD_PUBLIC_FIELDS = [
+    'name',
+    'createdAt',
+    'avatarUrl',
+    'profilePicture',
+    'roleProfiles.landlord.name',
+    'roleProfiles.landlord.profilePicture',
+    'roleProfiles.landlord.avatarUrl',
+    'roleProfiles.landlord.city',
+    'roleProfiles.landlord.occupation',
+    'roleProfiles.landlord.bio',
+    'verificationLevel',
+    'trustScore',
+    'isVerified',
+    'kyc_status',
+    'verifications',
+    'isOnline',
+    'lastSeen'
+].join(' ');
+const LANDLORD_DETAIL_FIELDS = `${LANDLORD_PUBLIC_FIELDS} email mobileNumber phone`;
+const handledRoomQueryKeys = new Set([
+    'keyword', 'city', 'type', 'sort', 'limit', 'page', 'exclude', 'minRent', 'maxRent',
+    'beds', 'roomType', 'gender', 'familyStatus', 'amenities', 'availableFrom',
+    'checkInDate', 'checkOutDate', 'moveInDate', 'latitude', 'longitude', 'radius'
+]);
+const lockedInventoryStatuses = ['approved', 'confirmed', 'external', 'blocked'];
+
+const normalizePreferredOccupant = (value) => {
+    if (!value) return value;
+    if (String(value).toLowerCase() === 'student') return 'Individual';
+    if (String(value).toLowerCase() === 'room seeker') return 'Individual';
+    return value;
+};
+
+const toNumberLike = (value) => {
+    const rawValue = value && typeof value === 'object' ? value.value : value;
+    if (rawValue === undefined || rawValue === null || rawValue === '') return undefined;
+    if (typeof rawValue === 'string' && /\b(no\s*deposit|none|free|n\/a|na)\b/i.test(rawValue)) return 0;
+    const numericValue = Number(String(rawValue).replace(/[^\d.-]/g, ''));
+    return Number.isFinite(numericValue) ? numericValue : undefined;
+};
+
+const numericRoomFields = [
+    'rent',
+    'maxOccupants',
+    'bathrooms',
+    'beds',
+    'totalFloors',
+    'securityDeposit',
+    'maintenanceCharge',
+    'waterCharge',
+    'originalRent',
+    'responseRate',
+    'recentReviewsCount',
+    'activeApplicationsCount',
+    'views',
+];
+
+const numericFieldDefaults = {
+    rent: 0,
+    maxOccupants: 1,
+    bathrooms: 1,
+    beds: 1,
+    securityDeposit: 0,
+    maintenanceCharge: 0,
+    waterCharge: 0,
+    recentReviewsCount: 0,
+    activeApplicationsCount: 0,
+    views: 0,
+};
+
+const normalizeNumericRoomPayload = (payload = {}) => {
+    if (!payload || typeof payload !== 'object') return payload;
+    const normalizedPayload = { ...payload };
+
+    numericRoomFields.forEach((field) => {
+        if (!Object.prototype.hasOwnProperty.call(normalizedPayload, field)) return;
+
+        const numericValue = toNumberLike(normalizedPayload[field]);
+        if (numericValue !== undefined) {
+            normalizedPayload[field] = numericValue;
+            return;
+        }
+
+        if (Object.prototype.hasOwnProperty.call(numericFieldDefaults, field)) {
+            normalizedPayload[field] = numericFieldDefaults[field];
+        } else {
+            delete normalizedPayload[field];
+        }
+    });
+
+    return normalizedPayload;
+};
+
+const valueUnitDefaults = {
+    noticePeriod: 'days',
+    minimumStay: 'months',
+    distanceCollege: 'km',
+    distanceHospital: 'km',
+    distanceMetro: 'km',
+    distanceBusStand: 'km',
+    distanceRailway: 'km',
+    distanceMarket: 'km',
+};
+
+const normalizeValueUnitPayload = (payload = {}) => {
+    if (!payload || typeof payload !== 'object') return payload;
+    const normalizedPayload = { ...payload };
+    Object.entries(valueUnitDefaults).forEach(([field, unit]) => {
+        if (!Object.prototype.hasOwnProperty.call(normalizedPayload, field)) return;
+        const fieldValue = normalizedPayload[field];
+        const numericValue = toNumberLike(fieldValue);
+        if (numericValue === undefined) {
+            delete normalizedPayload[field];
+            return;
+        }
+        normalizedPayload[field] = {
+            value: numericValue,
+            unit: fieldValue && typeof fieldValue === 'object' ? fieldValue.unit || unit : unit,
+        };
+    });
+    return normalizedPayload;
+};
+
+const normalizeRulesPayload = (rules = {}) => {
+    if (!rules || typeof rules !== 'object') return rules;
+    const normalizedRules = { ...rules };
+    if (Object.prototype.hasOwnProperty.call(normalizedRules, 'noticePeriod')) {
+        const numericNoticePeriod = toNumberLike(normalizedRules.noticePeriod);
+        if (numericNoticePeriod === undefined) delete normalizedRules.noticePeriod;
+        else normalizedRules.noticePeriod = numericNoticePeriod;
+    }
+    return normalizedRules;
+};
+
+const sanitizeRoomDatePayload = (payload = {}) => {
+    if (!payload || typeof payload !== 'object') return payload;
+    const normalizedPayload = { ...payload };
+
+    ['startDate', 'endDate', 'checkInDate', 'checkOutDate', 'availableTo'].forEach((field) => {
+        delete normalizedPayload[field];
+    });
+
+    ['availableFrom', 'deletedAt', 'submittedForReviewAt'].forEach((field) => {
+        if (!Object.prototype.hasOwnProperty.call(normalizedPayload, field)) return;
+        const date = toOptionalDate(normalizedPayload[field]);
+        if (date) normalizedPayload[field] = date;
+        else delete normalizedPayload[field];
+    });
+
+    if (Array.isArray(normalizedPayload.unavailableRanges)) {
+        normalizedPayload.unavailableRanges = normalizedPayload.unavailableRanges
+            .map(sanitizeDateRange)
+            .filter(Boolean);
+    }
+
+    return normalizedPayload;
+};
+
+const buildConfiguredFilter = (query, field, rawValue) => {
+    if (rawValue === undefined || rawValue === null || rawValue === '') return;
+    if (field.sectionId === 'amenities') {
+        query[`facilities.${field.key}`] = rawValue === true || rawValue === 'true' || rawValue === '1';
+        return;
+    }
+    if (field.sectionId === 'rules') {
+        query[`rules.${field.key}`] = field.type === 'boolean' ? (rawValue === true || rawValue === 'true' || rawValue === '1') : rawValue;
+        return;
+    }
+    if (field.sectionId === 'location') {
+        const value = String(rawValue).trim();
+        if (value) query[`location.${field.key}`] = { $regex: value, $options: 'i' };
+        return;
+    }
+    if (field.type === 'boolean') {
+        query[field.key] = rawValue === true || rawValue === 'true' || rawValue === '1';
+        return;
+    }
+    if (field.type === 'number') {
+        const numericValue = Number(rawValue);
+        if (!Number.isNaN(numericValue)) {
+            query[field.key] = field.searchOperator === 'gte' ? { $gte: numericValue } : numericValue;
+        }
+        return;
+    }
+    if (field.type === 'text') {
+        query[field.key] = { $regex: String(rawValue), $options: 'i' };
+        return;
+    }
+    query[field.key] = rawValue;
+};
+
+const addAvailabilityExclusion = (query, { startDate, endDate }) => {
+    if (!startDate) return;
+    const start = toOptionalDate(startDate);
+    if (!start) return;
+
+    const end = endDate ? toOptionalDate(endDate) : new Date(start);
+    if (!endDate) end.setDate(end.getDate() + 30);
+    if (!end || end.getTime() <= start.getTime()) return;
+
+    query.unavailableRanges = {
+        $not: {
+            $elemMatch: {
+                status: { $in: lockedInventoryStatuses },
+                startDate: { $lt: end },
+                endDate: { $gt: start },
+            },
+        },
+    };
+};
 
 // CREATE ROOM
 exports.createRoom = asyncHandler(async (req, res) => {
     try {
-        const {
-            title, description, location, beds, imageUrl, images, roomType,
-            tenantPreferences, kitchen, floor, videoUrl, securityDeposit,
-            facilities, kitchenAmenities, rules, rent,
-            distanceCollege, distanceHospital, distanceMetro, distanceBusStand,
-            distanceRailway, distanceMarket, noticePeriod, minimumStay, gateClosingTime
-        } = req.body;
+        const roomPayload = normalizeNumericRoomPayload(sanitizeRoomDatePayload(normalizeValueUnitPayload({ ...req.body })));
+        roomPayload.rules = normalizeRulesPayload(roomPayload.rules);
 
-        if (!location || !location.coordinates || !location.fullAddress || !location.city) {
+        if (!roomPayload.location || !roomPayload.location.coordinates || !roomPayload.location.fullAddress || !roomPayload.location.city) {
             return res.status(400).json({ message: 'A complete location object is required.' });
         }
 
+        const familyStatus = roomPayload.familyStatus || roomPayload.tenantPreferences?.familyStatus || 'Any';
+        const normalizedFamilyStatus = familyStatus === 'Bachelors Only' ? 'Bachelors' : familyStatus === 'Family Only' ? 'Family' : familyStatus;
+        const allowedGender = roomPayload.gender || roomPayload.tenantPreferences?.allowedGender || 'Any';
+
         const room = new Room({
+            ...roomPayload,
+            preferredOccupant: normalizePreferredOccupant(roomPayload.preferredOccupant),
             landlord: req.user._id,
-            title, description, location,
-            beds, imageUrl, images, roomType,
-            tenantPreferences, kitchen, floor, videoUrl, securityDeposit,
-            facilities, kitchenAmenities, rules, rent,
-            distanceCollege, distanceHospital, distanceMetro, distanceBusStand,
-            distanceRailway, distanceMarket, noticePeriod, minimumStay, gateClosingTime,
+            tenantPreferences: {
+                familyStatus: normalizedFamilyStatus,
+                allowedGender,
+            },
+            familyStatus: normalizedFamilyStatus,
+            gender: allowedGender,
+            location: {
+                ...roomPayload.location,
+                postalCode: roomPayload.location.postalCode || roomPayload.location.pincode,
+                pincode: roomPayload.location.pincode || roomPayload.location.postalCode,
+            },
             status: 'Pending'
         });
 
@@ -35,7 +258,6 @@ exports.createRoom = asyncHandler(async (req, res) => {
 
         res.status(201).json(createdRoom);
     } catch (error) {
-        console.error("Error in createRoom:", error);
         res.status(400).json({ message: 'Error creating room', error: error.message });
     }
 });
@@ -43,9 +265,121 @@ exports.createRoom = asyncHandler(async (req, res) => {
 // GET ALL ROOMS
 exports.getAllRooms = asyncHandler(async (req, res) => {
     try {
-        const keyword = req.query.keyword ? { "location.city": { $regex: req.query.keyword, $options: 'i' } } : {};
-        const query = { ...keyword, status: 'Published' };
-        const rooms = await Room.find(query);
+        const {
+            keyword,
+            city,
+            type,
+            sort,
+            limit = 0,
+            page,
+            exclude,
+            minRent,
+            maxRent,
+            beds,
+            roomType,
+            gender,
+            familyStatus,
+            amenities,
+            availableFrom,
+            checkInDate,
+            checkOutDate,
+            moveInDate,
+            latitude,
+            longitude,
+            radius,
+        } = req.query;
+        const query = { status: 'Published', isDeleted: { $ne: true } };
+
+        const cityKeyword = city || keyword;
+        if (cityKeyword) query['location.city'] = { $regex: cityKeyword, $options: 'i' };
+        if (latitude && longitude && radius) {
+            const radiusInMeters = Math.max(Number(radius) || 5, 1) * 1000;
+            query.location = {
+                $geoWithin: {
+                    $centerSphere: [[Number(longitude), Number(latitude)], radiusInMeters / 6378100]
+                }
+            };
+        }
+        if (exclude) query._id = { $ne: exclude };
+        if (roomType) query.roomType = roomType;
+        if (type && type !== 'All') {
+            if (type === 'Rooms') query.roomType = { $regex: 'Room', $options: 'i' };
+            else if (type === 'Flats') query.roomType = { $regex: 'Flat|BHK', $options: 'i' };
+            else query.roomType = { $regex: type, $options: 'i' };
+        }
+        if (gender && gender !== 'Any') {
+            query.$or = [
+                { gender },
+                { 'tenantPreferences.allowedGender': gender },
+                { gender: 'Any' },
+                { 'tenantPreferences.allowedGender': 'Any' },
+            ];
+        }
+        if (familyStatus && familyStatus !== 'Any') {
+            const normalizedFamily = familyStatus === 'Bachelors Only' ? 'Bachelors' : familyStatus === 'Family Only' ? 'Family' : familyStatus;
+            query.$and = [
+                ...(query.$and || []),
+                {
+                    $or: [
+                        { familyStatus: normalizedFamily },
+                        { 'tenantPreferences.familyStatus': normalizedFamily },
+                        { familyStatus: 'Any' },
+                        { 'tenantPreferences.familyStatus': 'Any' },
+                    ],
+                },
+            ];
+        }
+        if (minRent || maxRent) {
+            query.rent = {};
+            if (minRent) query.rent.$gte = Number(minRent);
+            if (maxRent) query.rent.$lte = Number(maxRent);
+        }
+        if (beds) query.beds = Number(beds);
+        const availableFromDate = toOptionalDate(availableFrom);
+        if (availableFromDate) query.availableFrom = { $lte: availableFromDate };
+        addAvailabilityExclusion(query, {
+            startDate: checkInDate || moveInDate,
+            endDate: checkOutDate,
+        });
+        if (amenities) {
+            String(amenities).split(',').filter(Boolean).forEach((amenity) => {
+                query[`facilities.${amenity}`] = true;
+            });
+        }
+        getFilterableFields().forEach((field) => {
+            if (handledRoomQueryKeys.has(field.key)) return;
+            buildConfiguredFilter(query, field, req.query[field.key]);
+        });
+
+        let sortOption = { createdAt: -1 };
+        if (sort === 'views' || sort === 'popular') sortOption = { views: -1, createdAt: -1 };
+        if (sort === 'price_asc') sortOption = { rent: 1 };
+        if (sort === 'price_desc') sortOption = { rent: -1 };
+        if (sort === 'rating') sortOption = { averageRating: -1, numReviews: -1 };
+
+        const pageNumber = page ? Math.max(Number(page), 1) : null;
+        const limitNumber = Number(limit) > 0 ? Math.min(Number(limit), 48) : 0;
+        const skip = pageNumber && limitNumber ? (pageNumber - 1) * limitNumber : 0;
+
+        const findQuery = Room.find(query).populate('landlord', LANDLORD_PUBLIC_FIELDS).sort(sortOption);
+        if (skip) findQuery.skip(skip);
+        if (limitNumber) findQuery.limit(limitNumber);
+
+        const [rooms, total] = await Promise.all([
+            findQuery.lean(),
+            pageNumber ? Room.countDocuments(query) : Promise.resolve(0),
+        ]);
+
+        if (pageNumber) {
+            return res.json({
+                data: rooms,
+                count: rooms.length,
+                total,
+                page: pageNumber,
+                totalPages: limitNumber ? Math.ceil(total / limitNumber) : 1,
+            });
+        }
+
         res.json(rooms);
     } catch (error) {
         res.status(500).json({ message: 'Server Error' });
@@ -56,8 +390,8 @@ exports.getAllRooms = asyncHandler(async (req, res) => {
 // SEARCH ROOMS 
 exports.searchRooms = asyncHandler(async (req, res) => {
     try {
-        const { latitude, longitude, radius, city, minRent, maxRent, beds, roomType } = req.body;
-        let query = { status: 'Published' };
+        const { latitude, longitude, radius, city, minRent, maxRent, beds, roomType, checkInDate, checkOutDate, moveInDate } = req.body;
+        let query = { status: 'Published', isDeleted: { $ne: true } };
 
         if (latitude && longitude && radius) {
             const radiusInMeters = parseFloat(radius) * 1000;
@@ -75,50 +409,161 @@ exports.searchRooms = asyncHandler(async (req, res) => {
         }
         if (beds) { query.beds = parseInt(beds); }
         if (roomType) { query.roomType = roomType; }
+        addAvailabilityExclusion(query, {
+            startDate: checkInDate || moveInDate,
+            endDate: checkOutDate,
+        });
 
-        const rooms = await Room.find(query);
+        const rooms = await Room.find(query)
+            .populate('landlord', LANDLORD_PUBLIC_FIELDS)
+            .lean();
         res.status(200).json({
             message: `${rooms.length} rooms found.`,
             count: rooms.length,
             data: rooms
         });
     } catch (error) {
-        console.error("Error in searchRooms:", error);
         res.status(500).json({ message: 'Server Error', error: error.message });
     }
+});
+
+exports.getRecommendedRooms = asyncHandler(async (req, res) => {
+    const limit = Math.min(Number(req.query.limit) || 8, 24);
+    let userId = req.query.userId;
+
+    if (!userId && req.headers.authorization?.startsWith('Bearer ') && process.env.JWT_SECRET) {
+        try {
+            const decoded = jwt.verify(req.headers.authorization.split(' ')[1], process.env.JWT_SECRET);
+            userId = decoded.id;
+        } catch (error) {
+            userId = null;
+        }
+    }
+
+    if (userId) {
+        const user = await User.findById(userId).populate('wishlist', 'location rent').lean();
+        const wishlistRooms = user?.wishlist || [];
+        const cities = [...new Set(wishlistRooms.map((room) => room.location?.city).filter(Boolean))];
+        const rents = wishlistRooms.map((room) => Number(room.rent || 0)).filter((rent) => rent > 0);
+
+        if (cities.length || rents.length) {
+            const query = { status: 'Published', isDeleted: { $ne: true } };
+            if (cities.length) query['location.city'] = { $in: cities };
+            if (rents.length) {
+                const avgRent = rents.reduce((sum, rent) => sum + rent, 0) / rents.length;
+                query.rent = { $gte: Math.max(0, avgRent * 0.7), $lte: avgRent * 1.3 };
+            }
+            if (wishlistRooms.length) query._id = { $nin: wishlistRooms.map((room) => room._id) };
+
+            const personalized = await Room.find(query)
+                .populate('landlord', LANDLORD_PUBLIC_FIELDS)
+                .sort({ averageRating: -1, views: -1, createdAt: -1 })
+                .limit(limit)
+                .lean();
+
+            if (personalized.length) {
+                return res.json({ data: personalized, count: personalized.length, personalized: true });
+            }
+        }
+    }
+
+    const rooms = await Room.find({ status: 'Published', isDeleted: { $ne: true } })
+        .populate('landlord', LANDLORD_PUBLIC_FIELDS)
+        .sort({ views: -1, averageRating: -1, createdAt: -1 })
+        .limit(limit)
+        .lean();
+
+    res.json({ data: rooms, count: rooms.length, personalized: false });
+});
+
+exports.getPriceRange = asyncHandler(async (req, res) => {
+    const result = await Room.aggregate([
+        { $match: { status: 'Published', isDeleted: { $ne: true } } },
+        { $group: { _id: null, min: { $min: '$rent' }, max: { $max: '$rent' } } }
+    ]);
+
+    res.json(result[0] || { min: 0, max: 0 });
+});
+
+exports.getSimilarRooms = asyncHandler(async (req, res) => {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+        return res.status(400).json({ message: 'Invalid room id.' });
+    }
+
+    const room = await Room.findById(req.params.id).lean();
+    if (!room || room.isDeleted) {
+        return res.status(404).json({ message: 'Room not found' });
+    }
+
+    const rent = Number(room.rent || 0);
+    const orClauses = [];
+    if (room.location?.city) orClauses.push({ 'location.city': room.location.city });
+    if (room.roomType) orClauses.push({ roomType: room.roomType });
+    if (rent > 0) {
+        orClauses.push({ rent: { $gte: rent * 0.7, $lte: rent * 1.3 } });
+    }
+
+    const similar = await Room.find({
+        _id: { $ne: room._id },
+        status: 'Published',
+        isDeleted: { $ne: true },
+        ...(orClauses.length ? { $or: orClauses } : {}),
+    })
+        .populate('landlord', LANDLORD_PUBLIC_FIELDS)
+        .select('title rent location roomType images imageUrl averageRating numReviews beds gender familyStatus facilities createdAt landlord')
+        .sort({ averageRating: -1, views: -1, createdAt: -1 })
+        .limit(8)
+        .lean();
+
+    res.json({ data: similar, count: similar.length });
 });
 
 
 // GET ROOM BY ID
 exports.getRoomById = asyncHandler(async (req, res) => {
     try {
+        if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+            return res.status(400).json({ message: 'Invalid room id.' });
+        }
+
         // Use populate to fetch related landlord details, including name, email, and join date.
-        const room = await Room.findById(req.params.id).populate('landlord', 'name email createdAt');
+        const room = await Room.findById(req.params.id)
+            .populate('landlord', LANDLORD_DETAIL_FIELDS)
+            .lean();
         
-        if (room) {
+        if (room && !room.isDeleted) {
             if (room.status === 'Published' && req.user?.roles && !req.user.roles.includes('Landlord')) {
+                await Room.findByIdAndUpdate(room._id, { $inc: { views: 1 } });
                 room.views = (room.views || 0) + 1;
-                await room.save({ validateBeforeSave: false });
             }
+            const [totalRequests, respondedRequests] = await Promise.all([
+                Application.countDocuments({ room: room._id, type: 'request' }),
+                Application.countDocuments({ room: room._id, type: 'request', status: { $in: ['approved', 'rejected', 'confirmed'] } })
+            ]);
+            room.responseRate = totalRequests > 0 ? Math.round((respondedRequests / totalRequests) * 100) : null;
             // The frontend expects the room object directly, not nested under a 'data' key.
             res.json(room);
         } else {
             res.status(404).json({ message: 'Room not found' });
         }
     } catch (error) {
-        res.status(500).json({ message: 'Server Error' });
+        res.status(500).json({ message: 'Could not load room details.', error: error.message });
     }
 });
 
 // GET MY ROOMS (for Landlord)
 exports.getMyRooms = asyncHandler(async (req, res) => {
     try {
-        const rooms = await Room.find({ landlord: req.user._id }).sort({ createdAt: -1 }).lean();
+        const [rooms, landlord] = await Promise.all([
+            Room.find({ landlord: req.user._id, isDeleted: { $ne: true } }).sort({ createdAt: -1 }).lean(),
+            User.findById(req.user._id).select(LANDLORD_PUBLIC_FIELDS).lean(),
+        ]);
         const roomsWithStats = await Promise.all(
             rooms.map(async (room) => {
                 const applicationCount = await Application.countDocuments({ room: room._id });
                 return {
                     ...room,
+                    landlord,
                     stats: {
                         views: room.views || 0,
                         applications: applicationCount,
@@ -129,7 +574,6 @@ exports.getMyRooms = asyncHandler(async (req, res) => {
         );
         res.json(roomsWithStats);
     } catch (error) {
-        console.error("Error in getMyRooms:", error);
         res.status(500).json({ message: 'Server Error' });
     }
 });
@@ -138,13 +582,17 @@ exports.getMyRooms = asyncHandler(async (req, res) => {
 // DELETE ROOM
 exports.deleteRoom = asyncHandler(async (req, res) => {
     try {
-        const room = await Room.findById(req.params.id);
+        const room = await Room.findOne({ _id: req.params.id, isDeleted: { $ne: true } });
         if (room) {
             if (room.landlord.toString() !== req.user._id.toString()) {
                 return res.status(401).json({ message: 'Not authorized' });
             }
-            await room.deleteOne();
-            res.json({ message: 'Room removed' });
+            room.isDeleted = true;
+            room.deletedAt = new Date();
+            room.deletedBy = req.user._id;
+            room.status = 'Unpublished';
+            await room.save({ validateBeforeSave: false });
+            res.json({ message: 'Room archived' });
         } else {
             res.status(404).json({ message: 'Room not found' });
         }
@@ -157,32 +605,87 @@ exports.deleteRoom = asyncHandler(async (req, res) => {
 // UPDATE ROOM
 exports.updateRoom = asyncHandler(async (req, res) => {
     try {
+        if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+            return res.status(400).json({ message: 'Invalid room id.' });
+        }
+
         const room = await Room.findById(req.params.id);
-        if (!room) {
+        if (!room || room.isDeleted) {
             return res.status(404).json({ message: 'Room not found' });
         }
         if (room.landlord.toString() !== req.user._id.toString()) {
             return res.status(401).json({ message: 'Not authorized' });
         }
 
-        const newRoomData = req.body;
-        const majorFields = ['title', 'images', 'location', 'roomType'];
+        const newRoomData = normalizeNumericRoomPayload(sanitizeRoomDatePayload(normalizeValueUnitPayload({ ...req.body })));
+        newRoomData.rules = normalizeRulesPayload(newRoomData.rules);
+        if (Object.prototype.hasOwnProperty.call(newRoomData, 'preferredOccupant')) {
+            newRoomData.preferredOccupant = normalizePreferredOccupant(newRoomData.preferredOccupant);
+        }
+        if (newRoomData.familyStatus || newRoomData.gender || newRoomData.tenantPreferences) {
+            const familyStatus = newRoomData.familyStatus || newRoomData.tenantPreferences?.familyStatus || room.tenantPreferences?.familyStatus || 'Any';
+            const normalizedFamilyStatus = familyStatus === 'Bachelors Only' ? 'Bachelors' : familyStatus === 'Family Only' ? 'Family' : familyStatus;
+            const allowedGender = newRoomData.gender || newRoomData.tenantPreferences?.allowedGender || room.tenantPreferences?.allowedGender || 'Any';
+            newRoomData.tenantPreferences = {
+                familyStatus: normalizedFamilyStatus,
+                allowedGender,
+            };
+            newRoomData.familyStatus = normalizedFamilyStatus;
+            newRoomData.gender = allowedGender;
+        }
+        if (newRoomData.location) {
+            newRoomData.location = {
+                ...newRoomData.location,
+                postalCode: newRoomData.location.postalCode || newRoomData.location.pincode,
+                pincode: newRoomData.location.pincode || newRoomData.location.postalCode,
+            };
+        }
+        const majorFields = [
+            'title',
+            'description',
+            'images',
+            'imageUrl',
+            'location',
+            'roomType',
+            'rent',
+            'securityDeposit',
+            'maintenanceCharge',
+            'maxOccupants',
+            'bathrooms',
+            'washroomType',
+            'furnishingStatus',
+            'gender',
+            'familyStatus',
+            'tenantPreferences',
+            'preferredOccupant',
+            'facilities',
+            'rules',
+            'availableFrom',
+            'documents',
+            'videoUrl',
+        ];
         let isMajorChange = false;
 
         for (const field of majorFields) {
-            if (newRoomData[field] && JSON.stringify(newRoomData[field]) !== JSON.stringify(room[field])) {
+            if (Object.prototype.hasOwnProperty.call(newRoomData, field) && JSON.stringify(newRoomData[field]) !== JSON.stringify(room[field])) {
                 isMajorChange = true;
                 break;
             }
         }
-        if (!isMajorChange && newRoomData.rent && room.rent) {
-            const rentChangePercentage = Math.abs(newRoomData.rent - room.rent) / room.rent;
+        if (!isMajorChange && Object.prototype.hasOwnProperty.call(newRoomData, 'rent') && room.rent) {
+            const rentChangePercentage = Math.abs(Number(newRoomData.rent) - Number(room.rent)) / Number(room.rent);
             if (rentChangePercentage > 0.20) {
                 isMajorChange = true;
             }
         }
         if (isMajorChange) {
             newRoomData.status = 'Pending';
+            newRoomData.rejectionReason = '';
+            newRoomData.rejection_reason = '';
+            newRoomData.submittedForReviewAt = new Date();
+            newRoomData.reviewReason = room.status === 'Published'
+                ? 'Landlord edited live listing details.'
+                : 'Landlord submitted updated listing details.';
         }
 
         const updatedRoom = await Room.findByIdAndUpdate(
@@ -193,7 +696,6 @@ exports.updateRoom = asyncHandler(async (req, res) => {
         res.json(updatedRoom);
 
     } catch (error) {
-        console.error("Error in updateRoom:", error);
         res.status(400).json({ message: 'Error updating room', error: error.message });
     }
 });
@@ -203,24 +705,50 @@ exports.updateRoom = asyncHandler(async (req, res) => {
 exports.updateRoomStatus = asyncHandler(async (req, res) => {
     try {
         const { status } = req.body;
-        const room = await Room.findById(req.params.id);
+        if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+            return res.status(400).json({ message: 'Invalid room id.' });
+        }
+        const room = await Room.findOne({ _id: req.params.id, isDeleted: { $ne: true } });
         if (!room) { return res.status(404).json({ message: 'Room not found' }); }
-        if (room.landlord.toString() !== req.user.id.toString()) {
+        if (!room.landlord) {
+            return res.status(400).json({ message: 'This listing has no host attached. Please contact support.' });
+        }
+        if (room.landlord.toString() !== req.user._id.toString()) {
             return res.status(401).json({ message: 'User not authorized' });
         }
         if (!['Published', 'Unpublished'].includes(status)) {
             return res.status(400).json({ message: 'Invalid status value.' });
         }
-        if (status === 'Published' && room.status === 'Unpublished') {
-            room.status = 'Pending';
-        } else {
-            room.status = status;
+        if (room.status === status) {
+            return res.status(200).json(room.toObject());
         }
-        const updatedRoom = await room.save();
-        res.status(200).json(updatedRoom);
+        if (['Booked', 'Confirmed'].includes(room.status)) {
+            return res.status(409).json({ message: 'Booked listings cannot be unpublished. Close or cancel the active booking first.' });
+        }
+        if (['Pending', 'Pending_Review'].includes(room.status)) {
+            return res.status(409).json({ message: 'This listing is already waiting for admin review.' });
+        }
+
+        const nextStatus = status === 'Published' && ['Unpublished', 'Rejected', 'Suspended'].includes(room.status)
+            ? 'Pending'
+            : status;
+
+        room.status = nextStatus;
+        if (nextStatus === 'Pending') {
+            room.rejectionReason = '';
+            room.rejection_reason = '';
+            room.submittedForReviewAt = new Date();
+            room.reviewReason = 'Landlord requested publishing review.';
+        }
+
+        const updatedRoom = await room.save({ validateBeforeSave: false });
+        const roomObject = updatedRoom.toObject();
+        roomObject.landlord = req.user;
+
+        res.status(200).json(roomObject);
     } catch (error) {
-        console.error('Error updating room status:', error);
-        res.status(500).json({ message: 'Server Error' });
+        console.error('Room status update failed:', error);
+        res.status(400).json({ message: 'Could not update room status.', error: error.message });
     }
 });
 
@@ -231,7 +759,7 @@ exports.createBooking = asyncHandler(async (req, res) => {
     const studentId = req.user._id;
 
     // Find the room to ensure it exists and to get the landlord's ID.
-    const room = await Room.findById(roomId);
+    const room = await Room.findOne({ _id: roomId, isDeleted: { $ne: true } });
     if (!room) {
         res.status(404);
         throw new Error('Room not found');
@@ -263,7 +791,7 @@ exports.createBooking = asyncHandler(async (req, res) => {
         room: roomId,
         message,
         occupants, // This should be an object e.g., { males: 1, females: 0 }
-        status: 'Pending',
+        status: 'pending',
     });
 
     const createdApplication = await application.save();

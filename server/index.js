@@ -2,15 +2,16 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const compression = require('compression');
-require('dotenv').config({ path: './.env' });
+const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '.env') });
 const http = require('http');
 const { Server } = require('socket.io');
-const path = require('path');
 
 // --- Route Imports ---
 const authRoutes = require('./routes/auth');
 const roomRoutes = require('./routes/rooms');
 const chatRoutes = require('./routes/chatRoutes');
+const conversationRoutes = require('./routes/conversationRoutes');
 const uploadRoutes = require('./routes/uploadRoutes');
 const userRoutes = require('./routes/userRoutes');
 const applicationRoutes = require('./routes/applicationRoutes');
@@ -21,53 +22,62 @@ const adminRoutes = require('./routes/adminRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
 const insightsRoutes = require('./routes/insightsRoutes');
 const searchRoutes = require('./routes/searchRoutes');
+const enhancedSearchRoutes = require('./routes/enhancedSearchRoutes');
+const verificationRoutes = require('./routes/verificationRoutes');
+const statsRoutes = require('./routes/statsRoutes');
+const chatbotRoutes = require('./routes/chatbotRoutes');
+const settingsRoutes = require('./routes/settingsRoutes');
+const supportRoutes = require('./routes/supportRoutes');
+const { notFound, errorHandler } = require('./middleware/errorMiddleware');
 
 const app = express();
 const server = http.createServer(app);
 
-// Allowed static origins
-const allowedOrigins = [
-  "http://localhost:5173",
-  "https://roomradar-three.vercel.app"
-];
+const envOrigins = (process.env.CLIENT_URL || '')
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean);
 
-// --- CORS Logic (Shared) ---
-// Checks if origin is allowed or ends with .vercel.app
+const allowedOrigins = [
+  'http://localhost:5173',
+  'http://localhost:5174',
+  'https://roomradar-three.vercel.app',
+].concat(envOrigins);
+
 const checkOrigin = (origin, callback) => {
   if (!origin) return callback(null, true);
-  
+
   if (allowedOrigins.includes(origin) || origin.endsWith('.vercel.app')) {
-    callback(null, true);
-  } else {
-    console.log("Blocked by CORS:", origin);
-    callback(new Error('Not allowed by CORS'));
+    return callback(null, true);
   }
+
+  return callback(new Error('Not allowed by CORS'));
 };
 
-// --- Express CORS Setup ---
 const corsOptions = {
   origin: checkOrigin,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
-  credentials: true
+  credentials: true,
 };
 
 app.use(cors(corsOptions));
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
 app.use(compression());
 
-// --- Socket.IO Setup ---
 const io = new Server(server, {
   cors: {
-    origin: checkOrigin, // Applied smart CORS logic here too
-    methods: ["GET", "POST"],
-    credentials: true
-  }
+    origin: checkOrigin,
+    methods: ['GET', 'POST'],
+    credentials: true,
+  },
 });
 
-// --- API Routes ---
+app.set('io', io);
+
 app.use('/api/auth', authRoutes);
 app.use('/api/rooms', roomRoutes);
 app.use('/api/chat', chatRoutes);
+app.use('/api/conversations', conversationRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/applications', applicationRoutes);
@@ -78,61 +88,105 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/insights', insightsRoutes);
 app.use('/api/search', searchRoutes);
+app.use('/api/enhanced-search', enhancedSearchRoutes);
+app.use('/api/verification', verificationRoutes);
+app.use('/api/stats', statsRoutes);
+app.use('/api/chatbot', chatbotRoutes);
+app.use('/api/settings', settingsRoutes);
+app.use('/api/support', supportRoutes);
 
-// --- Socket.IO Logic ---
+app.use(notFound);
+app.use(errorHandler);
+
 let onlineUsers = [];
 
 const addUser = (userId, socketId) => {
-  !onlineUsers.some(user => user.userId === userId) &&
-    onlineUsers.push({ userId, socketId });
+  const normalizedUserId = userId?.toString();
+  if (!normalizedUserId) return;
+
+  onlineUsers = onlineUsers.filter((user) => user.userId !== normalizedUserId);
+  onlineUsers.push({ userId: normalizedUserId, socketId });
 };
 
 const removeUser = (socketId) => {
-  onlineUsers = onlineUsers.filter(user => user.socketId !== socketId);
+  onlineUsers = onlineUsers.filter((user) => user.socketId !== socketId);
+};
+
+const broadcastOnlineUsers = () => {
+  io.emit('getUsers', onlineUsers.map((user) => user.userId));
 };
 
 const getUser = (userId) => {
-  return onlineUsers.find(user => user.userId === userId);
+  const normalizedUserId = userId?.toString();
+  return onlineUsers.find((user) => user.userId === normalizedUserId);
 };
 
-io.on("connection", (socket) => {
-  console.log(`✅ User Connected: ${socket.id}`);
-
-  socket.on("addUser", (userId) => {
-    addUser(userId, socket.id);
-    console.log("Online Users:", onlineUsers);
-  });
-
-  socket.on("sendMessage", ({ senderId, receiverId, text, conversationId }) => {
-    console.log(`📩 Message from ${senderId} to ${receiverId}`);
-    const receiver = getUser(receiverId);
-    if (receiver) {
-      io.to(receiver.socketId).emit("getMessage", {
-        senderId,
-        text,
-        conversationId,
-        createdAt: new Date(),
-      });
-      console.log(`🚀 Message sent to socket: ${receiver.socketId}`);
-    } else {
-      console.log(`❌ Receiver ${receiverId} is not online.`);
+io.on('connection', (socket) => {
+  socket.on('setup', (userId) => {
+    if (userId) {
+      socket.join(userId.toString());
     }
   });
 
-  socket.on("disconnect", () => {
-    console.log(`🔌 User Disconnected: ${socket.id}`);
+  socket.on('addUser', (userId) => {
+    if (userId) {
+      socket.join(userId.toString());
+      addUser(userId, socket.id);
+      broadcastOnlineUsers();
+    }
+  });
+
+  socket.on('sendMessage', ({ senderId, receiverId, text, conversationId }) => {
+    const payload = {
+      senderId,
+      text,
+      conversationId,
+      createdAt: new Date(),
+    };
+
+    const receiver = getUser(receiverId);
+    if (receiver) {
+      io.to(receiver.socketId).emit('getMessage', payload);
+    }
+    if (receiverId) {
+      io.to(receiverId.toString()).emit('getMessage', payload);
+    }
+  });
+
+  socket.on('disconnect', () => {
     removeUser(socket.id);
-    console.log("Online Users:", onlineUsers);
+    broadcastOnlineUsers();
   });
 });
 
-// --- Server & DB Connection ---
+module.exports.io = io;
+
 const PORT = process.env.PORT || 5000;
 const MONGO_URI = process.env.MONGO_URI;
 
+const startServer = (port, attempt = 0) => {
+  const numericPort = Number(port);
+
+  server.once('error', (error) => {
+    if (error.code === 'EADDRINUSE' && attempt < 10) {
+      const nextPort = numericPort + 1;
+      process.stdout.write(`Port ${numericPort} is already in use. Trying ${nextPort}...\n`);
+      startServer(nextPort, attempt + 1);
+      return;
+    }
+
+    process.stderr.write(`Server failed to start: ${error.message}\n`);
+    process.exit(1);
+  });
+
+  server.listen(numericPort, () => process.stdout.write(`Server running on port ${numericPort}\n`));
+};
+
 mongoose.connect(MONGO_URI)
   .then(() => {
-    console.log('MongoDB connected successfully!');
-    server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+    process.stdout.write('MongoDB connected successfully.\n');
+    startServer(PORT);
   })
-  .catch(err => console.error('Failed to connect to MongoDB', err));
+  .catch((err) => {
+    process.stderr.write(`Failed to connect to MongoDB: ${err.message}\n`);
+  });

@@ -7,7 +7,7 @@ import { MapPin } from 'lucide-react'; // Using Lucide icon for consistency
 const SplashScreen = () => {
   return (
     <motion.div
-      className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-white"
+      className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-light-bg dark:bg-dark-bg"
       // Animation for when the component is removed from the screen
       exit={{ opacity: 0, scale: 0.95 }}
       transition={{ duration: 0.4, ease: 'easeOut' }}
@@ -18,7 +18,7 @@ const SplashScreen = () => {
       >
         {/* The outer pulsing ring */}
         <motion.div
-          className="absolute h-24 w-24 rounded-full bg-red-500/30"
+          className="absolute h-24 w-24 rounded-full bg-cyan-500/25"
           animate={{
             scale: [1, 3], // Animate scale from 1x to 3x
             opacity: [1, 0], // Animate opacity from 100% to 0%
@@ -30,14 +30,15 @@ const SplashScreen = () => {
           }}
         />
         {/* The central map pin icon */}
-        <div className="relative h-20 w-20 rounded-full bg-red-500 flex items-center justify-center shadow-lg">
+        <div className="relative flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-brand to-cyan-500 shadow-2xl shadow-cyan-500/25">
           <MapPin className="h-10 w-10 text-white" fill="white" />
         </div>
       </motion.div>
 
       {/* Brand Name */}
-      <h1 className="text-3xl font-bold text-red-500 mt-8">
-        RoomRadar
+      <h1 className="mt-8 text-3xl font-black tracking-tight">
+        <span className="text-brand">Room</span>
+        <span className="text-cyan-500 dark:text-cyan-400">Radar</span>
       </h1>
     </motion.div>
   );

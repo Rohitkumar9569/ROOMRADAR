@@ -64,7 +64,7 @@ const ImageGallery = ({ images }) => {
     };
 
     if (!images || images.length === 0) {
-        return <div className="h-96 bg-gray-200 rounded-lg flex items-center justify-center"><p>No Images Available</p></div>;
+        return <div className="flex h-96 items-center justify-center rounded-3xl bg-slate-200 dark:bg-secondary-700"><p className="font-bold text-slate-500 dark:text-secondary-300">No Images Available</p></div>;
     }
 
     const mainImage = images[0];
@@ -72,10 +72,10 @@ const ImageGallery = ({ images }) => {
 
     return (
         <div className="relative">
-            <div className="grid grid-cols-1 md:grid-cols-4 md:grid-rows-2 gap-2 h-[450px]">
+            <div className="grid h-[320px] grid-cols-1 gap-2 md:h-[450px] md:grid-cols-4 md:grid-rows-2">
                 {/* Main Image */}
                 <div className="md:col-span-2 md:row-span-2 h-full cursor-pointer" onClick={() => openModal(0)}>
-                    <img src={mainImage} alt="Main room view" className="w-full h-full object-cover rounded-l-2xl hover:opacity-90 transition" />
+                    <img src={mainImage} alt="Main room view" className="h-full w-full rounded-2xl object-cover transition hover:opacity-90 md:rounded-l-2xl md:rounded-r-none" />
                 </div>
                 
                 {/* Side Images */}
@@ -95,7 +95,7 @@ const ImageGallery = ({ images }) => {
             {/* Show all photos button */}
             <button 
                 onClick={() => openModal(0)}
-                className="absolute bottom-4 right-4 bg-white text-black text-sm font-semibold px-4 py-2 rounded-lg shadow-md hover:bg-gray-100 transition"
+                className="absolute bottom-4 right-4 rounded-2xl border border-light-border bg-white px-4 py-2 text-sm font-black text-slate-950 shadow-lg transition hover:bg-slate-100 dark:border-dark-border dark:bg-dark-card dark:text-dark-text dark:hover:bg-dark-input"
             >
                 Show all photos
             </button>

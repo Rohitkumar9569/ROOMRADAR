@@ -8,12 +8,14 @@ const {
     markConversationAsRead,
     getConversationsAsStudent,
     getConversationsAsLandlord,
+    getUnreadConversationCount,
     findOrCreateConversation // Import the new function
 } = require('../controllers/chatController');
 
 const { protect } = require('../middleware/authMiddleware');
 
 // Get conversations based on user role 
+router.route('/unread-count').get(protect, getUnreadConversationCount);
 router.route('/conversations/as-student').get(protect, getConversationsAsStudent);
 router.route('/conversations/as-landlord').get(protect, getConversationsAsLandlord);
 

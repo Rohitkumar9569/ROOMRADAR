@@ -5,40 +5,48 @@ const router = express.Router();
 const {
     createInquiry,
     createApplication,
+    getApplicationById,
     getStudentApplications,
     getLandlordApplications,
+    getCalendarStats,
     approveApplication,
     rejectApplication,
     confirmPayment,
     cancelApplication,
+    cancelConfirmedByHost,
     updateApplication, 
 } = require('../controllers/applicationController');
 
 const { protect, restrictTo } = require('../middleware/authMiddleware');
+const { bookingRateLimiter } = require('../middleware/rateLimiter');
 
 
 // --- Student Routes ---
 
-router.post('/inquiry', protect, restrictTo('student'), createInquiry);
+router.post('/inquiry', bookingRateLimiter, protect, restrictTo('student'), createInquiry);
 
 
 
-router.post('/', protect, restrictTo('student', 'Landlord'), createApplication);
+router.post('/', bookingRateLimiter, protect, restrictTo('student', 'Landlord'), createApplication);
 
 router.get('/student', protect, restrictTo('student', 'Landlord'), getStudentApplications);
+router.get('/calendar-stats', protect, restrictTo('Landlord'), getCalendarStats);
 
 
 //Landlord Routes
 router.get('/landlord', protect, restrictTo('Landlord'), getLandlordApplications);
-router.patch('/:id/approve', protect, restrictTo('Landlord'), approveApplication);
-router.patch('/:id/reject', protect, restrictTo('Landlord'), rejectApplication);
-router.patch('/:id/confirm-payment', protect, restrictTo('Landlord'), confirmPayment);
+router.patch('/:id/approve', bookingRateLimiter, protect, restrictTo('Landlord'), approveApplication);
+router.patch('/:id/reject', bookingRateLimiter, protect, restrictTo('Landlord'), rejectApplication);
+router.patch('/:id/confirm-payment', bookingRateLimiter, protect, restrictTo('student', 'Landlord'), confirmPayment);
+router.put('/:id/confirm-payment', bookingRateLimiter, protect, restrictTo('student', 'Landlord'), confirmPayment);
 
 
 //Common Routes 
+router.get('/:id', protect, getApplicationById);
 router.patch('/:id', protect, restrictTo('student', 'Landlord'), updateApplication);
 
-router.patch('/:id/cancel', protect, cancelApplication);
+router.patch('/:id/cancel', bookingRateLimiter, protect, cancelApplication);
+router.patch('/:id/host-cancel', bookingRateLimiter, protect, restrictTo('Landlord'), cancelConfirmedByHost);
 
 
 module.exports = router;

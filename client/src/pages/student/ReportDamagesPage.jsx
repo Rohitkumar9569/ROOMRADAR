@@ -1,13 +1,11 @@
 import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import axios from 'axios';
-import { useAuth } from '../../context/AuthContext';
+import api from '../../api';
 import toast from 'react-hot-toast';
 import { FaCloudUploadAlt, FaFileImage, FaTimesCircle } from 'react-icons/fa';
 
 function ReportDamagesPage() {
     const { applicationId } = useParams();
-    const { user } = useAuth();
     const navigate = useNavigate();
 
     const [description, setDescription] = useState('');
@@ -37,17 +35,12 @@ function ReportDamagesPage() {
         });
 
         try {
-            const config = {
-                headers: {
-                    'Content-Type': 'multipart/form-data',
-                    Authorization: `Bearer ${user.token}`,
-                },
-            };
-            await axios.put(`http://localhost:5000/api/applications/${applicationId}/report-damages`, formData, config);
+            await api.put(`/applications/${applicationId}/report-damages`, formData, {
+                headers: { 'Content-Type': 'multipart/form-data' },
+            });
             toast.success("Damage report submitted successfully!");
-            navigate('/landlord-dashboard/applications');
+            navigate('/profile/my-applications');
         } catch (error) {
-            console.error("Failed to submit damage report:", error);
             toast.error(error.response?.data?.message || "Failed to submit report.");
         } finally {
             setSubmitting(false);
@@ -55,17 +48,17 @@ function ReportDamagesPage() {
     };
 
     return (
-        <div className="pt-24 pb-12 bg-gray-100 min-h-screen">
+        <div className="min-h-screen bg-light-bg px-4 pb-24 pt-24 dark:bg-dark-bg">
             <div className="container mx-auto px-4">
-                <div className="max-w-2xl mx-auto bg-white p-8 rounded-lg shadow-lg border border-gray-200">
-                    <h1 className="text-3xl font-bold text-center text-gray-800 mb-6">Report Damages</h1>
-                    <p className="text-center text-gray-500 mb-8">
+                <div className="mx-auto max-w-2xl rounded-3xl border border-light-border bg-light-card p-6 shadow-xl shadow-black/5 dark:border-dark-border dark:bg-dark-card sm:p-8">
+                    <h1 className="mb-3 text-center text-2xl font-bold tracking-tight text-light-text dark:text-dark-text">Report Damages</h1>
+                    <p className="mb-8 text-center text-sm leading-relaxed text-light-muted dark:text-dark-muted">
                         Document the damages and the amount to be deducted from the security deposit.
                     </p>
                     
                     <form onSubmit={handleSubmit}>
                         <div className="mb-4">
-                            <label className="block text-sm font-semibold text-gray-600 mb-2" htmlFor="description">
+                            <label className="mb-2 block text-sm font-semibold text-light-text2 dark:text-dark-text2" htmlFor="description">
                                 Damage Description
                             </label>
                             <textarea
@@ -73,28 +66,28 @@ function ReportDamagesPage() {
                                 value={description}
                                 onChange={(e) => setDescription(e.target.value)}
                                 rows="4"
-                                className="w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
+                                className="w-full rounded-2xl border border-light-border bg-light-bg px-4 py-3 text-light-text outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20 dark:border-dark-border dark:bg-dark-input dark:text-dark-text"
                                 required
                             ></textarea>
                         </div>
                         
                         <div className="mb-4">
-                            <label className="block text-sm font-semibold text-gray-600 mb-2" htmlFor="deductionAmount">
-                                Deduction Amount (₹)
+                            <label className="mb-2 block text-sm font-semibold text-light-text2 dark:text-dark-text2" htmlFor="deductionAmount">
+                                Deduction Amount (INR)
                             </label>
                             <input
                                 type="number"
                                 id="deductionAmount"
                                 value={deductionAmount}
                                 onChange={(e) => setDeductionAmount(e.target.value)}
-                                className="w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
+                                className="w-full rounded-2xl border border-light-border bg-light-bg px-4 py-3 text-light-text outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20 dark:border-dark-border dark:bg-dark-input dark:text-dark-text"
                                 required
                                 min="0"
                             />
                         </div>
 
                         <div className="mb-6">
-                            <label className="block text-sm font-semibold text-gray-600 mb-2">
+                            <label className="mb-2 block text-sm font-semibold text-light-text2 dark:text-dark-text2">
                                 Upload Proof (Images)
                             </label>
                             <input
@@ -105,14 +98,14 @@ function ReportDamagesPage() {
                                 className="hidden"
                                 id="image-upload"
                             />
-                            <div className="border-2 border-dashed border-gray-300 rounded-md p-6 text-center">
-                                <label htmlFor="image-upload" className="cursor-pointer text-indigo-600 hover:text-indigo-700 transition duration-300 font-medium flex items-center justify-center">
+                            <div className="rounded-2xl border-2 border-dashed border-light-border bg-light-bg p-6 text-center dark:border-dark-border dark:bg-dark-input/60">
+                                <label htmlFor="image-upload" className="flex cursor-pointer items-center justify-center font-medium text-cyan-600 transition duration-300 hover:text-cyan-700 dark:text-cyan-400 dark:hover:text-cyan-300">
                                     <FaCloudUploadAlt className="mr-2 text-2xl" /> Click to upload images
                                 </label>
                             </div>
                             <div className="mt-4 grid grid-cols-2 md:grid-cols-3 gap-4">
                                 {images.map((image, index) => (
-                                    <div key={index} className="relative w-full h-24 rounded-md overflow-hidden shadow-sm">
+                                    <div key={index} className="relative h-24 w-full overflow-hidden rounded-2xl shadow-sm">
                                         <img
                                             src={URL.createObjectURL(image)}
                                             alt={`upload-preview-${index}`}
@@ -121,7 +114,7 @@ function ReportDamagesPage() {
                                         <button
                                             type="button"
                                             onClick={() => handleRemoveImage(index)}
-                                            className="absolute top-1 right-1 bg-white rounded-full p-1 text-red-500 hover:text-red-700 transition duration-300"
+                                            className="absolute right-1 top-1 rounded-full bg-white p-1 text-red-500 transition duration-300 hover:text-red-700 dark:bg-dark-card"
                                         >
                                             <FaTimesCircle />
                                         </button>
@@ -133,7 +126,7 @@ function ReportDamagesPage() {
                         <button
                             type="submit"
                             disabled={submitting}
-                            className="w-full px-8 py-4 bg-red-600 text-white font-bold rounded-lg hover:bg-red-700 transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="w-full rounded-2xl bg-brand px-8 py-4 font-bold text-white shadow-lg shadow-brand/25 transition duration-300 hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-50"
                         >
                             {submitting ? 'Submitting...' : 'Submit Damage Report'}
                         </button>

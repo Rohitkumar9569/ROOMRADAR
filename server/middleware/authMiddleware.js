@@ -41,7 +41,6 @@ const restrictTo = (...requiredRoles) => {
     const hasRequiredRole = userRoles.some(role => requiredRolesLower.includes(role));
 
     if (!hasRequiredRole) {
-      console.log(`[RESTRICT]: Permission Denied. User Roles: [${req.user.roles.join(', ')}], Required: [${requiredRoles.join(', ')}]`);
       return res.status(403).json({ message: 'You do not have permission to perform this action' });
     }
 

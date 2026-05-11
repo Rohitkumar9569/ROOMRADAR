@@ -10,10 +10,12 @@
 
 # Build output
 /client/dist
+/client/src/output.css
 /build
 
 # Log files
 *.log
+*.err
 npm-debug.log
 yarn-error.log
 

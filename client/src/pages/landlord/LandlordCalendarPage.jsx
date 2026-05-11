@@ -1,28 +1,39 @@
 // client/src/pages/LandlordCalendarPage.jsx (PROFESSIONAL REDESIGN)
 
 import React, { useState, useEffect, useMemo } from 'react';
-import FullCalendar from '@fullcalendar/react';
-import dayGridPlugin from '@fullcalendar/daygrid';
-import interactionPlugin from '@fullcalendar/interaction';
+import { useNavigate } from 'react-router-dom';
 import Spinner from '../../components/common/Spinner';
 import api from '../../api';
 import toast from 'react-hot-toast';
-import RoomFilterDropdown from '../../components/features/search/RoomFilterDropdown'; // <<< Import the new dropdown
+import RoomFilterDropdown from '../../components/features/search/RoomFilterDropdown';
+import PremiumLandlordCalendar from '../../components/features/calendar/PremiumLandlordCalendar';
+import { CalendarDays, CheckCircle2, Clock, XCircle } from 'lucide-react';
 
 const LandlordCalendarPage = () => {
+    const navigate = useNavigate();
     const [events, setEvents] = useState([]);
     const [rooms, setRooms] = useState([]);
+    const [stats, setStats] = useState({ pending: 0, approved: 0, thisWeek: 0, rejected: 0 });
     const [loading, setLoading] = useState(true);
     const [selectedRoomId, setSelectedRoomId] = useState('all');
+    const [highlightThisWeek, setHighlightThisWeek] = useState(false);
+
+    const refreshCalendar = async () => {
+        const [calendarResponse, statsResponse] = await Promise.all([
+            api.get('/landlords/calendar-data'),
+            api.get('/applications/calendar-stats'),
+        ]);
+
+        setEvents(calendarResponse.data.bookings || []);
+        setRooms(calendarResponse.data.rooms || []);
+        setStats(statsResponse.data || { pending: 0, approved: 0, thisWeek: 0, rejected: 0 });
+    };
     
     useEffect(() => {
         const fetchCalendarData = async () => {
             try {
                 setLoading(true);
-                const { data } = await api.get('/landlords/calendar-data');
-                // The backend now sends a 'color' property with each booking
-                setEvents(data.bookings); 
-                setRooms(data.rooms);
+                await refreshCalendar();
             } catch (error) {
                 toast.error("Could not load calendar data.");
             } finally {
@@ -37,29 +48,49 @@ const LandlordCalendarPage = () => {
         return events.filter(event => event.roomId === selectedRoomId);
     }, [events, selectedRoomId]);
 
-    const handleEventClick = (clickInfo) => {
-        alert(`Event: ${clickInfo.event.title}`);
+    const handlePremiumEventClick = (event) => {
+        if (event?.url) {
+            navigate(event.url);
+        }
     };
 
-    // <<< NEW: Custom function to render cleaner events >>>
-    const renderEventContent = (eventInfo) => {
-        return (
-            <div className="p-1 text-xs font-semibold overflow-hidden truncate">
-                <i>{eventInfo.event.title}</i>
-            </div>
-        );
+    const handleApprove = async (applicationId) => {
+        try {
+            await api.patch(`/applications/${applicationId}/approve`);
+            toast.success('Booking approved successfully');
+            await refreshCalendar();
+        } catch (error) {
+            toast.error('Failed to approve booking');
+        }
     };
 
-    if (loading) return <div className="flex justify-center items-center h-screen"><Spinner /></div>;
+    const handleReject = async (applicationId) => {
+        try {
+            await api.patch(`/applications/${applicationId}/reject`);
+            toast.success('Booking rejected successfully');
+            await refreshCalendar();
+        } catch (error) {
+            toast.error('Failed to reject booking');
+        }
+    };
+
+    const statCards = [
+        { label: 'Pending', value: stats.pending || 0, Icon: Clock, className: 'text-amber-500 bg-amber-500/10', onClick: () => navigate('/landlord/applications?status=pending') },
+        { label: 'Approved', value: stats.approved || 0, Icon: CheckCircle2, className: 'text-emerald-500 bg-emerald-500/10', onClick: () => navigate('/landlord/applications?status=approved') },
+        { label: 'This Week', value: stats.thisWeek || 0, Icon: CalendarDays, className: 'text-sky-500 bg-sky-500/10', onClick: () => setHighlightThisWeek((value) => !value) },
+        { label: 'Rejected', value: stats.rejected || 0, Icon: XCircle, className: 'text-rose-500 bg-rose-500/10', onClick: () => navigate('/landlord/applications?status=rejected') },
+    ];
+
+    if (loading) return <div className="flex h-screen items-center justify-center bg-light-bg dark:bg-dark-bg"><Spinner /></div>;
 
     return (
-        <div className="bg-slate-50 min-h-full p-4 sm:p-6 font-sans">
+        <div className="min-h-full bg-light-bg p-4 font-sans text-light-text dark:bg-dark-bg dark:text-dark-text sm:p-6">
             <div className="max-w-7xl mx-auto">
-                {/* NEW: Professional Header / Control Bar  */}
-                <div className="bg-white p-4 rounded-lg shadow-md mb-6 flex flex-col sm:flex-row justify-between items-center gap-4">
+                <div className="mb-6 flex flex-col items-start justify-between gap-4 rounded-2xl border border-light-border bg-light-card p-5 shadow-sm dark:border-dark-border dark:bg-dark-sidebar sm:flex-row sm:items-center">
                     <div>
-                        <h1 className="text-2xl font-bold text-slate-800">Booking Calendar</h1>
-                        <p className="text-sm text-slate-500">View and manage your bookings.</p>
+                        <p className="text-xs font-black uppercase tracking-[0.18em] text-brand">Hosting Control</p>
+                        <h1 className="mt-1 text-2xl font-bold text-light-text dark:text-dark-text">Booking Calendar</h1>
+                        <p className="text-sm text-light-muted dark:text-dark-muted">View requests, approvals, and move-in dates without leaving the calendar.</p>
                     </div>
                     <RoomFilterDropdown 
                         rooms={rooms}
@@ -68,21 +99,30 @@ const LandlordCalendarPage = () => {
                     />
                 </div>
 
-                <div className="bg-white p-4 rounded-lg shadow-md">
-                    <FullCalendar
-                        plugins={[dayGridPlugin, interactionPlugin]}
-                        initialView="dayGridMonth"
-                        events={filteredEvents}
-                        eventClick={handleEventClick}
-                        // Cleaner event rendering and clutter prevention 
-                        eventContent={renderEventContent} // Use our custom render function
-                        dayMaxEvents={true} 
-                        headerToolbar={{
-                            left: 'prev,next today',
-                            center: 'title',
-                            right: 'dayGridMonth,dayGridWeek'
-                        }}
-                        height="auto"
+                <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
+                    {statCards.map(({ label, value, Icon, className, onClick }) => (
+                        <button
+                            key={label}
+                            type="button"
+                            onClick={onClick}
+                            className={`rounded-2xl border border-light-border bg-light-card p-4 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-lg dark:border-dark-border dark:bg-dark-sidebar ${highlightThisWeek && label === 'This Week' ? 'ring-2 ring-sky-500' : ''}`}
+                        >
+                            <div className={`mb-4 flex h-10 w-10 items-center justify-center rounded-xl ${className}`}>
+                                <Icon className="h-5 w-5" />
+                            </div>
+                            <p className="text-2xl font-black text-light-text dark:text-dark-text">{value}</p>
+                            <p className="text-sm font-semibold text-light-muted dark:text-dark-muted">{label}</p>
+                        </button>
+                    ))}
+                </div>
+
+                <div className="rounded-2xl border border-light-border bg-light-card p-3 shadow-sm dark:border-dark-border dark:bg-dark-sidebar sm:p-4">
+                    <PremiumLandlordCalendar 
+                        bookings={filteredEvents}
+                        highlightThisWeek={highlightThisWeek}
+                        onEventClick={handlePremiumEventClick}
+                        onApprove={handleApprove}
+                        onReject={handleReject}
                     />
                 </div>
             </div>

@@ -10,7 +10,7 @@ exports.getRoomStatusData = asyncHandler(async (req, res) => {
     const landlordId = req.user._id;
 
     const stats = await Room.aggregate([
-        { $match: { landlord: landlordId } },
+        { $match: { landlord: landlordId, isDeleted: { $ne: true } } },
         { $group: { _id: '$status', count: { $sum: 1 } } }
     ]);
 
@@ -34,14 +34,23 @@ exports.getEarningsData = asyncHandler(async (req, res) => {
         {
             $match: {
                 landlord: landlordId,
-                status: 'Confirmed',
+                status: 'confirmed',
                 createdAt: { $gte: sixMonthsAgo }
             }
         },
         {
+            $lookup: {
+                from: 'rooms',
+                localField: 'room',
+                foreignField: '_id',
+                as: 'room'
+            }
+        },
+        { $unwind: '$room' },
+        {
             $group: {
                 _id: { month: { $month: '$createdAt' }, year: { $year: '$createdAt' } },
-                totalEarnings: { $sum: '$rent' }
+                totalEarnings: { $sum: '$room.rent' }
             }
         },
         { $sort: { '_id.year': 1, '_id.month': 1 } }
@@ -62,7 +71,7 @@ exports.getEarningsData = asyncHandler(async (req, res) => {
 exports.getTopListingsData = asyncHandler(async (req, res) => {
     const landlordId = req.user._id;
 
-    const topListings = await Room.find({ landlord: landlordId })
+    const topListings = await Room.find({ landlord: landlordId, isDeleted: { $ne: true } })
         .sort({ views: -1 }) // Sort by views in descending order
         .limit(5)           // Get only the top 5
         .select('title views'); // Select only the title and views fields

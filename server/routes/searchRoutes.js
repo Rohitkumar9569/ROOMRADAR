@@ -3,6 +3,9 @@
 const express = require('express');
 const axios = require('axios');
 const router = express.Router();
+const { smartSearch } = require('../controllers/aiFeatureController');
+
+router.post('/smart', smartSearch);
 
 // Route: /api/search/autocomplete
 router.get('/autocomplete', async (req, res) => {
@@ -18,8 +21,7 @@ router.get('/autocomplete', async (req, res) => {
     const response = await axios.get(url);
     
     res.json(response.data);
-  } catch (error) {
-    console.error('Geoapify API Error:', error.message);
+    } catch (error) {
     res.status(500).json({ message: 'Failed to fetch suggestions' });
   }
 });

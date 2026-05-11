@@ -14,9 +14,8 @@ const AdminProtectedRoute = () => {
         return <div className="flex justify-center items-center h-screen"><Spinner /></div>;
     }
 
-    // 2. [THE FIX] Check if the 'roles' array includes 'Admin'.
-    // This is much safer than checking for user.role === 'Admin'.
-    const isAdmin = user?.roles?.includes('Admin');
+    const adminRoles = ['Admin', 'Super_Admin', 'Moderator', 'Support'];
+    const isAdmin = user?.roles?.some(role => adminRoles.includes(role));
 
     return isAdmin ? <Outlet /> : <Navigate to="/" replace />;
 };

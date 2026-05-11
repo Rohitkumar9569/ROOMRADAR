@@ -1,14 +1,11 @@
 // client/src/App.jsx
 import React, { useState, useEffect } from 'react';
-// 1. Import useLocation to get the current URL path
-import { Outlet, useLocation } from 'react-router-dom'; 
-import api from './api'; // Use the centralized api instance
-import Footer from './components/layout/Footer'; 
-import SplashScreen from './components/common/SplashScreen'; 
+import { Outlet, useLocation } from 'react-router-dom';
+import Footer from './components/layout/Footer';
+import AppLoader from './components/common/AppLoader';
 import { AnimatePresence } from 'framer-motion';
 
 function App() {
-  // 2. Initialize the location hook
   const location = useLocation();
 
   const [isLoading, setIsLoading] = useState(() => {
@@ -16,57 +13,35 @@ function App() {
     return sessionStorage.getItem('hasAnimationPlayed') !== 'true';
   });
 
-  const [listingsData, setListingsData] = useState([]);
-
-  // 3. Define a list of routes where the Footer should be HIDDEN
+  // Define routes where Footer should be hidden
   const hideFooterRoutes = ['/login', '/signup', '/forgot-password'];
-
-  // 4. Check if the current path is in the list of routes to hide
-  // returns true if footer should be shown, false if it should be hidden
   const shouldShowFooter = !hideFooterRoutes.includes(location.pathname);
 
   useEffect(() => {
-    const fetchInitialData = async () => {
-      try {
-        // Use the 'api' instance which has the baseURL configured
-        const { data } = await api.get('/rooms');
-        setListingsData(data);
-      } catch (error) {
-        console.error("Failed to fetch initial listings:", error);
-      }
-    };
+    if (!isLoading) return;
+    const timer = window.setTimeout(() => {
+      sessionStorage.setItem('hasAnimationPlayed', 'true');
+      setIsLoading(false);
+    }, 420);
 
-    if (isLoading) {
-      // Show splash screen for a minimum time while fetching data
-      const minimumLoadingTime = new Promise(resolve => setTimeout(resolve, 2500));
-      
-      Promise.all([fetchInitialData(), minimumLoadingTime]).then(() => {
-        sessionStorage.setItem('hasAnimationPlayed', 'true');
-        setIsLoading(false);
-      });
-    } else {
-      // If animation already played, just fetch data
-      fetchInitialData();
-    }
+    return () => window.clearTimeout(timer);
   }, [isLoading]);
 
   return (
-    <AnimatePresence>
+    <AnimatePresence mode="wait">
       {isLoading ? (
-        <SplashScreen key="splash" />
+        <AppLoader key="app-loader" />
       ) : (
         <div
           key="main"
-          className="flex flex-col min-h-screen"
+          className="app-route-surface flex min-h-screen flex-col bg-light-bg text-light-text dark:bg-dark-bg dark:text-dark-text"
         >
-         
           <main className="flex-grow">
-            <Outlet context={{ listings: listingsData, setListings: setListingsData }} />
+            <Outlet />
           </main>
 
-          {/* 5. Conditionally render the Footer based on the 'shouldShowFooter' flag */}
+          {/* Conditionally render Footer */}
           {shouldShowFooter && <Footer className="hidden md:block" />}
-          
         </div>
       )}
     </AnimatePresence>

@@ -38,7 +38,6 @@ const LandlordInsightsPage = () => {
                 setError(null);
 
             } catch (err) {
-                console.error("Failed to fetch insights:", err);
                 setError("Could not load insights data.");
             } finally {
                 setLoading(false);
@@ -48,19 +47,19 @@ const LandlordInsightsPage = () => {
         fetchInsightsData();
     }, []);
 
-    if (loading) return <div className="flex justify-center items-center h-[calc(100vh-80px)]"><Spinner /></div>;
-    if (error) return <div className="text-center p-8 text-red-500">{error}</div>;
+    if (loading) return <div className="flex h-[calc(100vh-80px)] items-center justify-center bg-light-bg dark:bg-dark-bg"><Spinner /></div>;
+    if (error) return <div className="bg-light-bg p-8 text-center text-red-500 dark:bg-dark-bg">{error}</div>;
 
     return (
-        <div className="bg-slate-50 min-h-full p-4 sm:p-6 font-sans">
+        <div className="min-h-full bg-light-bg p-4 font-sans text-light-text dark:bg-dark-bg dark:text-dark-text sm:p-6">
             <div className="max-w-7xl mx-auto">
-                <h1 className="text-3xl font-bold text-slate-800 mb-6">Performance Insights</h1>
+                <h1 className="mb-6 text-3xl font-bold text-light-text dark:text-dark-text">Performance Insights</h1>
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     {/* Top Performing Listings Chart */}
-                    <div className="bg-white p-6 rounded-lg shadow-md">
-                        <h2 className="text-xl font-bold text-slate-700 flex items-center gap-2 mb-4">
-                            <FaStar className="text-indigo-500" />
+                    <div className="rounded-2xl border border-light-border bg-light-card p-6 shadow-sm dark:border-dark-border dark:bg-dark-card">
+                        <h2 className="mb-4 flex items-center gap-2 text-xl font-bold text-light-text dark:text-dark-text">
+                            <FaStar className="text-brand" />
                             Top 5 Most Viewed Listings
                         </h2>
                         {topListingsData.length > 0 ? (
@@ -75,14 +74,14 @@ const LandlordInsightsPage = () => {
                                 </BarChart>
                             </ResponsiveContainer>
                         ) : (
-                            <p className="text-center text-slate-500 py-24">No view data available.</p>
+                            <p className="py-24 text-center text-light-muted dark:text-dark-muted">No view data available.</p>
                         )}
                     </div>
                     
                     {/* Room Status Chart */}
-                    <div className="bg-white p-6 rounded-lg shadow-md">
-                        <h2 className="text-xl font-bold text-slate-700 flex items-center gap-2 mb-4">
-                            <FaChartPie className="text-indigo-500" />
+                    <div className="rounded-2xl border border-light-border bg-light-card p-6 shadow-sm dark:border-dark-border dark:bg-dark-card">
+                        <h2 className="mb-4 flex items-center gap-2 text-xl font-bold text-light-text dark:text-dark-text">
+                            <FaChartPie className="text-brand" />
                             Room Status
                         </h2>
                         {statusData.length > 0 ? (
@@ -98,14 +97,14 @@ const LandlordInsightsPage = () => {
                                 </PieChart>
                             </ResponsiveContainer>
                         ) : (
-                            <p className="text-center text-slate-500 py-24">No room status data available.</p>
+                            <p className="py-24 text-center text-light-muted dark:text-dark-muted">No room status data available.</p>
                         )}
                     </div>
 
                     {/* Monthly Earnings Chart */}
-                    <div className="lg:col-span-2 bg-white p-6 rounded-lg shadow-md">
-                        <h2 className="text-xl font-bold text-slate-700 flex items-center gap-2 mb-4">
-                            <FaChartBar className="text-indigo-500" />
+                    <div className="rounded-2xl border border-light-border bg-light-card p-6 shadow-sm dark:border-dark-border dark:bg-dark-card lg:col-span-2">
+                        <h2 className="mb-4 flex items-center gap-2 text-xl font-bold text-light-text dark:text-dark-text">
+                            <FaChartBar className="text-brand" />
                             Monthly Earnings (₹)
                         </h2>
                         {earningsData.length > 0 ? (
@@ -120,7 +119,7 @@ const LandlordInsightsPage = () => {
                                 </BarChart>
                             </ResponsiveContainer>
                         ) : (
-                            <p className="text-center text-slate-500 py-24">No earnings data available for the last 6 months.</p>
+                            <p className="py-24 text-center text-light-muted dark:text-dark-muted">No earnings data available for the last 6 months.</p>
                         )}
                     </div>
                 </div>

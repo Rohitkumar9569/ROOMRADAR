@@ -2,12 +2,36 @@ import React, { createContext, useState, useEffect, useContext } from 'react';
 import api from '../api';
 
 const AuthContext = createContext(null);
+const ADMIN_ROLES = ['Admin', 'Super_Admin', 'Moderator', 'Support'];
 
 export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
     const [isAuthLoading, setIsAuthLoading] = useState(true);
     const [notifications, setNotifications] = useState([]);
     const [activeRole, setActiveRole] = useState(localStorage.getItem('activeRole') || 'student');
+
+    const persistUser = (nextUser) => {
+        if (!nextUser) return;
+        setUser(nextUser);
+        localStorage.setItem('userInfo', JSON.stringify(nextUser));
+    };
+
+    const refreshUser = async () => {
+        const storedUserInfo = localStorage.getItem('userInfo');
+        if (!storedUserInfo) return null;
+
+        try {
+            const storedUser = JSON.parse(storedUserInfo);
+            if (!storedUser?.token) return null;
+            api.defaults.headers.common['Authorization'] = `Bearer ${storedUser.token}`;
+            const { data } = await api.get('/users/me');
+            const freshUser = { ...storedUser, ...(data.user || {}), token: storedUser.token };
+            persistUser(freshUser);
+            return freshUser;
+        } catch (error) {
+            return null;
+        }
+    };
 
     //  (fetchNotifications, useEffect hooks, switchRole )
 
@@ -17,7 +41,7 @@ export const AuthProvider = ({ children }) => {
             const { data } = await api.get('/notifications');
             setNotifications(data);
         } catch (error) {
-            console.error("Failed to fetch notifications:", error);
+            setNotifications([]);
         }
     };
     useEffect(() => {
@@ -34,9 +58,9 @@ export const AuthProvider = ({ children }) => {
                 api.defaults.headers.common['Authorization'] = `Bearer ${userData.token}`;
                 setUser(userData);
                 fetchNotifications(); 
+                refreshUser();
             }
         } catch (error) {
-            console.error("Failed to parse user info from localStorage", error);
             localStorage.removeItem('userInfo');
         } finally {
             setIsAuthLoading(false);
@@ -46,11 +70,15 @@ export const AuthProvider = ({ children }) => {
     const login = (data) => {
         localStorage.setItem('userInfo', JSON.stringify(data));
         api.defaults.headers.common['Authorization'] = `Bearer ${data.token}`;
-        setUser(data);
+        persistUser(data);
         fetchNotifications();
 
-        // This logic is now in AuthPage, but we can set a default role here
-        if (data.roles && !data.roles.includes('Landlord')) {
+        const roles = Array.isArray(data.roles) ? data.roles : [data.role].filter(Boolean);
+        if (roles.some((role) => ADMIN_ROLES.includes(role))) {
+            switchRole('admin');
+        } else if (roles.includes('Landlord')) {
+            switchRole('landlord');
+        } else {
             switchRole('student');
         }
     };
@@ -68,28 +96,28 @@ export const AuthProvider = ({ children }) => {
 
     //(updateUser, addToWishlist, removeFromWishlist functions )
     const updateUser = (updatedUserData) => {
-        setUser(updatedUserData);
-        localStorage.setItem('userInfo', JSON.stringify(updatedUserData));
+        const nextUser = { ...(user || {}), ...(updatedUserData || {}) };
+        persistUser(nextUser);
     };
     const addToWishlist = async (roomId) => {
         if (!user) return;
         try {
             const { data } = await api.post('/users/wishlist', { roomId });
             updateUser(data.user);
-        } catch (error) { console.error("Failed to add to wishlist:", error); }
+        } catch (error) { /* keep wishlist state unchanged */ }
     };
     const removeFromWishlist = async (roomId) => {
         if (!user) return;
         try {
             const { data } = await api.delete(`/users/wishlist/${roomId}`);
             updateUser(data.user);
-        } catch (error) { console.error("Failed to remove from wishlist:", error); }
+        } catch (error) { /* keep wishlist state unchanged */ }
     };
 
     const value = { 
         user, isAuthLoading, login, logout, updateUser, 
         notifications, activeRole, switchRole,
-        addToWishlist, removeFromWishlist
+        addToWishlist, removeFromWishlist, refreshUser
     };
 
     return (

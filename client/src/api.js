@@ -1,13 +1,8 @@
 import axios from 'axios';
+import { API_URL } from './config/env';
 
-const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-
-// select URL 
-const BASE_URL = isLocalhost 
-  ? 'http://localhost:5000/api'                 
-  : 'https://roomradar-bzxe.onrender.com/api';  
-
-
+const API_ROOT = API_URL;
+const BASE_URL = API_ROOT.endsWith('/api') ? API_ROOT : `${API_ROOT}/api`;
 
 const api = axios.create({
   baseURL: BASE_URL, 
@@ -27,7 +22,6 @@ api.interceptors.request.use(
           config.headers.Authorization = `Bearer ${userInfo.token}`;
         }
       } catch (e) {
-        console.error("Error parsing user info from local storage.", e);
         localStorage.removeItem('userInfo');
       }
     }
@@ -53,8 +47,8 @@ export const approveApplication = (applicationId) =>
 export const rejectApplication = (applicationId) =>
   api.patch(`/applications/${applicationId}/reject`);
 
-export const confirmPayment = (applicationId) =>
-  api.patch(`/applications/${applicationId}/confirm-payment`);
+export const confirmPayment = (applicationId, payload = {}) =>
+  api.patch(`/applications/${applicationId}/confirm-payment`, payload);
 
 export const cancelApplication = (applicationId) =>
   api.patch(`/applications/${applicationId}/cancel`);

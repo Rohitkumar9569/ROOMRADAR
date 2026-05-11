@@ -4,6 +4,31 @@ const Room = require('../models/Room');
 const asyncHandler = require('express-async-handler');
 const mongoose = require('mongoose');
 
+const getUnreadCountForUser = async (userId) => {
+    const normalizedUserId = new mongoose.Types.ObjectId(userId);
+    const conversations = await Conversation.find({ members: normalizedUserId }).select('_id').lean();
+    const conversationIds = conversations.map((conversation) => conversation._id);
+
+    if (conversationIds.length === 0) return 0;
+
+    return Message.countDocuments({
+        conversationId: { $in: conversationIds },
+        sender: { $ne: normalizedUserId },
+        readBy: { $ne: normalizedUserId }
+    });
+};
+
+const emitUnreadCount = async (userId) => {
+    try {
+        const { io } = require('../index');
+        if (!io || !userId) return;
+        const count = await getUnreadCountForUser(userId);
+        io.to(userId.toString()).emit('unread_count_update', { count });
+    } catch (error) {
+        // Keep chat writes resilient even if socket count sync fails.
+    }
+};
+
 // Base aggregation pipeline that gathers all necessary data
 const getBaseConversationPipeline = (userId) => [
     //  Find all conversations the user is a member of
@@ -32,23 +57,68 @@ const getBaseConversationPipeline = (userId) => [
         from: 'users', 
         localField: 'members', 
         foreignField: '_id', 
-        pipeline: [{ $project: { _id: 1, name: 1, avatarUrl: 1 } }],
+        pipeline: [{ $project: { _id: 1, name: 1, email: 1, avatarUrl: 1, profilePicture: 1, roles: 1 } }],
         as: 'memberInfo' 
     }},
     { $lookup: { from: 'messages', localField: 'lastMessage', foreignField: '_id', pipeline: [{ $project: { text: 1, messageType: 1, createdAt: 1 } }], as: 'lastMessageInfo' }},
-    
-   
-    /*
-    { $lookup: { 
-        from: 'applications', 
-        let: { roomId: '$roomId', members: '$members' }, 
-        pipeline: [ 
-            { $match: { $expr: { $and: [ { $eq: ['$room', '$$roomId'] }, { $in: ['$student', '$$members'] }, { $in: ['$landlord', '$$members'] } ] } }}, 
-            { $project: { status: 1, checkInDate: 1, checkOutDate: 1 } } 
-        ], 
-        as: 'applicationInfo' 
+    { $lookup: {
+        from: 'messages',
+        let: { conversationId: '$_id' },
+        pipeline: [
+            {
+                $match: {
+                    $expr: {
+                        $and: [
+                            { $eq: ['$conversationId', '$$conversationId'] },
+                            { $ne: ['$sender', userId] },
+                            { $not: [{ $in: [userId, '$readBy'] }] }
+                        ]
+                    }
+                }
+            },
+            { $count: 'count' }
+        ],
+        as: 'unreadInfo'
     }},
-    */
+    { $lookup: {
+        from: 'applications',
+        let: { roomId: '$roomId', members: '$members' },
+        pipeline: [
+            {
+                $match: {
+                    $expr: {
+                        $and: [
+                            { $eq: ['$room', '$$roomId'] },
+                            { $in: ['$student', '$$members'] },
+                            { $in: ['$landlord', '$$members'] }
+                        ]
+                    }
+                }
+            },
+            { $sort: { createdAt: -1 } },
+            { $limit: 1 },
+            {
+                $project: {
+                    status: 1,
+                    type: 1,
+                    checkInDate: 1,
+                    checkOutDate: 1,
+                    occupants: 1,
+                    message: 1,
+                    fullName: 1,
+                    mobileNumber: 1,
+                    profileType: 1,
+                    paymentStatus: 1,
+                    confirmedAt: 1,
+                    approvedAt: 1,
+                    amountBreakdown: 1,
+                    createdAt: 1,
+                    updatedAt: 1
+                }
+            }
+        ],
+        as: 'applicationInfo'
+    }},
     
     //  Project the final clean structure
     { $project: {
@@ -57,6 +127,8 @@ const getBaseConversationPipeline = (userId) => [
         room: { _id: '$roomDetails._id', title: '$roomDetails.title', images: '$roomDetails.images' },
         members: '$memberInfo',
         lastMessage: { $arrayElemAt: ['$lastMessageInfo', 0] },
+        unreadCount: { $ifNull: [{ $arrayElemAt: ['$unreadInfo.count', 0] }, 0] },
+        application: { $arrayElemAt: ['$applicationInfo', 0] },
         userRoleInConvo: 1,
         otherParticipant: {
              $first: {
@@ -103,7 +175,7 @@ exports.findOrCreateConversation = asyncHandler(async (req, res) => {
         members: { $all: [currentUserId, otherUserId] }
     });
     if (!conversation) {
-        const room = await Room.findById(roomId);
+        const room = await Room.findOne({ _id: roomId, isDeleted: { $ne: true } });
         if (!room || room.landlord.toString() !== otherUserId) {
             return res.status(404).json({ message: "Invalid room or landlord." });
         }
@@ -113,12 +185,17 @@ exports.findOrCreateConversation = asyncHandler(async (req, res) => {
             conversationType: 'inquiry'
         });
         await conversation.save();
+    } else if (!conversation.conversationType) {
+        // Update existing conversation to include conversationType
+        conversation.conversationType = 'inquiry';
+        await conversation.save();
     }
     if (message) {
         const initialMessage = new Message({ conversationId: conversation._id, sender: currentUserId, text: message, readBy: [currentUserId] });
         const savedMessage = await initialMessage.save();
         conversation.lastMessage = savedMessage._id;
         await conversation.save();
+        await emitUnreadCount(otherUserId);
     }
     res.status(200).json({ message: "Conversation ready.", conversationId: conversation._id });
 });
@@ -129,21 +206,6 @@ exports.getSingleConversation = asyncHandler(async (req, res) => {
     const conversationId = new mongoose.Types.ObjectId(req.params.id);
 
     const pipeline = getBaseConversationPipeline(userId);
-    // For a single view, we DO want the application details, so we add the lookup back in.
-    pipeline.splice(6, 0, {
-        $lookup: { 
-            from: 'applications', 
-            let: { roomId: '$roomId', members: '$members' }, 
-            pipeline: [ 
-                { $match: { $expr: { $and: [ { $eq: ['$room', '$$roomId'] }, { $in: ['$student', '$$members'] }, { $in: ['$landlord', '$$members'] } ] } }}, 
-                { $project: { status: 1, checkInDate: 1, checkOutDate: 1, occupants: 1, message: 1, fullName: 1, mobileNumber: 1, room: 1 } } 
-            ], 
-            as: 'applicationDetails'
-        }
-    });
-    // Add applicationDetails back to the final project stage
-    pipeline[7].$project.applicationDetails = '$applicationDetails';
-    
     pipeline.unshift({ $match: { _id: conversationId } });
 
     const result = await Conversation.aggregate(pipeline);
@@ -154,6 +216,15 @@ exports.getSingleConversation = asyncHandler(async (req, res) => {
 });
 
 exports.getMessages = asyncHandler(async (req, res) => {
+    const conversation = await Conversation.findOne({
+        _id: req.params.conversationId,
+        members: req.user.id
+    });
+
+    if (!conversation) {
+        return res.status(404).json({ message: "Conversation not found or you're not a member." });
+    }
+
     const messages = await Message.find({ conversationId: req.params.conversationId })
         .populate('sender', 'name profilePicture')
         .sort({ createdAt: 1 });
@@ -163,9 +234,20 @@ exports.getMessages = asyncHandler(async (req, res) => {
 exports.createMessage = asyncHandler(async (req, res) => {
     const { conversationId, text } = req.body;
     const senderId = new mongoose.Types.ObjectId(req.user.id);
+    const conversation = await Conversation.findOne({
+        _id: conversationId,
+        members: senderId
+    });
+
+    if (!conversation) {
+        return res.status(404).json({ message: "Conversation not found or you're not a member." });
+    }
+
     const newMessage = new Message({ conversationId, sender: senderId, text, readBy: [senderId] });
     const savedMessage = await newMessage.save();
     await Conversation.findByIdAndUpdate(conversationId, { lastMessage: savedMessage._id });
+    const receiverIds = conversation.members.filter((memberId) => memberId.toString() !== senderId.toString());
+    await Promise.all(receiverIds.map((receiverId) => emitUnreadCount(receiverId)));
     const populatedMessage = await Message.findById(savedMessage._id).populate('sender', 'name profilePicture');
     res.status(201).json(populatedMessage);
 });
@@ -176,7 +258,13 @@ exports.markConversationAsRead = asyncHandler(async (req, res) => {
         { conversationId: req.params.id, sender: { $ne: userId } },
         { $addToSet: { readBy: userId } }
     );
+    await emitUnreadCount(userId);
     res.status(200).json({ message: 'Messages marked as read' });
+});
+
+exports.getUnreadConversationCount = asyncHandler(async (req, res) => {
+    const count = await getUnreadCountForUser(req.user.id);
+    res.json({ count });
 });
 
 exports.getConversations = asyncHandler(async (req, res) => {

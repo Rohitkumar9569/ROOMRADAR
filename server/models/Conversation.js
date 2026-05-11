@@ -21,7 +21,7 @@ const conversationSchema = new mongoose.Schema({
     },
     conversationType: {
         type: String,
-        enum: ['booking', 'inquiry'],
+        enum: ['booking', 'inquiry', 'admin_update'],
         required: true,
     }
 }, {

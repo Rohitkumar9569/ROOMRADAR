@@ -1,0 +1,48 @@
+{
+  "id": "/?source=pwa",
+  "name": "RoomRadar",
+  "short_name": "RoomRadar",
+  "description": "Premium verified room discovery, booking requests, host inbox, and admin approval workflows.",
+  "start_url": "/?source=pwa",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
+  "orientation": "portrait-primary",
+  "background_color": "#0f172a",
+  "theme_color": "#0f172a",
+  "categories": ["travel", "lifestyle", "productivity"],
+  "icons": [
+    {
+      "src": "/pwa-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/pwa-maskable.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Explore rooms",
+      "short_name": "Explore",
+      "url": "/rooms",
+      "icons": [{ "src": "/pwa-icon.svg", "sizes": "any", "type": "image/svg+xml" }]
+    },
+    {
+      "name": "Open inbox",
+      "short_name": "Inbox",
+      "url": "/profile/inbox",
+      "icons": [{ "src": "/pwa-icon.svg", "sizes": "any", "type": "image/svg+xml" }]
+    },
+    {
+      "name": "Hosting dashboard",
+      "short_name": "Hosting",
+      "url": "/landlord/overview",
+      "icons": [{ "src": "/pwa-icon.svg", "sizes": "any", "type": "image/svg+xml" }]
+    }
+  ]
+}

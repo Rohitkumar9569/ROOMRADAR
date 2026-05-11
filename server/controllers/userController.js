@@ -2,6 +2,99 @@ const User = require('../models/User');
 const Application = require('../models/Application');
 const Room = require('../models/Room'); // मकान मालिक के डैशबोर्ड के लिए आवश्यक
 
+const profileFields = [
+  'name', 'mobileNumber', 'phone', 'city', 'gender', 'occupation', 'bio', 'avatarUrl', 'profilePicture',
+  'paymentCollectionMode', 'offlinePaymentAllowed', 'upiId', 'bankAccountHolder', 'bankAccountNumber',
+  'bankIfsc', 'bankName', 'payoutNotes'
+];
+const roleProfileMap = {
+  student: 'student',
+  traveller: 'student',
+  traveler: 'student',
+  landlord: 'landlord',
+  host: 'landlord',
+};
+
+const buildCurrentUserPayload = (user) => ({
+  _id: user._id,
+  name: user.name,
+  email: user.email,
+  roles: user.roles,
+  status: user.status,
+  wishlist: user.wishlist,
+  profilePicture: user.profilePicture,
+  avatarUrl: user.avatarUrl,
+  mobileNumber: user.mobileNumber,
+  phone: user.phone,
+  city: user.city,
+  gender: user.gender,
+  occupation: user.occupation,
+  bio: user.bio,
+  roleProfiles: user.roleProfiles,
+  isVerified: user.isVerified,
+  kyc_status: user.kyc_status,
+  trustScore: user.trustScore,
+  verificationLevel: user.verificationLevel,
+  verifications: user.verifications,
+  verifiedEmails: user.verifiedEmails,
+  verifiedPhone: user.verifiedPhone,
+});
+
+exports.getCurrentUser = async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id).select('-password');
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+
+    res.status(200).json({ success: true, user: buildCurrentUserPayload(user) });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Server Error' });
+  }
+};
+
+const sanitizeProfilePayload = (body) => {
+  const payload = {};
+  profileFields.forEach((field) => {
+    if (body[field] !== undefined) {
+      payload[field] = typeof body[field] === 'string' ? body[field].trim() : body[field];
+    }
+  });
+  return payload;
+};
+
+exports.updateProfile = async (req, res) => {
+  try {
+    const payload = sanitizeProfilePayload(req.body);
+    if (payload.bio && payload.bio.length > 500) {
+      return res.status(400).json({ success: false, message: 'Bio must be 500 characters or less.' });
+    }
+
+    const profileRole = roleProfileMap[String(req.body.profileRole || req.body.mode || '').toLowerCase()];
+    const update = {};
+
+    if (profileRole) {
+      Object.entries(payload).forEach(([key, value]) => {
+        update[`roleProfiles.${profileRole}.${key}`] = value;
+      });
+
+      if (payload.mobileNumber && !payload.phone) {
+        update[`roleProfiles.${profileRole}.phone`] = payload.mobileNumber;
+      }
+      if (payload.avatarUrl && !payload.profilePicture) {
+        update[`roleProfiles.${profileRole}.profilePicture`] = payload.avatarUrl;
+      }
+    } else {
+      Object.assign(update, payload);
+    }
+
+    const user = await User.findByIdAndUpdate(req.user.id, { $set: update }, { new: true, runValidators: true }).select('-password');
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+
+    res.status(200).json({ success: true, user: buildCurrentUserPayload(user) });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Server Error' });
+  }
+};
+
 // --- Wishlist Functions ---
 
 /**
@@ -22,10 +115,9 @@ exports.addToWishlist = async (req, res) => {
     );
 
     // Send the entire updated user object back to the frontend
-    res.status(200).json({ success: true, user: updatedUser });
+    res.status(200).json({ success: true, user: buildCurrentUserPayload(updatedUser) });
 
   } catch (error) {
-    console.error('Error adding to wishlist:', error);
     res.status(500).json({ success: false, message: 'Server Error' });
   }
 };
@@ -48,10 +140,9 @@ exports.removeFromWishlist = async (req, res) => {
     );
 
     // Send the entire updated user object back to the frontend
-    res.status(200).json({ success: true, user: updatedUser });
+    res.status(200).json({ success: true, user: buildCurrentUserPayload(updatedUser) });
 
   } catch (error) {
-    console.error('Error removing from wishlist:', error);
     res.status(500).json({ success: false, message: 'Server Error' });
   }
 };
@@ -69,7 +160,6 @@ exports.getWishlist = async (req, res) => {
     }
     res.status(200).json({ success: true, wishlist: user.wishlist });
   } catch (error) {
-    console.error('Error fetching wishlist:', error);
     res.status(500).json({ success: false, message: 'Server Error' });
   }
 };
@@ -85,9 +175,10 @@ exports.getStudentDashboardSummary = async (req, res) => {
   try {
     const userId = req.user.id;
 
-    const [user, pendingCount, confirmedCount] = await Promise.all([
+    const [user, pendingCount, approvedCount, confirmedCount] = await Promise.all([
       User.findById(userId).select('wishlist'),
       Application.countDocuments({ student: userId, status: 'pending' }),
+      Application.countDocuments({ student: userId, status: 'approved' }),
       Application.countDocuments({ student: userId, status: 'confirmed' }),
     ]);
 
@@ -98,10 +189,10 @@ exports.getStudentDashboardSummary = async (req, res) => {
     res.status(200).json({
       wishlistCount: user.wishlist.length,
       pendingCount,
+      approvedCount,
       confirmedCount,
     });
   } catch (error) {
-    console.error('Error fetching student dashboard summary:', error);
     res.status(500).json({ success: false, message: 'Server Error' });
   }
 };
@@ -115,20 +206,21 @@ exports.getLandlordDashboardSummary = async (req, res) => {
     try {
       const userId = req.user.id;
   
-      const [roomCount, pendingCount, confirmedCount] = await Promise.all([
-        Room.countDocuments({ landlord: userId }),
+      const [roomCount, pendingCount, approvedCount, confirmedCount] = await Promise.all([
+        Room.countDocuments({ landlord: userId, isDeleted: { $ne: true } }),
         Application.countDocuments({ landlord: userId, status: 'pending' }),
+        Application.countDocuments({ landlord: userId, status: 'approved' }),
         Application.countDocuments({ landlord: userId, status: 'confirmed' }),
       ]);
   
       res.status(200).json({
         roomCount,
         pendingCount,
+        approvedCount,
         confirmedCount,
       });
   
     } catch (error) {
-      console.error('Error fetching landlord dashboard summary:', error);
       res.status(500).json({ success: false, message: 'Server Error' });
     }
   };

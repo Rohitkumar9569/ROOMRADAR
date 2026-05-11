@@ -1,184 +1,190 @@
-// client/src/pages/WishlistPage.jsx
-
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { ArrowDownUp, Check, ChevronDown, Heart, Search } from 'lucide-react';
 import api from '../../api';
 import { useAuth } from '../../context/AuthContext';
-//  All icons replaced with lucide-react
-import { 
-    Heart, 
-    MapPin, 
-    Pencil, 
-    Save, 
-    ArrowDownUp,
-} from 'lucide-react';
+import Spinner from '../../components/common/Spinner';
+import RoomCard from '../../components/features/rooms/RoomCard';
 
-// WishlistItemCard Component
-const WishlistItemCard = ({ room, onRemove, note, onSaveNote }) => {
-    const [noteText, setNoteText] = useState(note || '');
-    const [isEditingNote, setIsEditingNote] = useState(false);
-    const [isNoteExpanded, setIsNoteExpanded] = useState(false);
+const SORT_OPTIONS = [
+    { value: 'date_desc', label: 'Recently listed', hint: 'Newest saved rooms first' },
+    { value: 'price_asc', label: 'Price low to high', hint: 'Best budget matches' },
+    { value: 'price_desc', label: 'Price high to low', hint: 'Premium rooms first' },
+    { value: 'city_asc', label: 'City A-Z', hint: 'Group by location' },
+];
 
-    const handleSaveClick = () => {
-        onSaveNote(room._id, noteText);
-        setIsEditingNote(false);
-    };
+const SortDropdown = ({ value, onChange }) => {
+    const [open, setOpen] = useState(false);
+    const menuRef = useRef(null);
+    const activeOption = SORT_OPTIONS.find((option) => option.value === value) || SORT_OPTIONS[0];
+
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (menuRef.current && !menuRef.current.contains(event.target)) {
+                setOpen(false);
+            }
+        };
+
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
 
     return (
-        <div className="bg-white rounded-xl shadow-md hover:shadow-lg transition-shadow duration-300 border border-gray-200 overflow-hidden flex flex-col">
-            <div className="relative">
-                <Link to={`/room/${room._id}`}>
-                    <img className="w-full h-48 object-cover" src={room.images?.[0] || 'https://via.placeholder.com/400x300?text=No+Image'} alt={room.title} />
-                </Link>
-                <div className={`absolute top-3 left-3 text-xs font-bold px-3 py-1 rounded-full text-white shadow-md ${room.status === 'Published' ? 'bg-green-500' : 'bg-gray-500'}`}>{room.status}</div>
-                <button onClick={() => onRemove(room._id)} className="absolute top-3 right-3 p-2 bg-white/70 backdrop-blur-sm rounded-full cursor-pointer transition-transform duration-200 ease-in-out hover:scale-110" aria-label="Remove from wishlist">
-                    <Heart className="w-5 h-5 text-red-500 fill-current" />
-                </button>
-            </div>
-            <div className="p-4 flex flex-col flex-grow">
-                <h3 className="text-lg font-bold text-gray-800 break-words truncate">{room.title}</h3>
-                <p className="text-sm text-gray-500 mt-1 flex items-center truncate"><MapPin className="mr-2 h-4 w-4 flex-shrink-0 text-gray-400" />{room.fullAddress}</p>
-                <div className="flex-grow"></div>
-                <div className="mt-4 flex justify-between items-center">
-                    <p className="text-xl font-bold text-indigo-600">
-                        ₹{new Intl.NumberFormat('en-IN').format(room.price || 0)}
-                        <span className="text-sm font-medium text-gray-500"> /mo</span>
-                    </p>
-                </div>
-                <div className="mt-4 pt-4 border-t border-gray-100">
-                    {isEditingNote ? (
-                        <div className="flex flex-col gap-2">
-                            <textarea
-                                value={noteText}
-                                onChange={(e) => setNoteText(e.target.value)}
-                                placeholder="Add your personal note..."
-                                className="w-full p-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                                rows="2"
-                            ></textarea>
-                            <button onClick={handleSaveClick} className="flex items-center justify-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-semibold rounded-lg hover:bg-indigo-700 transition-colors">
-                                <Save className="h-4 w-4" /> Save Note
+        <div ref={menuRef} className="relative">
+            <button
+                type="button"
+                onClick={() => setOpen((current) => !current)}
+                className="flex items-center gap-2 rounded-2xl border border-light-border bg-light-card px-3 py-2.5 text-sm font-black text-light-text shadow-sm transition hover:border-cyan-400 hover:shadow-md dark:border-dark-border dark:bg-dark-card dark:text-dark-text"
+                aria-haspopup="listbox"
+                aria-expanded={open}
+            >
+                <ArrowDownUp className="h-4 w-4 text-cyan-500" />
+                <span className="max-w-[150px] truncate">{activeOption.label}</span>
+                <ChevronDown className={`h-4 w-4 text-light-muted transition dark:text-dark-muted ${open ? 'rotate-180' : ''}`} />
+            </button>
+
+            {open && (
+                <div
+                    role="listbox"
+                    className="absolute right-0 top-full z-40 mt-2 w-64 overflow-hidden rounded-2xl border border-light-border bg-white p-1.5 shadow-2xl shadow-slate-950/15 dark:border-dark-border dark:bg-dark-sidebar dark:shadow-black/35"
+                >
+                    {SORT_OPTIONS.map((option) => {
+                        const active = option.value === value;
+
+                        return (
+                            <button
+                                key={option.value}
+                                type="button"
+                                role="option"
+                                aria-selected={active}
+                                onClick={() => {
+                                    onChange(option.value);
+                                    setOpen(false);
+                                }}
+                                className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition ${
+                                    active
+                                        ? 'bg-cyan-500 text-white shadow-md shadow-cyan-500/20'
+                                        : 'text-light-text hover:bg-light-bg dark:text-dark-text dark:hover:bg-dark-card'
+                                }`}
+                            >
+                                <span className={`flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full ${
+                                    active ? 'bg-white/20 text-white' : 'bg-cyan-500/10 text-cyan-500 dark:bg-cyan-400/10 dark:text-cyan-300'
+                                }`}>
+                                    {active ? <Check className="h-4 w-4" /> : <ArrowDownUp className="h-3.5 w-3.5" />}
+                                </span>
+                                <span className="min-w-0">
+                                    <span className="block text-sm font-black">{option.label}</span>
+                                    <span className={`block truncate text-[11px] font-semibold ${active ? 'text-white/75' : 'text-light-muted dark:text-dark-muted'}`}>
+                                        {option.hint}
+                                    </span>
+                                </span>
                             </button>
-                        </div>
-                    ) : (
-                        <div className="flex flex-col">
-                            {note ? (
-                                <>
-                                    <p className={`text-sm text-gray-600 italic ${isNoteExpanded ? '' : 'truncate'}`}>{note}</p>
-                                    {note.length > 50 && (
-                                        <button onClick={() => setIsNoteExpanded(!isNoteExpanded)} className="text-xs font-semibold text-indigo-600 hover:underline text-left mt-1">
-                                            {isNoteExpanded ? 'Show less' : 'Show more'}
-                                        </button>
-                                    )}
-                                </>
-                            ) : (
-                                <p className="text-sm text-gray-500 italic">No notes added.</p>
-                            )}
-                            <button onClick={() => setIsEditingNote(true)} className="text-sm font-semibold text-indigo-600 hover:underline flex items-center gap-1.5 mt-2">
-                                <Pencil className="h-3 w-3"/> {note ? 'Edit Note' : 'Add Note'}
-                            </button>
-                        </div>
-                    )}
+                        );
+                    })}
                 </div>
-            </div>
+            )}
         </div>
     );
 };
 
-
 function WishlistPage() {
-    // State hooks 
     const [wishlistedRooms, setWishlistedRooms] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [error, setError] = useState(null);
-    const { user, removeFromWishlist } = useAuth();
+    const [error, setError] = useState('');
     const [sortBy, setSortBy] = useState('date_desc');
-    const [notes, setNotes] = useState({});
-
-    // useEffect and handler functions 
-    useEffect(() => {
-        const savedNotes = JSON.parse(localStorage.getItem('wishlistNotes')) || {};
-        setNotes(savedNotes);
-    }, []);
+    const { removeFromWishlist } = useAuth();
 
     useEffect(() => {
+        let active = true;
+
         const fetchWishlist = async () => {
             try {
                 setLoading(true);
                 const { data } = await api.get('/users/wishlist');
-                setWishlistedRooms(data.wishlist || []);
+                if (active) {
+                    setWishlistedRooms(data.wishlist || []);
+                    setError('');
+                }
             } catch (err) {
-                setError("Could not load your wishlist.");
+                if (active) setError(err.response?.data?.message || 'Could not load your wishlist.');
             } finally {
-                setLoading(false);
+                if (active) setLoading(false);
             }
         };
-        fetchWishlist();
-    }, [user]);
 
-    const sortedAndFilteredRooms = useMemo(() => {
-        const sortableRooms = [...wishlistedRooms];
-        sortableRooms.sort((a, b) => {
-            switch (sortBy) {
-                case 'price_asc': return a.price - b.price;
-                case 'price_desc': return b.price - a.price;
-                case 'date_desc': default: return 0;
+        fetchWishlist();
+        return () => {
+            active = false;
+        };
+    }, []);
+
+    const sortedRooms = useMemo(() => {
+        const rooms = [...wishlistedRooms];
+        rooms.sort((a, b) => {
+            if (sortBy === 'price_asc') return Number(a.rent || 0) - Number(b.rent || 0);
+            if (sortBy === 'price_desc') return Number(b.rent || 0) - Number(a.rent || 0);
+            if (sortBy === 'city_asc') {
+                return (a.location?.city || a.city || '').localeCompare(b.location?.city || b.city || '');
             }
+            return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
         });
-        return sortableRooms;
+        return rooms;
     }, [wishlistedRooms, sortBy]);
 
-    const handleRemoveFromWishlist = (roomId) => {
-        removeFromWishlist(roomId);
-        setWishlistedRooms(prev => prev.filter(room => room._id !== roomId));
+    const handleRemoveFromWishlist = async (roomId) => {
+        await removeFromWishlist(roomId);
+        setWishlistedRooms((prev) => prev.filter((room) => room._id !== roomId));
     };
 
-    const handleSaveNote = (roomId, noteText) => {
-        const newNotes = { ...notes, [roomId]: noteText };
-        setNotes(newNotes);
-        localStorage.setItem('wishlistNotes', JSON.stringify(newNotes));
-    };
+    if (loading) {
+        return (
+            <div className="flex h-80 items-center justify-center">
+                <Spinner />
+            </div>
+        );
+    }
 
-    if (loading) return <div className="container mx-auto px-4 pt-6 pb-8">Loading...</div>;
-    if (error) return <div className="container mx-auto px-4 pt-6 pb-8 text-red-500">{error}</div>;
-
-    return (
-        <div className="container mx-auto px-4 pt-6 pb-8">
-            <div className="flex justify-end items-center mb-4">
-                <div className="flex items-center gap-3">
-                    <div className="flex items-center gap-2">
-                        <ArrowDownUp className="h-4 w-4 text-gray-500" />
-                        <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} className="text-xs font-semibold py-1 px-2 border-gray-300 rounded-md focus:ring-indigo-500">
-                            <option value="date_desc">Sort by Date Added</option>
-                            <option value="price_asc">Price: Low to High</option>
-                            <option value="price_desc">Price: High to Low</option>
-                        </select>
-                    </div>
+    if (error) {
+        return (
+            <div className="mx-auto max-w-3xl p-4 md:p-8">
+                <div className="rounded-2xl border border-rose-200 bg-rose-50 p-5 text-sm font-semibold text-rose-700 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-200">
+                    {error}
                 </div>
             </div>
+        );
+    }
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {sortedAndFilteredRooms.length > 0 ? (
-                    sortedAndFilteredRooms.map(room => (
-                        <WishlistItemCard
-                            key={room._id}
-                            room={room}
-                            onRemove={handleRemoveFromWishlist}
-                            note={notes[room._id]}
-                            onSaveNote={handleSaveNote}
-                        />
-                    ))
-                ) : (
-                    <div className="col-span-full text-center py-10 border-2 border-dashed rounded-lg">
-                        <Heart className="mx-auto h-10 w-10 text-gray-300 mb-4" />
-                        <h2 className="text-xl font-semibold">Your Wishlist is Empty</h2>
-                        <p className="text-gray-500 mt-2">You haven't added any rooms yet.</p>
-                        <Link to="/" className="mt-4 inline-block px-5 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors">
-                            Browse Rooms
+    return (
+        <main className="min-h-screen bg-light-bg px-4 pb-24 pt-6 text-light-text dark:bg-dark-bg dark:text-dark-text md:px-6 lg:px-8">
+            <div className="mx-auto max-w-6xl">
+                <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+                    <div>
+                        <p className="text-xs font-bold uppercase tracking-[0.22em] text-brand">Saved rooms</p>
+                        <h1 className="mt-1.5 text-2xl font-black tracking-tight md:text-[28px]">Wishlist</h1>
+                        <p className="mt-1.5 text-xs text-light-muted dark:text-dark-muted md:text-sm">Compare rooms you saved from live listings.</p>
+                    </div>
+                    <SortDropdown value={sortBy} onChange={setSortBy} />
+                </div>
+
+                {sortedRooms.length === 0 ? (
+                    <div className="mt-10 rounded-3xl border border-dashed border-light-border bg-light-card p-10 text-center dark:border-dark-border dark:bg-dark-card">
+                        <Heart className="mx-auto h-12 w-12 text-brand" />
+                        <h2 className="mt-4 text-2xl font-semibold">Your wishlist is empty</h2>
+                        <p className="mt-2 text-sm text-light-muted dark:text-dark-muted">Tap the heart on a room to save it here.</p>
+                        <Link to="/rooms" className="btn-primary mt-6 inline-flex items-center gap-2">
+                            <Search className="h-4 w-4" />
+                            Browse rooms
                         </Link>
+                    </div>
+                ) : (
+                    <div className="mobile-room-grid mt-6 grid gap-3 md:grid-cols-3 md:gap-4 xl:grid-cols-4">
+                        {sortedRooms.map((room) => (
+                            <RoomCard key={room._id} room={room} context="saved" onRemove={handleRemoveFromWishlist} />
+                        ))}
                     </div>
                 )}
             </div>
-        </div>
+        </main>
     );
 }
 

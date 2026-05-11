@@ -3,6 +3,31 @@ const jwt = require('jsonwebtoken');
 const asyncHandler = require('express-async-handler');
 const axios = require('axios'); //  Added axios import
 
+const buildAuthUserPayload = (user) => ({
+    _id: user._id,
+    name: user.name,
+    email: user.email,
+    roles: user.roles,
+    status: user.status,
+    wishlist: user.wishlist,
+    profilePicture: user.profilePicture,
+    avatarUrl: user.avatarUrl,
+    mobileNumber: user.mobileNumber,
+    phone: user.phone,
+    city: user.city,
+    gender: user.gender,
+    occupation: user.occupation,
+    bio: user.bio,
+    roleProfiles: user.roleProfiles,
+    isVerified: user.isVerified,
+    kyc_status: user.kyc_status,
+    trustScore: user.trustScore,
+    verificationLevel: user.verificationLevel,
+    verifications: user.verifications,
+    verifiedEmails: user.verifiedEmails,
+    verifiedPhone: user.verifiedPhone,
+});
+
 // --- Register User (No changes) ---
 exports.registerUser = asyncHandler(async (req, res) => {
     const { name, email, password } = req.body;
@@ -21,10 +46,7 @@ exports.registerUser = asyncHandler(async (req, res) => {
 
     if (user) {
         res.status(201).json({
-            _id: user._id,
-            name: user.name,
-            email: user.email,
-            roles: user.roles,
+            ...buildAuthUserPayload(user),
         });
     } else {
         res.status(400);
@@ -39,11 +61,7 @@ exports.loginUser = asyncHandler(async (req, res) => {
 
     if (user && (await user.matchPassword(password))) {
         res.json({
-            _id: user._id,
-            name: user.name,
-            email: user.email,
-            roles: user.roles, 
-            wishlist: user.wishlist,
+            ...buildAuthUserPayload(user),
             token: jwt.sign({ id: user._id, roles: user.roles }, process.env.JWT_SECRET, {
                 expiresIn: '30d',
             }),
@@ -76,7 +94,7 @@ exports.googleAuth = asyncHandler(async (req, res) => {
         user = await User.create({
             name,
             email,
-            // Google users don't have a password, so we create a secure dummy one
+            // Google users authenticate externally, so store a secure generated value.
             password: sub + process.env.JWT_SECRET, 
             profilePicture: picture,
             roles: ['Student'], // Default role
@@ -87,12 +105,7 @@ exports.googleAuth = asyncHandler(async (req, res) => {
     // 4. Generate Token & Send Response (Matching loginUser structure)
     if (user) {
         res.status(200).json({
-            _id: user._id,
-            name: user.name,
-            email: user.email,
-            roles: user.roles, // Important for frontend redirect
-            wishlist: user.wishlist,
-            profilePicture: user.profilePicture,
+            ...buildAuthUserPayload(user),
             token: jwt.sign({ id: user._id, roles: user.roles }, process.env.JWT_SECRET, {
                 expiresIn: '30d',
             }),

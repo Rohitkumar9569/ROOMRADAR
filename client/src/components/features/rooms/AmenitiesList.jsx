@@ -41,18 +41,18 @@ const AmenitiesList = ({ facilities = {} }) => {
     const previewAmenities = availableAmenities.slice(0, 6);
 
     if (availableAmenities.length === 0) {
-        return <p className="text-gray-600">No specific amenities listed.</p>;
+        return <p className="text-sm font-semibold text-slate-500 dark:text-secondary-300">No specific amenities listed.</p>;
     }
 
     return (
         <div>
-            <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 {previewAmenities.map(key => {
                     const AmenityIcon = amenitiesMap[key].icon;
                     return (
-                        <div key={key} className="flex items-center space-x-3">
-                            <AmenityIcon className="h-6 w-6 text-gray-800" />
-                            <span className="text-gray-700">{amenitiesMap[key].name}</span>
+                        <div key={key} className="flex items-center gap-3 rounded-2xl bg-slate-50 p-4 dark:bg-secondary-900">
+                            <AmenityIcon className="h-6 w-6 flex-shrink-0 text-cyan-600 dark:text-cyan-300" />
+                            <span className="text-sm font-black text-slate-800 dark:text-secondary-100">{amenitiesMap[key].name}</span>
                         </div>
                     );
                 })}
@@ -61,30 +61,30 @@ const AmenitiesList = ({ facilities = {} }) => {
             {availableAmenities.length > 6 && (
                 <button 
                     onClick={() => setIsModalOpen(true)}
-                    className="mt-6 border border-gray-800 text-gray-800 font-bold py-3 px-6 rounded-lg hover:bg-gray-100 transition"
+                    className="mt-5 rounded-2xl border border-slate-200 bg-white px-5 py-3 text-sm font-black text-slate-800 shadow-sm transition hover:border-cyan-200 hover:text-cyan-700 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-100"
                 >
                     Show all {availableAmenities.length} amenities
                 </button>
             )}
 
             {isModalOpen && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center">
-                    <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[80vh] overflow-y-auto">
-                        <div className="sticky top-0 bg-white border-b p-4 flex justify-between items-center z-10">
-                              <button onClick={() => setIsModalOpen(false)} className="p-2 rounded-full hover:bg-gray-200">
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-md">
+                    <div className="w-full max-w-2xl overflow-hidden rounded-3xl bg-white shadow-2xl dark:bg-secondary-800">
+                        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-200 bg-white p-4 dark:border-secondary-700 dark:bg-secondary-800">
+                              <button onClick={() => setIsModalOpen(false)} className="rounded-full p-2 transition hover:bg-slate-100 dark:hover:bg-secondary-700">
                                 <XMarkIcon className="h-6 w-6"/>
                             </button>
-                            <h2 className="text-lg font-semibold">What this place offers</h2>
+                            <h2 className="text-lg font-black text-slate-950 dark:text-white">What this place offers</h2>
                             <div></div>
                         </div>
-                        <div className="p-8">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-y-4">
+                        <div className="max-h-[70vh] overflow-y-auto p-5">
+                            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                                 {availableAmenities.map(key => {
                                     const AmenityIcon = amenitiesMap[key].icon;
                                     return (
-                                        <div key={key} className="flex items-center space-x-4">
-                                            <AmenityIcon className="h-7 w-7 text-gray-800" />
-                                            <span className="text-gray-700 text-lg">{amenitiesMap[key].name}</span>
+                                        <div key={key} className="flex items-center gap-4 rounded-2xl bg-slate-50 p-4 dark:bg-secondary-900">
+                                            <AmenityIcon className="h-7 w-7 text-cyan-600 dark:text-cyan-300" />
+                                            <span className="text-base font-black text-slate-800 dark:text-secondary-100">{amenitiesMap[key].name}</span>
                                         </div>
                                     );
                                 })}

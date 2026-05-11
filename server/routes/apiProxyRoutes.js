@@ -15,7 +15,6 @@ router.get('/autocomplete', async (req, res) => {
         const response = await axios.get(url);
         res.json(response.data);
     } catch (error) {
-        console.error("Error fetching from Geoapify:", error.message);
         res.status(500).json({ message: "Failed to fetch suggestions from server" });
     }
 });
@@ -32,7 +31,6 @@ router.get('/reverse', async (req, res) => {
         const response = await axios.get(url);
         res.json(response.data);
     } catch (error) {
-        console.error("Error fetching from Geoapify reverse:", error.message);
         res.status(500).json({ message: "Failed to fetch address from server" });
     }
 });

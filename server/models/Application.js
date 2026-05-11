@@ -1,5 +1,6 @@
 // server/models/Application.js
 const mongoose = require('mongoose');
+const { toOptionalDate } = require('../utils/dateUtils');
 
 const applicationSchema = new mongoose.Schema(
   {
@@ -18,6 +19,10 @@ const applicationSchema = new mongoose.Schema(
       ref: 'User',
       required: true,
     },
+    conversation: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Conversation',
+    },
     type: {
       type: String,
       enum: ['request', 'inquiry'],
@@ -26,7 +31,7 @@ const applicationSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ['pending', 'approved', 'rejected', 'cancelled', 'confirmed'],
+      enum: ['pending', 'approved', 'rejected', 'cancelled', 'confirmed', 'expired'],
       default: 'pending',
     },
 
@@ -42,14 +47,39 @@ const applicationSchema = new mongoose.Schema(
       type: String,
       required: function () { return this.type === 'request'; }
     },
+    durationMonths: {
+      type: Number,
+      min: 1,
+    },
+    purposeOfStay: {
+      type: String,
+      trim: true,
+    },
+    idProofType: {
+      type: String,
+      trim: true,
+    },
+    idProofImage: {
+      type: String,
+    },
+    emergencyContact: {
+      name: { type: String, trim: true },
+      phone: { type: String, trim: true },
+    },
+    agreedToTerms: {
+      type: Boolean,
+      default: false,
+    },
 
     checkInDate: {
       type: Date,
       required: function () { return this.type === 'request'; },
+      set: toOptionalDate,
     },
     checkOutDate: {
       type: Date,
       required: function () { return this.type === 'request'; },
+      set: toOptionalDate,
     },
 
     occupants: {
@@ -75,7 +105,74 @@ const applicationSchema = new mongoose.Schema(
       maxLength: 500,
     },
 
-    // This field was in our controller, so let's add it to the schema too
+    approvedAt: { type: Date, set: toOptionalDate },
+    confirmedAt: { type: Date, set: toOptionalDate },
+    requestExpiresAt: {
+      type: Date,
+      index: true,
+      set: toOptionalDate,
+    },
+    cancelledAt: { type: Date, set: toOptionalDate },
+    cancelledBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+    },
+    cancellationReason: {
+      type: String,
+      trim: true,
+    },
+    cancellationPenalty: {
+      percent: { type: Number, default: 0 },
+      amount: { type: Number, default: 0 },
+      reason: { type: String, trim: true },
+      calendarBlocked: { type: Boolean, default: false },
+      waived: { type: Boolean, default: false },
+    },
+    guidebookSentAt: { type: Date, set: toOptionalDate },
+    smartLockPin: {
+      type: String,
+      trim: true,
+      select: false,
+    },
+    checkInStatus: {
+      type: String,
+      enum: ['not_started', 'guidebook_sent', 'checked_in', 'checked_out', 'issue_reported'],
+      default: 'not_started',
+      index: true,
+    },
+    paymentMethod: {
+      type: String,
+      enum: ['card', 'upi', 'netbanking', 'cash', 'manual', 'other'],
+    },
+    paymentStatus: {
+      type: String,
+      enum: ['not_required', 'pending', 'paid', 'failed', 'refunded'],
+      default: 'pending',
+    },
+    amountBreakdown: {
+      rent: { type: Number, default: 0 },
+      durationMonths: { type: Number, default: 1 },
+      securityDeposit: { type: Number, default: 0 },
+      platformFee: { type: Number, default: 0 },
+      total: { type: Number, default: 0 },
+    },
+    escrow: {
+      status: {
+        type: String,
+        enum: ['not_required', 'pending', 'held', 'frozen', 'released', 'refunded', 'failed'],
+        default: 'pending',
+        index: true,
+      },
+      provider: { type: String, trim: true },
+      providerOrderId: { type: String, trim: true },
+      providerPaymentId: { type: String, trim: true },
+      frozenAt: { type: Date, set: toOptionalDate },
+      releasedAt: { type: Date, set: toOptionalDate },
+      refundedAt: { type: Date, set: toOptionalDate },
+      releaseAfter: { type: Date, set: toOptionalDate },
+      notes: { type: String, trim: true },
+    },
+
     isUpdated: {
       type: Boolean,
       default: false
@@ -85,6 +182,10 @@ const applicationSchema = new mongoose.Schema(
     timestamps: true,
   }
 );
+
+applicationSchema.index({ landlord: 1, status: 1, requestExpiresAt: 1 });
+applicationSchema.index({ student: 1, status: 1, createdAt: -1 });
+applicationSchema.index({ room: 1, checkInDate: 1, checkOutDate: 1, status: 1 });
 
 const Application = mongoose.model('Application', applicationSchema);
 module.exports = Application;

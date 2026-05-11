@@ -2,6 +2,7 @@ import React from 'react';
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../../../context/AuthContext';
 import Spinner from '../../common/Spinner';
+import AccountRestrictedPage from '../../../pages/AccountRestrictedPage';
 
 const ProtectedRoute = ({ allowedRoles }) => {
     const { user, isAuthLoading } = useAuth();
@@ -19,6 +20,10 @@ const ProtectedRoute = ({ allowedRoles }) => {
     // If loading is finished and there's no user, redirect to login
     if (!user) {
         return <Navigate to="/login" state={{ from: location }} replace />;
+    }
+
+    if (user.status === 'Banned') {
+        return <AccountRestrictedPage />;
     }
 
     // --- [CHANGED] This is the updated role check ---

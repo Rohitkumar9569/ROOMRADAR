@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { FaStar } from 'react-icons/fa';
-import { createReview } from '../../../api'; 
+import { createReview } from '../../../api';
 import toast from 'react-hot-toast';
 
 const StarRating = ({ rating, setRating }) => {
   const [hover, setHover] = useState(0);
+
   return (
     <div className="flex items-center justify-center space-x-2">
       {[...Array(5)].map((_, index) => {
@@ -20,7 +21,7 @@ const StarRating = ({ rating, setRating }) => {
             />
             <FaStar
               className="cursor-pointer transition-colors"
-              color={ratingValue <= (hover || rating) ? '#ffc107' : '#e4e5e9'}
+              color={ratingValue <= (hover || rating) ? '#f59e0b' : '#d1d5db'}
               size={40}
               onMouseEnter={() => setHover(ratingValue)}
               onMouseLeave={() => setHover(0)}
@@ -32,16 +33,13 @@ const StarRating = ({ rating, setRating }) => {
   );
 };
 
-
 function ReviewModal({ isOpen, onClose, booking, onSuccess }) {
   const [rating, setRating] = useState(0);
   const [comment, setComment] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  if (!isOpen) {
-    return null;
-  }
+  if (!isOpen) return null;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -51,6 +49,7 @@ function ReviewModal({ isOpen, onClose, booking, onSuccess }) {
       setError('Please select a star rating.');
       return;
     }
+
     if (!comment.trim()) {
       setError('Please write a comment for your review.');
       return;
@@ -58,12 +57,10 @@ function ReviewModal({ isOpen, onClose, booking, onSuccess }) {
 
     setLoading(true);
     try {
-      const reviewData = { rating, comment };
-      // API को कॉल करें, roomId बुकिंग ऑब्जेक्ट से मिलेगा
-      await createReview(booking.room._id, reviewData);
+      await createReview(booking.room._id, { rating, comment });
       toast.success('Thank you! Your review has been submitted.');
-      onSuccess(); // UI को रिफ्रेश करने के लिए
-      onClose();   // Modal को बंद करें
+      onSuccess();
+      onClose();
     } catch (err) {
       const errorMessage = err.response?.data?.message || 'Failed to submit review.';
       setError(errorMessage);
@@ -74,44 +71,49 @@ function ReviewModal({ isOpen, onClose, booking, onSuccess }) {
   };
 
   return (
-    <div className="fixed inset-0 bg-gray-600 bg-opacity-75 flex justify-center items-center z-50">
-      <div className="bg-white rounded-lg shadow-xl p-8 w-full max-w-lg mx-4">
-        <h2 className="text-2xl font-bold text-center text-gray-800 mb-4">Leave a Review</h2>
-        <p className="text-center text-gray-600 mb-6">How was your stay at "{booking.room.title}"?</p>
-        
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-4 backdrop-blur-sm sm:items-center">
+      <div className="w-full max-w-lg rounded-3xl border border-light-border bg-light-card p-6 shadow-2xl dark:border-dark-border dark:bg-dark-card sm:p-8">
+        <h2 className="mb-3 text-center text-2xl font-bold tracking-tight text-light-text dark:text-dark-text">
+          Leave a Review
+        </h2>
+        <p className="mb-6 text-center text-sm text-light-muted dark:text-dark-muted">
+          How was your stay at "{booking.room.title}"?
+        </p>
+
         <form onSubmit={handleSubmit}>
           <div className="mb-6">
             <StarRating rating={rating} setRating={setRating} />
           </div>
+
           <div className="mb-6">
-            <label htmlFor="comment" className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="comment" className="mb-2 block text-sm font-medium text-light-text2 dark:text-dark-text2">
               Your Comment
             </label>
             <textarea
               id="comment"
               rows="5"
-              className="w-full px-3 py-2 text-gray-700 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full rounded-2xl border border-light-border bg-light-bg px-4 py-3 text-light-text outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20 dark:border-dark-border dark:bg-dark-input dark:text-dark-text"
               placeholder="Tell us about your experience..."
               value={comment}
               onChange={(e) => setComment(e.target.value)}
               required
-            ></textarea>
+            />
           </div>
-          
-          {error && <p className="text-red-500 text-sm text-center mb-4">{error}</p>}
-          
-          <div className="flex justify-end gap-4">
+
+          {error && <p className="mb-4 text-center text-sm text-red-500">{error}</p>}
+
+          <div className="flex justify-end gap-3">
             <button
               type="button"
               onClick={onClose}
-              className="px-6 py-2 text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300 font-semibold"
+              className="rounded-2xl border border-light-border px-5 py-2.5 font-semibold text-light-text transition hover:bg-light-bg dark:border-dark-border dark:text-dark-text dark:hover:bg-dark-input"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={loading}
-              className="px-6 py-2 text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 font-semibold disabled:bg-indigo-300"
+              className="rounded-2xl bg-cyan-500 px-5 py-2.5 font-semibold text-white shadow-lg shadow-cyan-500/25 transition hover:bg-cyan-600 disabled:opacity-50"
             >
               {loading ? 'Submitting...' : 'Submit Review'}
             </button>
