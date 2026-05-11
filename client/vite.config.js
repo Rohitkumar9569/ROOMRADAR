@@ -18,6 +18,7 @@ const packageMatcher = (id, packageName) => {
 };
 
 const manualChunks = (id) => {
+  if (id.includes('commonjsHelpers')) return 'vendor-runtime';
   if (!id.includes('node_modules')) return undefined;
 
   for (const [chunkName, packages] of vendorGroups) {
@@ -26,7 +27,7 @@ const manualChunks = (id) => {
     }
   }
 
-  return 'vendor-misc';
+  return undefined;
 };
 
 // https://vitejs.dev/config/
