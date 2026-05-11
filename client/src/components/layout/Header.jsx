@@ -78,19 +78,20 @@ const UserMenu = ({ isOverlay = false }) => {
                         </span>
                     </button>
                     {isMenuOpen && (
-                        <div
-                            role="menu"
-                            className={`absolute right-0 top-full z-50 mt-3 w-80 max-w-[calc(100vw-2rem)] overflow-hidden rounded-[1.65rem] border p-2.5 shadow-[0_30px_90px_-34px_rgba(15,23,42,0.82)] ring-1 backdrop-blur-2xl ${
-                                isOverlay
-                                    ? 'border-white/35 bg-white/[0.94] text-slate-950 ring-white/30 dark:border-white/15 dark:bg-slate-950/[0.90] dark:text-white dark:ring-white/10'
-                                    : 'border-slate-200/80 bg-white/[0.98] text-slate-950 ring-slate-950/[0.05] dark:border-white/10 dark:bg-slate-950/[0.98] dark:text-white dark:ring-white/[0.06]'
-                            }`}
-                        >
-                            <span className={`absolute right-7 top-[-0.42rem] h-3.5 w-3.5 rotate-45 border-l border-t ${
+                        <div className="absolute right-0 top-full z-50 w-80 max-w-[calc(100vw-2rem)] pt-3">
+                            <span className={`absolute right-7 top-[0.58rem] h-3.5 w-3.5 rotate-45 border-l border-t ${
                                 isOverlay
                                     ? 'border-white/35 bg-white/[0.94] dark:border-white/15 dark:bg-slate-950/[0.90]'
                                     : 'border-slate-200/80 bg-white/[0.98] dark:border-white/10 dark:bg-slate-950/[0.98]'
                             }`} />
+                            <div
+                                role="menu"
+                                className={`relative overflow-hidden rounded-[1.65rem] border p-2.5 shadow-[0_30px_90px_-34px_rgba(15,23,42,0.82)] ring-1 backdrop-blur-2xl ${
+                                    isOverlay
+                                        ? 'border-white/35 bg-white/[0.94] text-slate-950 ring-white/30 dark:border-white/15 dark:bg-slate-950/[0.90] dark:text-white dark:ring-white/10'
+                                        : 'border-slate-200/80 bg-white/[0.98] text-slate-950 ring-slate-950/[0.05] dark:border-white/10 dark:bg-slate-950/[0.98] dark:text-white dark:ring-white/[0.06]'
+                                }`}
+                            >
 
                             <div className="rounded-[1.28rem] bg-gradient-to-br from-cyan-50 via-white to-rose-50 p-3 ring-1 ring-slate-950/[0.045] dark:from-cyan-400/[0.14] dark:via-slate-900 dark:to-rose-400/[0.10] dark:ring-white/[0.07]">
                                 <p className="inline-flex items-center gap-1.5 rounded-full bg-cyan-500/10 px-2.5 py-1 text-[11px] font-black uppercase tracking-[0.08em] text-cyan-700 dark:bg-cyan-300/15 dark:text-cyan-100">
@@ -138,6 +139,7 @@ const UserMenu = ({ isOverlay = false }) => {
                                 <span className="min-w-0 flex-1">Become a host</span>
                                 <ChevronRight className="h-4 w-4 opacity-35 transition group-hover:translate-x-0.5 group-hover:opacity-100" />
                             </NavLink>
+                            </div>
                         </div>
                     )}
                 </div>
