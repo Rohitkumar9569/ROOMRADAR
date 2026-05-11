@@ -1,14 +1,15 @@
-import React from 'react';
+import React, { lazy, Suspense, useEffect, useState } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import ScrollToTop from '../components/common/ScrollToTop';
 import Spinner from '../components/common/Spinner';
 import MaintenancePage from '../pages/MaintenancePage';
 import PWAInstallPrompt from '../components/common/PWAInstallPrompt';
 import BottomNavBar from '../components/layout/student/BottomNavBar';
-import RoomRadarChatbot from '../components/chatbot/RoomRadarChatbot';
 import SmartAppHeader from '../components/layout/mobile/SmartAppHeader';
 import { useAuth } from '../context/AuthContext';
 import { useSettings } from '../context/SettingsContext';
+
+const RoomRadarChatbot = lazy(() => import('../components/chatbot/RoomRadarChatbot'));
 
 function RootLayout() {
     const location = useLocation();
@@ -28,9 +29,25 @@ function RootLayout() {
         && !isStudentChatDetail;
     const showAppHeader = !isAuthPath && !path.startsWith('/loading');
     const showInstallPrompt = showAppHeader && !path.includes('/inbox');
+    const showChatbot = showInstallPrompt
+        && !/^\/landlord\/(?:add-room|edit-room\/[^/]+)\/?$/.test(path);
     const wrapperClass = showStudentBottomNav ? 'pb-20 md:pb-0' : '';
     const adminRoles = ['Admin', 'Super_Admin', 'Moderator', 'Support'];
     const isAdmin = user?.roles?.some(role => adminRoles.includes(role));
+    const [chatbotReady, setChatbotReady] = useState(false);
+
+    useEffect(() => {
+        if (!showChatbot) {
+            setChatbotReady(false);
+            return undefined;
+        }
+
+        const schedule = window.requestIdleCallback || ((callback) => window.setTimeout(callback, 1200));
+        const cancel = window.cancelIdleCallback || window.clearTimeout;
+        const handle = schedule(() => setChatbotReady(true));
+
+        return () => cancel(handle);
+    }, [showChatbot]);
 
     if (loading) {
         return (
@@ -49,7 +66,11 @@ function RootLayout() {
             {showAppHeader && <SmartAppHeader />}
             <Outlet />
             {showStudentBottomNav && <BottomNavBar />}
-            <RoomRadarChatbot />
+            {chatbotReady && (
+                <Suspense fallback={null}>
+                    <RoomRadarChatbot />
+                </Suspense>
+            )}
             {showInstallPrompt && <PWAInstallPrompt />}
             <ScrollToTop />
         </div>

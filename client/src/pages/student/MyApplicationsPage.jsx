@@ -19,6 +19,9 @@ import { cancelApplication, getStudentApplications } from '../../api';
 import BookingRequestModal from '../../components/features/booking/BookingRequestModal';
 import fallbackRoomImage from '../../assets/background_img.jpg';
 import { confirmToast } from '../../utils/confirmToast';
+import { readTabCache, setTabCache } from '../../utils/tabDataCache';
+
+const APPLICATIONS_CACHE_KEY = 'student:applications';
 
 const statusMeta = {
     pending: {
@@ -185,8 +188,9 @@ const StudentApplicationCard = ({ application, onCancel, onEdit }) => {
 };
 
 const MyApplicationsPage = () => {
-    const [applications, setApplications] = useState([]);
-    const [loading, setLoading] = useState(true);
+    const cachedApplications = readTabCache(APPLICATIONS_CACHE_KEY)?.value;
+    const [applications, setApplications] = useState(() => cachedApplications?.applications || []);
+    const [loading, setLoading] = useState(() => !cachedApplications);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [selectedApplication, setSelectedApplication] = useState(null);
     const {
@@ -196,19 +200,28 @@ const MyApplicationsPage = () => {
         setApplicationCounts,
     } = useOutletContext();
 
-    const fetchApps = useCallback(async () => {
+    const fetchApps = useCallback(async ({ forceLoading = false } = {}) => {
+        const cached = readTabCache(APPLICATIONS_CACHE_KEY)?.value;
+        if (cached && !forceLoading) {
+            setApplications(cached.applications || []);
+            setLoading(false);
+        } else {
+            setLoading(true);
+        }
+
         try {
             const { data } = await getStudentApplications();
-            setApplications(Array.isArray(data) ? data : []);
+            const nextApplications = Array.isArray(data) ? data : [];
+            setTabCache(APPLICATIONS_CACHE_KEY, { applications: nextApplications });
+            setApplications(nextApplications);
         } catch (error) {
-            toast.error('Failed to fetch your applications.');
+            if (!cached) toast.error('Failed to fetch your applications.');
         } finally {
             setLoading(false);
         }
     }, []);
 
     useEffect(() => {
-        setLoading(true);
         fetchApps();
     }, [fetchApps]);
 
@@ -244,7 +257,11 @@ const MyApplicationsPage = () => {
                 const toastId = toast.loading('Cancelling request...');
                 try {
                     await cancelApplication(applicationId);
-                    setApplications((prev) => prev.map((app) => (app._id === applicationId ? { ...app, status: 'cancelled' } : app)));
+                    setApplications((prev) => {
+                        const nextApplications = prev.map((app) => (app._id === applicationId ? { ...app, status: 'cancelled' } : app));
+                        setTabCache(APPLICATIONS_CACHE_KEY, { applications: nextApplications });
+                        return nextApplications;
+                    });
                     toast.success('Request cancelled.', { id: toastId });
                 } catch (error) {
                     toast.error(error.response?.data?.message || 'Failed to cancel application.', { id: toastId });
@@ -261,8 +278,7 @@ const MyApplicationsPage = () => {
     const handleEditSuccess = () => {
         setIsEditModalOpen(false);
         setSelectedApplication(null);
-        setLoading(true);
-        fetchApps();
+        fetchApps({ forceLoading: true });
     };
 
     return (

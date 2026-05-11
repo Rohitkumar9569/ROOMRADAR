@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { AnimatePresence, motion } from 'framer-motion';
 import {
     Award,
     Bath,
@@ -24,7 +23,7 @@ import fallbackRoomImage from '../../../assets/background_img.jpg';
 
 const money = (value) => `\u20B9${Number(value || 0).toLocaleString('en-IN')}`;
 
-function RoomCard({ room, context = 'default', onRemove }) {
+function RoomCard({ room, context = 'default', onRemove, imagePriority = false }) {
     const { user, addToWishlist, removeFromWishlist } = useAuth();
     const imageUrls = (Array.isArray(room.images) && room.images.length > 0
         ? room.images
@@ -136,6 +135,8 @@ function RoomCard({ room, context = 'default', onRemove }) {
         || landlord.verifications?.identity
         || landlord.verifications?.property
     );
+    const imageLoading = imagePriority ? 'eager' : 'lazy';
+    const imageFetchPriority = imagePriority ? 'high' : 'auto';
     const washroomText = room.washroomType || (room.attachedWashroom ? 'Attached' : '');
     const detailTags = [
         roomTag,
@@ -158,12 +159,8 @@ function RoomCard({ room, context = 'default', onRemove }) {
     ].filter(Boolean);
 
     return (
-        <motion.article
+        <article
             className="room-card-pro rr-room-card group h-full cursor-pointer"
-            initial={{ opacity: 0, y: 18 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.35, ease: 'easeOut' }}
         >
             <Link to={`/room/${room._id}`} className="flex h-full flex-col">
                 <div
@@ -171,19 +168,16 @@ function RoomCard({ room, context = 'default', onRemove }) {
                     onMouseEnter={() => setIsHovered(true)}
                     onMouseLeave={() => setIsHovered(false)}
                 >
-                    <AnimatePresence mode="wait">
-                        <motion.img
-                            key={imageUrls[currentImageIndex]}
-                            src={imageUrls[currentImageIndex]}
-                            alt={room.title || 'Room'}
-                            className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-                            loading="lazy"
-                            initial={{ opacity: 0, scale: 1.03 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            exit={{ opacity: 0, scale: 1.02 }}
-                            transition={{ duration: 0.75, ease: [0.22, 1, 0.36, 1] }}
-                        />
-                    </AnimatePresence>
+                    <img
+                        key={imageUrls[currentImageIndex]}
+                        src={imageUrls[currentImageIndex]}
+                        alt={room.title || 'Room'}
+                        className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.025]"
+                        loading={imageLoading}
+                        decoding="async"
+                        fetchPriority={imageFetchPriority}
+                        sizes="(max-width: 639px) 50vw, (max-width: 1023px) 50vw, 280px"
+                    />
                     <div className="absolute inset-0 bg-gradient-to-t from-slate-950/52 via-transparent to-black/10 opacity-80" />
 
                     {(isGuestFavourite || isVerifiedHost || room.verifications?.property) && (
@@ -293,6 +287,7 @@ function RoomCard({ room, context = 'default', onRemove }) {
                                 alt={hostName}
                                 className="h-5 w-5 flex-shrink-0 rounded-full object-cover ring-2 ring-white dark:ring-dark-border sm:h-6 sm:w-6"
                                 loading="lazy"
+                                decoding="async"
                             />
                         ) : (
                             <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-cyan-500/15 text-[9px] font-bold text-cyan-700 dark:bg-cyan-500/20 dark:text-cyan-300 sm:h-6 sm:w-6 sm:text-[10px]">
@@ -334,12 +329,13 @@ function RoomCard({ room, context = 'default', onRemove }) {
                     </div>
                 </div>
             </Link>
-        </motion.article>
+        </article>
     );
 }
 
 RoomCard.propTypes = {
     context: PropTypes.oneOf(['default', 'saved']),
+    imagePriority: PropTypes.bool,
     onRemove: PropTypes.func,
     room: PropTypes.shape({
         _id: PropTypes.string.isRequired,
@@ -392,4 +388,4 @@ RoomCard.propTypes = {
     }).isRequired,
 };
 
-export default RoomCard;
+export default React.memo(RoomCard);

@@ -86,6 +86,7 @@ const StudentProfileLayout = () => {
         setInboxListScrolled,
     ]);
     const mainContentMargin = isSidebarOpen ? 'md:ml-72' : 'md:ml-24';
+    const mainTopPadding = pageType === 'applications' ? '' : pageType === 'inbox' ? 'mobile-inbox-main' : 'pt-16 md:pt-0';
 
     return (
         <div className="min-h-screen bg-light-bg text-light-text dark:bg-dark-bg dark:text-dark-text">
@@ -101,10 +102,10 @@ const StudentProfileLayout = () => {
                 </div>
             )}
 
-            <main ref={mainContentRef} className={`min-h-screen transition-all duration-300 md:pb-0 ${pageType === 'applications' ? '' : 'pt-16 md:pt-0'} ${pageType === 'inbox' ? 'pb-0' : 'pb-24'} ${mainContentMargin}`}>
+            <main ref={mainContentRef} className={`min-h-screen transition-all duration-300 md:pb-0 ${mainTopPadding} ${pageType === 'inbox' ? 'pb-0' : 'pb-24'} ${mainContentMargin}`}>
                 <div className={
                     pageType === 'inbox'
-                        ? 'h-[calc(100dvh-4rem)] md:h-screen md:pt-0'
+                        ? 'mobile-inbox-page-shell md:pt-0'
                         : pageType === 'applications'
                             ? ''
                             : 'md:pt-0'

@@ -1,7 +1,6 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { format } from 'date-fns';
-import { MapContainer, Marker, Popup, TileLayer } from 'react-leaflet';
 import toast from 'react-hot-toast';
 import api from '../../api';
 import Spinner from '../../components/common/Spinner';
@@ -32,6 +31,8 @@ import {
     Wifi,
 } from 'lucide-react';
 
+const RoomLocationMap = lazy(() => import('../../components/features/rooms/RoomLocationMap'));
+
 const money = (value) => `₹${Number(value || 0).toLocaleString('en-IN')}`;
 
 const getImageUrl = (image) => {
@@ -56,7 +57,7 @@ const factsForRoom = (room) => [
 const Avatar = ({ user }) => (
     <div className="relative flex h-16 w-16 flex-shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-slate-950 text-xl font-black text-white shadow-sm dark:bg-white dark:text-slate-950">
         {user?.avatarUrl || user?.profilePicture ? (
-            <img src={user.avatarUrl || user.profilePicture} alt={user.name || 'Host'} className="h-full w-full object-cover" />
+            <img src={user.avatarUrl || user.profilePicture} alt={user.name || 'Host'} className="h-full w-full object-cover" loading="lazy" decoding="async" />
         ) : (
             user?.name?.charAt(0)?.toUpperCase() || 'H'
         )}
@@ -359,12 +360,9 @@ const RoomDetailsPage = () => {
                                     {address}
                                 </p>
                                 <div className="mt-5 overflow-hidden rounded-3xl border border-light-border dark:border-dark-border">
-                                    <MapContainer center={mapCoordinates} zoom={14} className="h-80 w-full">
-                                        <TileLayer attribution="&copy; OpenStreetMap contributors" url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-                                        <Marker position={mapCoordinates}>
-                                            <Popup>{room.title}</Popup>
-                                        </Marker>
-                                    </MapContainer>
+                                    <Suspense fallback={<div className="h-80 w-full bg-light-card dark:bg-dark-card" />}>
+                                        <RoomLocationMap coordinates={mapCoordinates} title={room.title} />
+                                    </Suspense>
                                 </div>
                                 <div className="mt-4 rounded-2xl border border-cyan-200 bg-cyan-50 p-4 dark:border-cyan-800/40 dark:bg-cyan-900/20">
                                     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

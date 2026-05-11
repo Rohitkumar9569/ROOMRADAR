@@ -73,7 +73,7 @@ const PWAInstallPrompt = ({ hidden = false }) => {
 
   return (
     <div className="fixed bottom-[calc(var(--rr-bottom-nav-height)+0.95rem)] left-3 right-[4.75rem] z-40 max-w-md md:bottom-5 md:left-auto md:right-5 md:w-[22rem]">
-      <div className="overflow-hidden rounded-[1.35rem] border border-white/70 bg-white/92 p-3 text-slate-950 shadow-[0_22px_60px_-34px_rgba(15,23,42,0.55)] backdrop-blur-2xl dark:border-white/10 dark:bg-slate-900/92 dark:text-white">
+      <div className="pwa-install-card overflow-hidden rounded-[1.35rem] border border-white/70 bg-white/92 p-3 text-slate-950 shadow-[0_22px_60px_-34px_rgba(15,23,42,0.55)] backdrop-blur-2xl dark:border-white/10 dark:bg-slate-900/92 dark:text-white">
         <div className="flex items-center gap-3">
           <span className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-cyan-500 to-rose-500 text-white shadow-lg shadow-cyan-500/20">
             <Smartphone className="h-5 w-5" />

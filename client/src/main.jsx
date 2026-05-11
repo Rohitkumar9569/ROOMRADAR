@@ -2,7 +2,6 @@ import React, { lazy, Suspense } from 'react'
 import ReactDOM from 'react-dom/client'
 import { createBrowserRouter, RouterProvider, Navigate } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
 import { Toaster } from 'react-hot-toast'
 import { GoogleOAuthProvider } from '@react-oauth/google'
 
@@ -16,7 +15,6 @@ import { SettingsProvider } from './context/SettingsContext'
 // Import global styles
 import './input.css'
 import 'tippy.js/dist/tippy.css'
-import 'leaflet/dist/leaflet.css'
 
 // Set instant scroll behavior globally
 document.documentElement.style.scrollBehavior = 'auto';
@@ -36,9 +34,12 @@ const queryClient = new QueryClient();
 // Note: We import non-lazy layouts directly.
 import RootLayout from './layouts/RootLayout.jsx';
 import App from './App.jsx';
-import RouteLoader from './components/common/RouteLoader.jsx';
+import DelayedRouteLoader from './components/common/DelayedRouteLoader.jsx';
 
-const Spinner = RouteLoader;
+const Spinner = DelayedRouteLoader;
+const ReactQueryDevtoolsPanel = import.meta.env.DEV
+    ? lazy(() => import('@tanstack/react-query-devtools').then(({ ReactQueryDevtools }) => ({ default: ReactQueryDevtools })))
+    : null;
 
 // --- Auth Components (Lazy) ---
 const ProtectedRoute = lazy(() => import('./components/features/auth/ProtectedRoute.jsx'));
@@ -252,6 +253,10 @@ ReactDOM.createRoot(document.getElementById('root')).render(
                 </ThemeProvider>
             </React.StrictMode>
         </GoogleOAuthProvider>
-        <ReactQueryDevtools initialIsOpen={false} />
+        {ReactQueryDevtoolsPanel && (
+            <Suspense fallback={null}>
+                <ReactQueryDevtoolsPanel initialIsOpen={false} />
+            </Suspense>
+        )}
     </QueryClientProvider>
 );

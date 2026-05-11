@@ -5,6 +5,7 @@ import api from '../../api';
 import { useAuth } from '../../context/AuthContext';
 import Spinner from '../../components/common/Spinner';
 import RoomCard from '../../components/features/rooms/RoomCard';
+import { readTabCache, setTabCache } from '../../utils/tabDataCache';
 
 const SORT_OPTIONS = [
     { value: 'date_desc', label: 'Recently listed', hint: 'Newest saved rooms first' },
@@ -12,6 +13,7 @@ const SORT_OPTIONS = [
     { value: 'price_desc', label: 'Price high to low', hint: 'Premium rooms first' },
     { value: 'city_asc', label: 'City A-Z', hint: 'Group by location' },
 ];
+const WISHLIST_CACHE_KEY = 'student:wishlist';
 
 const SortDropdown = ({ value, onChange }) => {
     const [open, setOpen] = useState(false);
@@ -88,8 +90,9 @@ const SortDropdown = ({ value, onChange }) => {
 };
 
 function WishlistPage() {
-    const [wishlistedRooms, setWishlistedRooms] = useState([]);
-    const [loading, setLoading] = useState(true);
+    const cachedWishlist = readTabCache(WISHLIST_CACHE_KEY)?.value;
+    const [wishlistedRooms, setWishlistedRooms] = useState(() => cachedWishlist?.rooms || []);
+    const [loading, setLoading] = useState(() => !cachedWishlist);
     const [error, setError] = useState('');
     const [sortBy, setSortBy] = useState('date_desc');
     const { removeFromWishlist } = useAuth();
@@ -98,15 +101,24 @@ function WishlistPage() {
         let active = true;
 
         const fetchWishlist = async () => {
-            try {
+            const cached = readTabCache(WISHLIST_CACHE_KEY)?.value;
+            if (cached) {
+                setWishlistedRooms(cached.rooms || []);
+                setLoading(false);
+            } else {
                 setLoading(true);
+            }
+
+            try {
                 const { data } = await api.get('/users/wishlist');
                 if (active) {
-                    setWishlistedRooms(data.wishlist || []);
+                    const rooms = data.wishlist || [];
+                    setTabCache(WISHLIST_CACHE_KEY, { rooms });
+                    setWishlistedRooms(rooms);
                     setError('');
                 }
             } catch (err) {
-                if (active) setError(err.response?.data?.message || 'Could not load your wishlist.');
+                if (active && !cached) setError(err.response?.data?.message || 'Could not load your wishlist.');
             } finally {
                 if (active) setLoading(false);
             }
@@ -133,7 +145,11 @@ function WishlistPage() {
 
     const handleRemoveFromWishlist = async (roomId) => {
         await removeFromWishlist(roomId);
-        setWishlistedRooms((prev) => prev.filter((room) => room._id !== roomId));
+        setWishlistedRooms((prev) => {
+            const rooms = prev.filter((room) => room._id !== roomId);
+            setTabCache(WISHLIST_CACHE_KEY, { rooms });
+            return rooms;
+        });
     };
 
     if (loading) {
@@ -178,8 +194,8 @@ function WishlistPage() {
                     </div>
                 ) : (
                     <div className="mobile-room-grid mt-6 grid gap-3 md:grid-cols-3 md:gap-4 xl:grid-cols-4">
-                        {sortedRooms.map((room) => (
-                            <RoomCard key={room._id} room={room} context="saved" onRemove={handleRemoveFromWishlist} />
+                        {sortedRooms.map((room, index) => (
+                            <RoomCard key={room._id} room={room} context="saved" onRemove={handleRemoveFromWishlist} imagePriority={index < 4} />
                         ))}
                     </div>
                 )}

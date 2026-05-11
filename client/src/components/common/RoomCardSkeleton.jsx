@@ -1,91 +1,25 @@
 // src/components/common/RoomCardSkeleton.jsx
 
 import React from 'react';
-import { motion } from 'framer-motion';
 
 /**
  * RoomCardSkeleton - A skeleton loader for room cards
  * Supports both light and dark mode with proper shimmer animation
  */
 function RoomCardSkeleton({ variant = 'default' }) {
-  // Card container animation
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    visible: { 
-      opacity: 1,
-      transition: { duration: 0.3 }
-    }
-  };
-
-  // Shimmer animation for skeleton bars
-  const shimmerVariants = {
-    initial: { x: '-100%' },
-    animate: { 
-      x: '100%',
-      transition: { 
-        repeat: Infinity, 
-        duration: 1.5, 
-        ease: 'linear',
-        repeatDelay: 0.5
-      }
-    }
-  };
-
-  // Skeleton bar component with shimmer
   const SkeletonBar = ({ width, height = 'h-4', className = '' }) => (
-    <div className={`relative overflow-hidden rounded ${height} ${className}`}>
-      {/* Base background - light mode: gray-200, dark mode: gray-700 */}
-      <div className="absolute inset-0 bg-gray-200 dark:bg-gray-700" />
-      
-      {/* Shimmer overlay */}
-      <motion.div
-        variants={shimmerVariants}
-        initial="initial"
-        animate="animate"
-        className={`absolute inset-0 ${width}`}
-        style={{
-          background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.5), transparent)',
-        }}
-      />
-      
-      {/* Dark mode shimmer - subtle white glow */}
-      <div className="absolute inset-0 opacity-0 dark:opacity-100">
-        <motion.div
-          variants={shimmerVariants}
-          initial="initial"
-          animate="animate"
-          className={`absolute inset-0 ${width}`}
-          style={{
-            background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent)',
-          }}
-        />
-      </div>
-    </div>
+    <div className={`skeleton-wave rounded bg-gray-200 dark:bg-gray-700 ${width} ${height} ${className}`} />
   );
 
   // Compact variant for list views
   if (variant === 'compact') {
     return (
-      <motion.div
-        variants={containerVariants}
-        initial="hidden"
-        animate="visible"
+      <div
         className="relative overflow-hidden rounded-xl bg-white dark:bg-gray-800 shadow-sm border border-gray-100 dark:border-gray-700"
       >
         <div className="p-4 flex gap-4">
           {/* Thumbnail */}
-          <div className="relative w-24 h-24 flex-shrink-0 rounded-lg overflow-hidden">
-            <div className="absolute inset-0 bg-gray-200 dark:bg-gray-700" />
-            <motion.div
-              variants={shimmerVariants}
-              initial="initial"
-              animate="animate"
-              className="absolute inset-0"
-              style={{
-                background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.5), transparent)',
-              }}
-            />
-          </div>
+          <div className="skeleton-wave relative w-24 h-24 flex-shrink-0 rounded-lg overflow-hidden bg-gray-200 dark:bg-gray-700" />
           
           {/* Content */}
           <div className="flex-1 space-y-3">
@@ -97,60 +31,31 @@ function RoomCardSkeleton({ variant = 'default' }) {
             </div>
           </div>
         </div>
-      </motion.div>
+      </div>
     );
   }
 
   // Default card variant for premium room cards
   return (
-    <motion.div
-      variants={containerVariants}
-      initial="hidden"
-      animate="visible"
+    <div
       className="relative overflow-hidden rounded-xl bg-white dark:bg-gray-800 shadow-sm border border-gray-100 dark:border-gray-700"
     >
       {/* Image Section */}
-      <div className="relative aspect-[4/3] overflow-hidden">
-        {/* Base background */}
-        <div className="absolute inset-0 bg-gray-200 dark:bg-gray-700" />
-        
-        {/* Image shimmer */}
-        <motion.div
-          variants={shimmerVariants}
-          initial="initial"
-          animate="animate"
-          className="absolute inset-0"
-          style={{
-            background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent)',
-          }}
-        />
-        
-        {/* Dark mode shimmer overlay */}
-        <div className="absolute inset-0 opacity-0 dark:opacity-100">
-          <motion.div
-            variants={shimmerVariants}
-            initial="initial"
-            animate="animate"
-            className="absolute inset-0"
-            style={{
-              background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.08), transparent)',
-            }}
-          />
-        </div>
+      <div className="skeleton-wave relative aspect-[4/3] overflow-hidden bg-gray-200 dark:bg-gray-700">
         
         {/* Badge placeholders */}
         <div className="absolute top-3 left-3 flex gap-2">
-          <div className="w-16 h-6 rounded-md bg-gray-300/50 dark:bg-gray-600/50 backdrop-blur-sm" />
+          <div className="w-16 h-6 rounded-md bg-gray-300/50 dark:bg-gray-600/50" />
         </div>
         
         {/* Heart button placeholder */}
         <div className="absolute top-3 right-3">
-          <div className="w-9 h-9 rounded-full bg-white/80 dark:bg-gray-700/80 backdrop-blur-sm" />
+          <div className="w-9 h-9 rounded-full bg-white/80 dark:bg-gray-700/80" />
         </div>
         
         {/* Photo count placeholder */}
         <div className="absolute bottom-3 right-3">
-          <div className="w-16 h-5 rounded-md bg-black/40 dark:bg-black/60 backdrop-blur-sm" />
+          <div className="w-16 h-5 rounded-md bg-black/40 dark:bg-black/60" />
         </div>
       </div>
 
@@ -200,7 +105,7 @@ function RoomCardSkeleton({ variant = 'default' }) {
           <div className="w-16 h-6 rounded-full bg-gray-200 dark:bg-gray-700" />
         </div>
       </div>
-    </motion.div>
+    </div>
   );
 }
 

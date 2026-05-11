@@ -1,5 +1,6 @@
 import React, { createContext, useState, useEffect, useContext } from 'react';
 import api from '../api';
+import { clearTabCache } from '../utils/tabDataCache';
 
 const AuthContext = createContext(null);
 const ADMIN_ROLES = ['Admin', 'Super_Admin', 'Moderator', 'Support'];
@@ -68,6 +69,7 @@ export const AuthProvider = ({ children }) => {
     }, []);
 
     const login = (data) => {
+        clearTabCache();
         localStorage.setItem('userInfo', JSON.stringify(data));
         api.defaults.headers.common['Authorization'] = `Bearer ${data.token}`;
         persistUser(data);
@@ -84,6 +86,7 @@ export const AuthProvider = ({ children }) => {
     };
 
     const logout = () => {
+        clearTabCache();
         localStorage.removeItem('userInfo');
         localStorage.removeItem('activeRole');
         setUser(null);

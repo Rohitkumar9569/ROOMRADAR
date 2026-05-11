@@ -73,14 +73,15 @@ const LandlordProfileLayout = () => {
     const bottomItems = landlordNavItems.map((item) => (
         item.badge ? { ...item, count: inboxCount } : item
     ));
+    const mainTopPadding = isInboxPage ? 'mobile-inbox-main' : 'pt-16 md:pt-0';
 
     return (
         <div className="min-h-screen bg-light-bg text-light-text dark:bg-dark-bg dark:text-dark-text">
             <LandlordProfileSidebar />
-            <main ref={mainContentRef} className={`mobile-smooth-scroll min-h-screen pt-16 transition-all duration-300 md:pt-0 md:pb-0 ${isInboxPage ? 'pb-0' : 'pb-24'} ${mainContentMargin}`}>
+            <main ref={mainContentRef} className={`mobile-smooth-scroll min-h-screen transition-all duration-300 md:pb-0 ${mainTopPadding} ${isInboxPage ? 'pb-0' : 'pb-24'} ${mainContentMargin}`}>
                 <div className={
                     isInboxPage
-                        ? 'h-[calc(100dvh-4rem)] md:h-screen md:pt-0'
+                        ? 'mobile-inbox-page-shell md:pt-0'
                         : isOverviewPage
                             ? 'md:p-6 lg:p-8'
                             : 'app-route-surface px-2 pb-4 sm:p-6 lg:p-8'

@@ -24,6 +24,7 @@ import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
 import { io } from 'socket.io-client';
 import { SOCKET_URL } from '../../config/env';
 import { useUI } from '../../context/UIContext';
+import { readTabCache, setTabCache } from '../../utils/tabDataCache';
 
 const FILTERS_BY_ROLE = {
     landlord: ['All', 'Admin', 'Requests', 'Inquiries', 'Upcoming', 'Archived'],
@@ -390,10 +391,16 @@ const InboxPage = () => {
     } = useOutletContext();
     const { chatProfileOpen, setChatProfileOpen } = useUI();
     const location = useLocation();
+    const isLandlordView = location.pathname.startsWith('/landlord');
+    const roleKey = isLandlordView ? 'landlord' : 'student';
     const isDesktop = useMediaQuery('(min-width: 768px)');
-    const [allConversations, setAllConversations] = useState([]);
-    const [messages, setMessages] = useState([]);
-    const [loading, setLoading] = useState(true);
+    const conversationsCacheKey = `inbox:${roleKey}:conversations`;
+    const cachedConversations = readTabCache(conversationsCacheKey)?.value;
+    const [allConversations, setAllConversations] = useState(() => cachedConversations?.conversations || []);
+    const [messages, setMessages] = useState(() => (
+        conversationId ? readTabCache(`inbox:${roleKey}:messages:${conversationId}`)?.value?.messages || [] : []
+    ));
+    const [loading, setLoading] = useState(() => !cachedConversations);
     const [loadingMessages, setLoadingMessages] = useState(false);
     const [newMessage, setNewMessage] = useState('');
     const [isSending, setIsSending] = useState(false);
@@ -404,8 +411,6 @@ const InboxPage = () => {
     const socket = useRef();
     const conversationIdRef = useRef(conversationId);
     const currentUserIdRef = useRef(currentUser?._id);
-    const isLandlordView = location.pathname.startsWith('/landlord');
-    const roleKey = isLandlordView ? 'landlord' : 'student';
     const selectedConversation = useMemo(() => allConversations.find((c) => c._id === conversationId), [allConversations, conversationId]);
 
     useEffect(() => {
@@ -420,15 +425,19 @@ const InboxPage = () => {
 
         socket.current.on('getMessage', (data) => {
             if (data.conversationId === conversationIdRef.current && data.senderId !== currentUserIdRef.current) {
-                setMessages((prev) => [
-                    ...prev,
-                    {
-                        _id: data._id || `socket-${data.senderId}-${Date.now()}`,
-                        ...data,
-                        sender: { _id: data.senderId },
-                        createdAt: new Date().toISOString(),
-                    },
-                ]);
+                setMessages((prev) => {
+                    const nextMessages = [
+                        ...prev,
+                        {
+                            _id: data._id || `socket-${data.senderId}-${Date.now()}`,
+                            ...data,
+                            sender: { _id: data.senderId },
+                            createdAt: new Date().toISOString(),
+                        },
+                    ];
+                    setTabCache(`inbox:${roleKey}:messages:${data.conversationId}`, { messages: nextMessages });
+                    return nextMessages;
+                });
             }
         });
 
@@ -439,7 +448,7 @@ const InboxPage = () => {
         return () => {
             socket.current?.disconnect();
         };
-    }, [currentUser?._id]);
+    }, [currentUser?._id, roleKey]);
 
     useEffect(() => {
         if (currentUser && socket.current) {
@@ -493,34 +502,51 @@ const InboxPage = () => {
     }, [selectedConversation, currentUser?._id, onlineUserIds, applyActiveChatMeta]);
 
     const fetchConversations = useCallback(async ({ silent = false } = {}) => {
-        if (!silent) setLoading(true);
         const endpoint = isLandlordView ? '/chat/conversations/as-landlord' : '/chat/conversations/as-student';
+        const cached = readTabCache(conversationsCacheKey)?.value;
+
+        if (!silent && cached) {
+            setAllConversations(cached.conversations || []);
+            setLoading(false);
+        } else if (!silent) {
+            setLoading(true);
+        }
 
         try {
             const { data } = await api.get(endpoint);
+            setTabCache(conversationsCacheKey, { conversations: data });
             setAllConversations(data);
         } catch (error) {
-            if (!silent) toast.error('Failed to fetch conversations.');
+            if (!silent && !cached) toast.error('Failed to fetch conversations.');
         } finally {
             if (!silent) setLoading(false);
         }
-    }, [isLandlordView]);
+    }, [conversationsCacheKey, isLandlordView]);
 
     const fetchMessages = useCallback(async (id) => {
         if (!id) return;
-        setLoadingMessages(true);
+        const messagesCacheKey = `inbox:${roleKey}:messages:${id}`;
+        const cached = readTabCache(messagesCacheKey)?.value;
+
+        if (cached) {
+            setMessages(cached.messages || []);
+            setLoadingMessages(false);
+        } else {
+            setLoadingMessages(true);
+        }
 
         try {
             const { data } = await api.get(`/chat/messages/${id}`);
+            setTabCache(messagesCacheKey, { messages: data });
             setMessages(data);
             await api.patch(`/chat/conversations/${id}/read`);
             fetchConversations({ silent: true });
         } catch (error) {
-            toast.error('Failed to fetch messages.');
+            if (!cached) toast.error('Failed to fetch messages.');
         } finally {
             setLoadingMessages(false);
         }
-    }, [fetchConversations]);
+    }, [fetchConversations, roleKey]);
 
     useEffect(() => {
         fetchConversations();
@@ -557,30 +583,47 @@ const InboxPage = () => {
             conversationId,
         });
 
-        setMessages((prev) => [
-            ...prev,
-            {
-                _id: tempId,
-                text,
-                sender: { _id: currentUser._id },
-                createdAt: new Date().toISOString(),
-            },
-        ]);
+        const messagesCacheKey = `inbox:${roleKey}:messages:${conversationId}`;
+        setMessages((prev) => {
+            const nextMessages = [
+                ...prev,
+                {
+                    _id: tempId,
+                    text,
+                    sender: { _id: currentUser._id },
+                    createdAt: new Date().toISOString(),
+                },
+            ];
+            setTabCache(messagesCacheKey, { messages: nextMessages });
+            return nextMessages;
+        });
         setNewMessage('');
 
         try {
             const { data: savedMessage } = await api.post('/chat/messages', { conversationId, text });
-            setMessages((prev) => prev.map((message) => (message._id === tempId ? savedMessage : message)));
-            setAllConversations((prev) => prev.map((convo) => (
-                convo._id === conversationId
-                    ? { ...convo, lastMessage: { text, createdAt: savedMessage.createdAt, messageType: 'text' } }
-                    : convo
-            )));
+            setMessages((prev) => {
+                const nextMessages = prev.map((message) => (message._id === tempId ? savedMessage : message));
+                setTabCache(messagesCacheKey, { messages: nextMessages });
+                return nextMessages;
+            });
+            setAllConversations((prev) => {
+                const nextConversations = prev.map((convo) => (
+                    convo._id === conversationId
+                        ? { ...convo, lastMessage: { text, createdAt: savedMessage.createdAt, messageType: 'text' } }
+                        : convo
+                ));
+                setTabCache(conversationsCacheKey, { conversations: nextConversations });
+                return nextConversations;
+            });
             fetchConversations({ silent: true });
         } catch (error) {
             toast.error('Failed to save message.');
             setNewMessage(text);
-            setMessages((prev) => prev.filter((message) => message._id !== tempId));
+            setMessages((prev) => {
+                const nextMessages = prev.filter((message) => message._id !== tempId);
+                setTabCache(messagesCacheKey, { messages: nextMessages });
+                return nextMessages;
+            });
         } finally {
             setIsSending(false);
         }

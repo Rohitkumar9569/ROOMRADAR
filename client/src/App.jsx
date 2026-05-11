@@ -3,7 +3,6 @@ import React, { useState, useEffect } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import Footer from './components/layout/Footer';
 import AppLoader from './components/common/AppLoader';
-import { AnimatePresence } from 'framer-motion';
 
 function App() {
   const location = useLocation();
@@ -28,23 +27,18 @@ function App() {
   }, [isLoading]);
 
   return (
-    <AnimatePresence mode="wait">
-      {isLoading ? (
-        <AppLoader key="app-loader" />
-      ) : (
-        <div
-          key="main"
-          className="app-route-surface flex min-h-screen flex-col bg-light-bg text-light-text dark:bg-dark-bg dark:text-dark-text"
-        >
-          <main className="flex-grow">
-            <Outlet />
-          </main>
+    isLoading ? (
+      <AppLoader />
+    ) : (
+      <div className="app-route-surface flex min-h-screen flex-col bg-light-bg text-light-text dark:bg-dark-bg dark:text-dark-text">
+        <main className="flex-grow">
+          <Outlet />
+        </main>
 
-          {/* Conditionally render Footer */}
-          {shouldShowFooter && <Footer className="hidden md:block" />}
-        </div>
-      )}
-    </AnimatePresence>
+        {/* Conditionally render Footer */}
+        {shouldShowFooter && <Footer className="hidden md:block" />}
+      </div>
+    )
   );
 }
 

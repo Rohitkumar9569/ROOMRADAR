@@ -114,7 +114,7 @@ const UserMenu = ({ isOverlay = false }) => {
 const Header = () => {
     const location = useLocation();
     const { isDarkMode, toggleTheme } = useTheme();
-    const { isScrolled } = useScrollState(8);
+    const { isScrolled } = useScrollState(8, false, { mediaQuery: '(min-width: 768px)' });
     const isHome = location.pathname === '/';
     const isOverlay = isHome && !isScrolled;
 

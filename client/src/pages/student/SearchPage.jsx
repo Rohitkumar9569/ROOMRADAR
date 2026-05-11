@@ -1,12 +1,11 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { MapContainer, Marker, Popup, TileLayer } from 'react-leaflet';
-import L from 'leaflet';
 import api from '../../api';
 import Header from '../../components/layout/Header';
 import RoomCard from '../../components/features/rooms/RoomCard';
 import RoomCardSkeleton from '../../components/common/RoomCardSkeleton';
 import { getFiltersFromConfig } from '../../utils/roomFieldUtils';
+import { readTabCache, setTabCache } from '../../utils/tabDataCache';
 import {
   Check,
   ChevronLeft,
@@ -27,6 +26,10 @@ const sortOptions = [
   { value: 'rating', label: 'Rating' },
 ];
 
+const RoomsMap = lazy(() => import('../../components/features/rooms/RoomsMap'));
+const SEARCH_PRICE_RANGE_CACHE_KEY = 'student:search:price-range';
+const SEARCH_ROOMS_CACHE_PREFIX = 'student:search:rooms';
+
 const filterFields = getFiltersFromConfig();
 const amenities = filterFields.filter((field) => field.sectionId === 'amenities');
 const selectFilters = filterFields.filter((field) => field.type === 'select' && field.sectionId !== 'amenities');
@@ -34,11 +37,6 @@ const numberFilters = filterFields.filter((field) => field.type === 'number' && 
 const quickBooleanFilters = filterFields.filter((field) => field.type === 'boolean' && field.sectionId !== 'amenities');
 
 const money = (value) => `\u20B9${Number(value || 0).toLocaleString('en-IN')}`;
-
-const createPriceIcon = (rent) => L.divIcon({
-  className: '',
-  html: `<div style="background:#e84040;color:white;border-radius:999px;padding:6px 10px;font-weight:800;font-size:12px;box-shadow:0 8px 24px rgba(0,0,0,.18);white-space:nowrap">${money(rent)}</div>`,
-});
 
 const createEmptyFilters = () => {
   const filters = {
@@ -299,7 +297,6 @@ function SearchPage() {
   }, [filters]);
 
   const fetchRooms = useCallback(async () => {
-    setLoading(true);
     const params = new URLSearchParams();
     params.set('page', page);
     params.set('limit', 12);
@@ -313,25 +310,54 @@ function SearchPage() {
     });
 
     setSearchParams(params, { replace: true });
+    const cacheKey = `${SEARCH_ROOMS_CACHE_PREFIX}:${params.toString()}`;
+    const cached = readTabCache(cacheKey)?.value;
+
+    if (cached) {
+      setRooms(cached.rooms || []);
+      setTotal(cached.total || 0);
+      setTotalPages(cached.totalPages || 1);
+      setLoading(false);
+    } else {
+      setLoading(true);
+    }
 
     try {
       const { data } = await api.get(`/rooms?${params.toString()}`);
-      setRooms(data.data || []);
-      setTotal(data.total || 0);
-      setTotalPages(data.totalPages || 1);
+      const nextSearchData = {
+        rooms: data.data || [],
+        total: data.total || 0,
+        totalPages: data.totalPages || 1,
+      };
+
+      setTabCache(cacheKey, nextSearchData);
+      setRooms(nextSearchData.rooms);
+      setTotal(nextSearchData.total);
+      setTotalPages(nextSearchData.totalPages);
     } catch (error) {
-      setRooms([]);
-      setTotal(0);
-      setTotalPages(1);
+      if (!cached) {
+        setRooms([]);
+        setTotal(0);
+        setTotalPages(1);
+      }
     } finally {
       setLoading(false);
     }
   }, [filters, page, setSearchParams, sort]);
 
   useEffect(() => {
+    const cached = readTabCache(SEARCH_PRICE_RANGE_CACHE_KEY)?.value;
+    if (cached) setPriceRange(cached);
+
     api.get('/rooms/price-range')
-      .then(({ data }) => setPriceRange(data || { min: 0, max: 0 }))
-      .catch(() => setPriceRange({ min: 0, max: 0 }));
+      .then(({ data }) => {
+        const nextRange = data || { min: 0, max: 0 };
+        setTabCache(SEARCH_PRICE_RANGE_CACHE_KEY, nextRange);
+        setPriceRange(nextRange);
+      })
+      .catch(() => {
+        if (!cached) setPriceRange({ min: 0, max: 0 });
+      });
   }, []);
 
   useEffect(() => {
@@ -394,11 +420,6 @@ function SearchPage() {
       setSmartLoading(false);
     }
   };
-
-  const mapRooms = rooms.filter((room) => room.location?.coordinates?.length === 2);
-  const mapCenter = mapRooms[0]
-    ? [mapRooms[0].location.coordinates[1], mapRooms[0].location.coordinates[0]]
-    : [28.6139, 77.2090];
 
   return (
     <div className="min-h-screen bg-light-bg text-light-text dark:bg-dark-bg dark:text-dark-text">
@@ -469,25 +490,9 @@ function SearchPage() {
 
           <section className="min-w-0">
             {showMap ? (
-              <div className="overflow-hidden rounded-3xl border border-light-border bg-light-card p-2 shadow-sm dark:border-dark-border dark:bg-dark-card">
-                <MapContainer center={mapCenter} zoom={12} className="h-[70vh] w-full rounded-[1.25rem]">
-                  <TileLayer attribution="&copy; OpenStreetMap contributors" url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-                  {mapRooms.map((room) => (
-                    <Marker
-                      key={room._id}
-                      position={[room.location.coordinates[1], room.location.coordinates[0]]}
-                      icon={createPriceIcon(room.rent)}
-                    >
-                      <Popup>
-                        <div className="w-48">
-                          <p className="font-bold">{room.title}</p>
-                          <p>{money(room.rent)}/month</p>
-                        </div>
-                      </Popup>
-                    </Marker>
-                  ))}
-                </MapContainer>
-              </div>
+              <Suspense fallback={<div className="h-[70vh] rounded-3xl bg-light-card dark:bg-dark-card" />}>
+                <RoomsMap rooms={rooms} />
+              </Suspense>
             ) : loading ? (
               <div className="mobile-room-grid grid gap-3 sm:gap-5 lg:[grid-template-columns:repeat(auto-fill,minmax(280px,1fr))]">
                 {Array.from({ length: 9 }).map((_, index) => <RoomCardSkeleton key={index} />)}
@@ -495,7 +500,7 @@ function SearchPage() {
             ) : rooms.length ? (
               <>
                 <div className="mobile-room-grid grid gap-3 sm:gap-5 lg:[grid-template-columns:repeat(auto-fill,minmax(280px,1fr))]">
-                  {rooms.map((room) => <RoomCard key={room._id} room={room} />)}
+                  {rooms.map((room, index) => <RoomCard key={room._id} room={room} imagePriority={index < 4} />)}
                 </div>
                 <div className="mt-8 flex items-center justify-center gap-2">
                   <button disabled={page <= 1} onClick={() => setPage((prev) => prev - 1)} className="btn-outline inline-flex items-center gap-2">

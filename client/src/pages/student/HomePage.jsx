@@ -1,12 +1,12 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../../api';
 import Header from '../../components/layout/Header';
 import SearchBar from '../../components/features/search/SearchBar';
 import RoomCard from '../../components/features/rooms/RoomCard';
 import RoomCardSkeleton from '../../components/common/RoomCardSkeleton';
-import FilterModal from '../../components/features/rooms/FilterModal';
 import { useAuth } from '../../context/AuthContext';
+import { readTabCache, setTabCache } from '../../utils/tabDataCache';
 import {
   ArrowRight,
   BadgeCheck,
@@ -23,6 +23,10 @@ import {
   Users,
 } from 'lucide-react';
 import backgroundImage from '../../assets/background_img.jpg';
+
+const FilterModal = lazy(() => import('../../components/features/rooms/FilterModal'));
+const HOME_LANDING_CACHE_KEY = 'student:home:landing';
+const HOME_CATEGORY_CACHE_PREFIX = 'student:home:category';
 
 const categories = [
   { id: 'All', label: 'All', Icon: Home },
@@ -46,7 +50,7 @@ const SectionHeader = ({ eyebrow, title, action }) => (
   </div>
 );
 
-const RoomsGrid = ({ rooms, loading }) => {
+const RoomsGrid = React.memo(function RoomsGrid({ rooms, loading, priorityCount = 0 }) {
   if (loading) {
     return (
       <div className="mobile-room-grid grid gap-3 sm:gap-5 lg:[grid-template-columns:repeat(auto-fill,minmax(280px,1fr))]">
@@ -71,25 +75,27 @@ const RoomsGrid = ({ rooms, loading }) => {
 
   return (
     <div className="mobile-room-grid grid gap-3 sm:gap-5 lg:[grid-template-columns:repeat(auto-fill,minmax(280px,1fr))]">
-      {rooms.map((room) => <RoomCard key={room._id} room={room} />)}
+      {rooms.map((room, index) => <RoomCard key={room._id} room={room} imagePriority={index < priorityCount} />)}
     </div>
   );
-};
+});
 
 function HomePage() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [stats, setStats] = useState({ totalRooms: 0, totalCities: 0, totalUsers: 0, verifiedRooms: 0 });
-  const [cities, setCities] = useState([]);
-  const [popularRooms, setPopularRooms] = useState([]);
-  const [recommendedRooms, setRecommendedRooms] = useState([]);
-  const [categoryRooms, setCategoryRooms] = useState([]);
+  const cachedLandingData = readTabCache(HOME_LANDING_CACHE_KEY)?.value;
+  const [stats, setStats] = useState(() => cachedLandingData?.stats || { totalRooms: 0, totalCities: 0, totalUsers: 0, verifiedRooms: 0 });
+  const [cities, setCities] = useState(() => cachedLandingData?.cities || []);
+  const [popularRooms, setPopularRooms] = useState(() => cachedLandingData?.popularRooms || []);
+  const [recommendedRooms, setRecommendedRooms] = useState(() => cachedLandingData?.recommendedRooms || []);
+  const [categoryRooms, setCategoryRooms] = useState(() => readTabCache(`${HOME_CATEGORY_CACHE_PREFIX}:All`)?.value?.rooms || []);
   const [activeCategory, setActiveCategory] = useState('All');
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => !cachedLandingData);
   const [categoryLoading, setCategoryLoading] = useState(false);
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
   const [searchCriteria, setSearchCriteria] = useState({ location: null, moveInDate: null, radius: 5 });
   const [searchInNav, setSearchInNav] = useState(false);
+  const searchInNavRef = useRef(false);
 
   const trustStats = useMemo(() => [
     { label: 'Verified rooms', value: formatCount(stats.verifiedRooms || stats.totalRooms), Icon: ShieldCheck },
@@ -101,7 +107,11 @@ function HomePage() {
     let frameId = null;
     const updateSearchState = () => {
       frameId = null;
-      setSearchInNav(window.scrollY > 300);
+      const nextSearchInNav = window.scrollY > 300;
+      if (searchInNavRef.current !== nextSearchInNav) {
+        searchInNavRef.current = nextSearchInNav;
+        setSearchInNav(nextSearchInNav);
+      }
     };
     const handleScroll = () => {
       if (frameId) return;
@@ -116,8 +126,20 @@ function HomePage() {
   }, []);
 
   useEffect(() => {
+    let active = true;
+
     const fetchLandingData = async () => {
-      setLoading(true);
+      const cached = readTabCache(HOME_LANDING_CACHE_KEY)?.value;
+      if (cached) {
+        setStats(cached.stats || {});
+        setCities(cached.cities || []);
+        setPopularRooms(cached.popularRooms || []);
+        setRecommendedRooms(cached.recommendedRooms || []);
+        setLoading(false);
+      } else {
+        setLoading(true);
+      }
+
       try {
         const [statsRes, citiesRes, popularRes, recommendedRes] = await Promise.all([
           api.get('/stats'),
@@ -126,36 +148,66 @@ function HomePage() {
           api.get('/rooms/recommended?limit=8'),
         ]);
 
-        setStats(statsRes.data || {});
-        setCities(Array.isArray(citiesRes.data) ? citiesRes.data : []);
-        setPopularRooms(popularRes.data.data || popularRes.data || []);
-        setRecommendedRooms(recommendedRes.data.data || recommendedRes.data || []);
+        const nextLandingData = {
+          stats: statsRes.data || {},
+          cities: Array.isArray(citiesRes.data) ? citiesRes.data : [],
+          popularRooms: popularRes.data.data || popularRes.data || [],
+          recommendedRooms: recommendedRes.data.data || recommendedRes.data || [],
+        };
+
+        setTabCache(HOME_LANDING_CACHE_KEY, nextLandingData);
+        if (!active) return;
+
+        setStats(nextLandingData.stats);
+        setCities(nextLandingData.cities);
+        setPopularRooms(nextLandingData.popularRooms);
+        setRecommendedRooms(nextLandingData.recommendedRooms);
       } catch (error) {
-        setPopularRooms([]);
-        setRecommendedRooms([]);
+        if (!cached && active) {
+          setPopularRooms([]);
+          setRecommendedRooms([]);
+        }
       } finally {
-        setLoading(false);
+        if (active) setLoading(false);
       }
     };
 
     fetchLandingData();
+    return () => {
+      active = false;
+    };
   }, []);
 
   useEffect(() => {
+    let active = true;
+
     const fetchCategoryRooms = async () => {
-      setCategoryLoading(true);
+      const cacheKey = `${HOME_CATEGORY_CACHE_PREFIX}:${activeCategory}`;
+      const cached = readTabCache(cacheKey)?.value;
+      if (cached) {
+        setCategoryRooms(cached.rooms || []);
+        setCategoryLoading(false);
+      } else {
+        setCategoryLoading(true);
+      }
+
       try {
         const typeParam = activeCategory === 'All' ? '' : `&type=${encodeURIComponent(activeCategory)}`;
         const { data } = await api.get(`/rooms?sort=views&limit=8${typeParam}`);
-        setCategoryRooms(data.data || data || []);
+        const rooms = data.data || data || [];
+        setTabCache(cacheKey, { rooms });
+        if (active) setCategoryRooms(rooms);
       } catch (error) {
-        setCategoryRooms([]);
+        if (!cached && active) setCategoryRooms([]);
       } finally {
-        setCategoryLoading(false);
+        if (active) setCategoryLoading(false);
       }
     };
 
     fetchCategoryRooms();
+    return () => {
+      active = false;
+    };
   }, [activeCategory]);
 
   const handleCriteriaChange = (newCriteria) => {
@@ -195,7 +247,14 @@ function HomePage() {
     <div className="min-h-screen bg-light-bg text-light-text dark:bg-dark-bg dark:text-dark-text">
       <Header />
       <section className="relative flex min-h-[100svh] flex-col overflow-hidden">
-        <img src={heroImage} alt="Premium RoomRadar stay" className="absolute inset-0 h-full w-full object-cover object-[center_58%]" />
+        <img
+          src={heroImage}
+          alt="Premium RoomRadar stay"
+          className="absolute inset-0 h-full w-full object-cover object-[center_58%]"
+          loading="eager"
+          decoding="async"
+          fetchPriority="high"
+        />
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_16%,rgba(255,255,255,0.10),transparent_26%),linear-gradient(180deg,rgba(0,0,0,0.62)_0%,rgba(0,0,0,0.30)_38%,rgba(0,0,0,0.72)_100%)]" />
         <div className="pointer-events-none absolute inset-x-0 top-0 h-40 bg-gradient-to-b from-black/56 via-black/18 to-transparent" />
         <div className="pointer-events-none absolute inset-x-0 bottom-0 h-72 bg-gradient-to-b from-transparent via-slate-950/26 to-light-bg dark:via-dark-bg/58 dark:to-dark-bg" />
@@ -297,7 +356,7 @@ function HomePage() {
               </button>
             )}
           />
-          <RoomsGrid rooms={categoryRooms} loading={categoryLoading || loading} />
+          <RoomsGrid rooms={categoryRooms} loading={categoryLoading || loading} priorityCount={4} />
         </section>
 
         <section className="mt-12">
@@ -390,16 +449,20 @@ function HomePage() {
         </section>
       </main>
 
-      <FilterModal
-        isOpen={isFilterModalOpen}
-        onClose={() => setIsFilterModalOpen(false)}
-        criteria={searchCriteria}
-        onCriteriaChange={handleCriteriaChange}
-        onApplyFilters={() => {
-          setIsFilterModalOpen(false);
-          handleSearch();
-        }}
-      />
+      {isFilterModalOpen && (
+        <Suspense fallback={null}>
+          <FilterModal
+            isOpen={isFilterModalOpen}
+            onClose={() => setIsFilterModalOpen(false)}
+            criteria={searchCriteria}
+            onCriteriaChange={handleCriteriaChange}
+            onApplyFilters={() => {
+              setIsFilterModalOpen(false);
+              handleSearch();
+            }}
+          />
+        </Suspense>
+      )}
     </div>
   );
 }

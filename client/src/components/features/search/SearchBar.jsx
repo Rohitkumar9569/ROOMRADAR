@@ -1,16 +1,16 @@
 // src/components/SearchBar.jsx
 
-import React, { useState, useCallback, useRef, useEffect } from 'react';
+import React, { lazy, Suspense, useState, useCallback, useRef, useEffect } from 'react';
 import { debounce } from 'lodash';
 import toast from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MagnifyingGlassIcon, MapPinIcon, AdjustmentsHorizontalIcon, XCircleIcon } from '@heroicons/react/24/solid';
 import { FaLocationArrow } from 'react-icons/fa';
-import { DateRange } from 'react-date-range';
-import 'react-date-range/dist/styles.css';
-import 'react-date-range/dist/theme/default.css';
-import { format } from 'date-fns';
 import api from '../../../api';
+
+const DateRangePicker = lazy(() => import('./DateRangePicker'));
+const dateLabelFormatter = new Intl.DateTimeFormat('en-IN', { month: 'short', day: '2-digit', year: 'numeric' });
+const formatDateLabel = (date) => (date ? dateLabelFormatter.format(date) : 'Add date');
 
 const SuggestionsBox = ({ suggestions, onSelect }) => (
     <motion.ul initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="absolute left-0 top-full z-[99999] mt-3 max-h-72 w-full overflow-y-auto rounded-3xl border border-light-border bg-white shadow-2xl shadow-slate-900/25 dark:border-dark-border dark:bg-dark-card">
@@ -126,15 +126,17 @@ function SearchBar({ criteria, onCriteriaChange, onSearch, onClear, onFilterClic
                 <div className="relative hidden md:block">
                     <button type="button" onClick={() => setActivePopover('move-in')} className="min-h-14 w-44 rounded-xl px-5 text-left hover:bg-light-bg dark:hover:bg-dark-input">
                         <label className="text-xs font-black text-light-text dark:text-dark-text">Move-in Date</label>
-                        <p className="text-sm font-semibold text-light-muted dark:text-dark-muted">{criteria.moveInDate ? format(criteria.moveInDate, 'MMM dd, yyyy') : 'Add date'}</p>
+                        <p className="text-sm font-semibold text-light-muted dark:text-dark-muted">{formatDateLabel(criteria.moveInDate)}</p>
                     </button>
                     <AnimatePresence>{activePopover === 'move-in' && (
                         <motion.div initial={{opacity: 0}} animate={{opacity: 1}} exit={{opacity: 0}} className="absolute left-1/2 top-full z-[9999] mt-2 -translate-x-1/2">
-                            <DateRange
-                                ranges={[{ startDate: criteria.moveInDate || new Date(), endDate: criteria.moveInDate || new Date(), key: 'selection' }]}
-                                onChange={item => { onCriteriaChange({ moveInDate: item.selection.startDate }); setActivePopover('radius'); }}
-                                minDate={new Date()}
-                            />
+                            <Suspense fallback={<div className="h-[23rem] w-[21rem] rounded-3xl bg-white shadow-2xl dark:bg-dark-card" />}>
+                                <DateRangePicker
+                                    ranges={[{ startDate: criteria.moveInDate || new Date(), endDate: criteria.moveInDate || new Date(), key: 'selection' }]}
+                                    onChange={item => { onCriteriaChange({ moveInDate: item.selection.startDate }); setActivePopover('radius'); }}
+                                    minDate={new Date()}
+                                />
+                            </Suspense>
                         </motion.div>
                     )}</AnimatePresence>
                 </div>

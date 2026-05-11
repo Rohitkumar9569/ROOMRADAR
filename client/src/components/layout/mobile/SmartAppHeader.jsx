@@ -55,7 +55,7 @@ const SmartAppHeader = () => {
   const { unreadNotificationCount = 0 } = useSocket() || {};
   const { isDarkMode, toggleTheme } = useTheme();
   const { headerSearchTerm, setHeaderSearchTerm, activeChatMeta, chatProfileOpen, setChatProfileOpen } = useUI();
-  const { isScrolled } = useScrollState(8);
+  const { isScrolled } = useScrollState(8, false, { mediaQuery: '(max-width: 767px)' });
   const path = location.pathname;
   const isHome = path === '/';
   const isSearchPage = path === '/rooms';

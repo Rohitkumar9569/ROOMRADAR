@@ -1,8 +1,8 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
 import { useAuth } from '../../../context/AuthContext';
+import { prefetchRoute, warmRoutesWhenIdle } from '../../../utils/routePrefetch';
 
 const getInitial = (name = 'R') => name.charAt(0).toUpperCase();
 
@@ -23,6 +23,14 @@ const MobileBottomNav = ({ items, hidden = false, currentPath, className = '', v
   const path = currentPath || location.pathname;
   const profileRole = variant === 'landlord' || path.startsWith('/landlord') ? 'landlord' : activeRole;
   const profile = getProfile(user, profileRole);
+  const prefetchKey = items.map((item) => (item.protected && !user ? '/login' : item.path)).join('|');
+
+  useEffect(() => {
+    if (hidden) return undefined;
+
+    const paths = prefetchKey.split('|').filter(Boolean);
+    return warmRoutesWhenIdle(paths);
+  }, [hidden, prefetchKey]);
 
   if (hidden) return null;
 
@@ -42,6 +50,7 @@ const MobileBottomNav = ({ items, hidden = false, currentPath, className = '', v
           const Icon = item.Icon;
           const isProtected = Boolean(item.protected);
           const badge = Number(item.count || 0);
+          const handlePrefetch = () => prefetchRoute(isProtected && !user ? '/login' : item.path);
 
           return (
             <NavLink
@@ -49,6 +58,9 @@ const MobileBottomNav = ({ items, hidden = false, currentPath, className = '', v
               to={item.path}
               end={item.end}
               preventScrollReset
+              onPointerEnter={handlePrefetch}
+              onPointerDown={handlePrefetch}
+              onTouchStart={handlePrefetch}
               onClick={(event) => {
                 if (path === item.path) {
                   event.preventDefault();
@@ -65,15 +77,12 @@ const MobileBottomNav = ({ items, hidden = false, currentPath, className = '', v
               {({ isActive }) => {
                 const active = isActive || getActiveState(item);
                 return (
-                  <motion.div
+                  <div
                     className="rr-bottom-item-inner"
-                    whileTap={{ scale: 0.96 }}
                   >
                     {active && !item.center && (
-                      <motion.span
-                        layoutId="rr-bottom-active-pill"
+                      <span
                         className="rr-bottom-active-pill"
-                        transition={{ type: 'spring', stiffness: 460, damping: 36, mass: 0.55 }}
                         aria-hidden="true"
                       />
                     )}
@@ -107,7 +116,7 @@ const MobileBottomNav = ({ items, hidden = false, currentPath, className = '', v
                     {active && !item.center && (
                       <span className="rr-bottom-active-dot" aria-hidden="true" />
                     )}
-                  </motion.div>
+                  </div>
                 );
               }}
             </NavLink>

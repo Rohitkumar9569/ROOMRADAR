@@ -46,7 +46,7 @@ const ImageModal = ({ images, initialIndex, onClose }) => {
             )}
 
             <div className="max-w-4xl max-h-[80vh]" onClick={(e) => e.stopPropagation()}>
-                <img src={images[currentIndex]} alt={`Room view ${currentIndex + 1}`} className="max-h-[80vh] w-auto object-contain" />
+                <img src={images[currentIndex]} alt={`Room view ${currentIndex + 1}`} className="max-h-[80vh] w-auto object-contain" decoding="async" />
             </div>
         </motion.div>
     );
@@ -75,7 +75,7 @@ const ImageGallery = ({ images }) => {
             <div className="grid h-[320px] grid-cols-1 gap-2 md:h-[450px] md:grid-cols-4 md:grid-rows-2">
                 {/* Main Image */}
                 <div className="md:col-span-2 md:row-span-2 h-full cursor-pointer" onClick={() => openModal(0)}>
-                    <img src={mainImage} alt="Main room view" className="h-full w-full rounded-2xl object-cover transition hover:opacity-90 md:rounded-l-2xl md:rounded-r-none" />
+                    <img src={mainImage} alt="Main room view" className="h-full w-full rounded-2xl object-cover transition hover:opacity-90 md:rounded-l-2xl md:rounded-r-none" loading="eager" decoding="async" fetchPriority="high" />
                 </div>
                 
                 {/* Side Images */}
@@ -86,7 +86,7 @@ const ImageGallery = ({ images }) => {
                     
                     return (
                         <div key={index} className="hidden md:block h-full cursor-pointer" onClick={() => openModal(index + 1)}>
-                            <img src={img} alt={`Room view ${index + 2}`} className={`w-full h-full object-cover hover:opacity-90 transition ${roundedClass}`} />
+                            <img src={img} alt={`Room view ${index + 2}`} className={`w-full h-full object-cover hover:opacity-90 transition ${roundedClass}`} loading="lazy" decoding="async" />
                         </div>
                     );
                 })}
