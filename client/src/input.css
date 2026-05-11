@@ -114,8 +114,14 @@
     -webkit-backface-visibility: hidden;
   }
 
+  .rr-smooth-control {
+    touch-action: manipulation;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+  }
+
   .input-field {
-    @apply w-full rounded-xl border border-light-border bg-light-card px-4 py-3 text-light-text shadow-sm transition-all placeholder:text-light-muted focus:outline-none focus:ring-2 focus:ring-brand/40 dark:border-dark-border/80 dark:bg-dark-input/95 dark:text-dark-text dark:placeholder:text-dark-muted dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.035)] dark:focus:border-cyan-400/70 dark:focus:ring-cyan-400/25;
+    @apply rr-smooth-control w-full rounded-xl border border-light-border bg-light-card px-4 py-3 text-light-text shadow-sm transition-colors duration-150 placeholder:text-light-muted focus:outline-none focus:ring-2 focus:ring-brand/40 dark:border-dark-border/80 dark:bg-dark-input/95 dark:text-dark-text dark:placeholder:text-dark-muted dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.035)] dark:focus:border-cyan-400/70 dark:focus:ring-cyan-400/25;
   }
 
   .form-label {
@@ -143,27 +149,27 @@
   }
 
   .btn-primary {
-    @apply rounded-xl bg-brand px-6 py-3 font-bold text-white shadow-sm transition-all hover:bg-red-600 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50;
+    @apply rr-smooth-control rounded-xl bg-brand px-6 py-3 font-bold text-white shadow-sm transition-colors duration-150 hover:bg-red-600 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50;
   }
 
   .btn-outline {
-    @apply rounded-xl border border-light-border bg-light-card px-6 py-3 font-bold text-light-text transition-all hover:bg-light-border active:scale-[0.97] dark:border-dark-border/80 dark:bg-dark-card/95 dark:text-dark-text dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.035)] dark:hover:border-cyan-400/45 dark:hover:bg-dark-card2 disabled:cursor-not-allowed disabled:opacity-50;
+    @apply rr-smooth-control rounded-xl border border-light-border bg-light-card px-6 py-3 font-bold text-light-text transition-colors duration-150 hover:bg-light-border active:scale-[0.97] dark:border-dark-border/80 dark:bg-dark-card/95 dark:text-dark-text dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.035)] dark:hover:border-cyan-400/45 dark:hover:bg-dark-card2 disabled:cursor-not-allowed disabled:opacity-50;
   }
 
   .btn-secondary {
-    @apply rounded-xl bg-dark-input px-5 py-3 font-bold text-white transition-all hover:bg-dark-border active:scale-[0.97] dark:bg-dark-card2 dark:hover:bg-dark-input disabled:opacity-50;
+    @apply rr-smooth-control rounded-xl bg-dark-input px-5 py-3 font-bold text-white transition-colors duration-150 hover:bg-dark-border active:scale-[0.97] dark:bg-dark-card2 dark:hover:bg-dark-input disabled:opacity-50;
   }
 
   .btn-success {
-    @apply rounded-xl bg-emerald-600 px-5 py-3 font-bold text-white transition-all hover:bg-emerald-700 active:scale-[0.97] disabled:opacity-50;
+    @apply rr-smooth-control rounded-xl bg-emerald-600 px-5 py-3 font-bold text-white transition-colors duration-150 hover:bg-emerald-700 active:scale-[0.97] disabled:opacity-50;
   }
 
   .btn-danger {
-    @apply rounded-xl bg-brand px-5 py-3 font-bold text-white transition-all hover:bg-red-600 active:scale-[0.97] disabled:opacity-50;
+    @apply rr-smooth-control rounded-xl bg-brand px-5 py-3 font-bold text-white transition-colors duration-150 hover:bg-red-600 active:scale-[0.97] disabled:opacity-50;
   }
 
   .btn-cancel {
-    @apply rounded-xl bg-light-border px-5 py-3 font-bold text-light-text transition-all hover:bg-slate-300 active:scale-[0.97] dark:bg-dark-input/90 dark:text-dark-text dark:hover:bg-dark-card2 disabled:opacity-50;
+    @apply rr-smooth-control rounded-xl bg-light-border px-5 py-3 font-bold text-light-text transition-colors duration-150 hover:bg-slate-300 active:scale-[0.97] dark:bg-dark-input/90 dark:text-dark-text dark:hover:bg-dark-card2 disabled:opacity-50;
   }
 
   .navbar-premium {
@@ -3568,6 +3574,76 @@
   .rr-bottom-fab::before,
   .rr-bottom-fab::after {
     animation: none !important;
+  }
+
+  .app-route-surface form,
+  body > div form,
+  .app-route-surface fieldset,
+  .app-route-surface table,
+  .app-route-surface tbody,
+  .app-route-surface tr,
+  .app-route-surface [role="dialog"],
+  .app-route-surface [role="menu"] {
+    min-width: 0;
+    touch-action: manipulation;
+    contain: layout style;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+  }
+
+  .app-route-surface :where(form, fieldset) > *,
+  body > div :where(form, fieldset) > * {
+    min-width: 0;
+  }
+
+  .app-route-surface :where(input, textarea, select, button, a, [role="button"]),
+  body > div :where(input, textarea, select, button, a, [role="button"]) {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+    will-change: auto;
+  }
+
+  .app-route-surface :where(input:not([type="checkbox"]):not([type="radio"]), textarea, select),
+  body > div :where(input:not([type="checkbox"]):not([type="radio"]), textarea, select),
+  .input-field,
+  .form-input,
+  .form-select {
+    transform: none !important;
+    transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease, box-shadow 120ms ease !important;
+    will-change: auto;
+  }
+
+  .app-route-surface :where(button, a, [role="button"])[class*="transition-all"],
+  body > div :where(button, a, [role="button"])[class*="transition-all"],
+  .app-route-surface :where(input, textarea, select)[class*="transition-all"],
+  body > div :where(input, textarea, select)[class*="transition-all"] {
+    transition-property: background-color, border-color, color, box-shadow, opacity !important;
+    transition-duration: 140ms !important;
+    transition-timing-function: ease !important;
+  }
+
+  .app-route-surface :where(button, a, [role="button"])[class*="hover:-translate"]:hover,
+  body > div :where(button, a, [role="button"])[class*="hover:-translate"]:hover,
+  .app-route-surface :where(button, a, [role="button"])[class*="active:scale"]:active,
+  body > div :where(button, a, [role="button"])[class*="active:scale"]:active,
+  .app-route-surface :where(button, a, [role="button"])[class*="whileTap"]:active,
+  body > div :where(button, a, [role="button"])[class*="whileTap"]:active {
+    transform: none !important;
+  }
+
+  .app-route-surface :where(button, a, [role="button"]):focus-visible,
+  body > div :where(button, a, [role="button"]):focus-visible,
+  .app-route-surface :where(input, textarea, select):focus-visible,
+  body > div :where(input, textarea, select):focus-visible {
+    scroll-margin-block: 5rem;
+  }
+
+  .app-route-surface :where([class*="backdrop-blur"]):not(.smart-app-header):not(.rr-bottom-track):not(.floating-chatbot),
+  body > div :where([class*="backdrop-blur"]):not(.smart-app-header):not(.rr-bottom-track):not(.floating-chatbot) {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
   }
 
   .rr-smooth-card,

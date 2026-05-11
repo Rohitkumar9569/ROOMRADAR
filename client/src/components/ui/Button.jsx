@@ -19,7 +19,7 @@ const Button = React.forwardRef(({ children, variant = 'primary', size = 'md', l
   <button
     ref={ref}
     disabled={disabled || loading}
-    className={`inline-flex items-center justify-center gap-2 rounded-xl font-bold transition-all active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50 ${variants[variant]} ${sizes[size]} ${className}`}
+    className={`rr-smooth-control inline-flex items-center justify-center gap-2 rounded-xl font-bold transition-colors duration-150 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50 ${variants[variant]} ${sizes[size]} ${className}`}
     {...props}
   >
     {loading && <Loader2 className="h-4 w-4 animate-spin" />}
