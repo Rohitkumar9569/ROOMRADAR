@@ -13,4 +13,7 @@ const normalizeSocketUrl = (value) =>
     .replace(/^ws:\/\//i, 'http://')
     .replace(/^wss:\/\//i, 'https://');
 
-export const SOCKET_URL = normalizeSocketUrl(requireViteEnv('VITE_SOCKET_URL'));
+const socketEnvUrl = import.meta.env.VITE_SOCKET_URL;
+const apiOrigin = API_URL.replace(/\/api\/?$/i, '').replace(/\/+$/, '');
+
+export const SOCKET_URL = normalizeSocketUrl(socketEnvUrl || apiOrigin);
