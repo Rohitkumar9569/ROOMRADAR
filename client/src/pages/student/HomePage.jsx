@@ -1,4 +1,4 @@
-import React, { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
+import React, { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../../api';
 import Header from '../../components/layout/Header';
@@ -94,36 +94,12 @@ function HomePage() {
   const [categoryLoading, setCategoryLoading] = useState(false);
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
   const [searchCriteria, setSearchCriteria] = useState({ location: null, moveInDate: null, radius: 5 });
-  const [searchInNav, setSearchInNav] = useState(false);
-  const searchInNavRef = useRef(false);
 
   const trustStats = useMemo(() => [
     { label: 'Verified rooms', value: formatCount(stats.verifiedRooms || stats.totalRooms), Icon: ShieldCheck },
     { label: 'Published listings', value: formatCount(stats.totalRooms), Icon: Building2 },
     { label: 'Active cities', value: formatCount(stats.totalCities), Icon: MapPin },
   ], [stats]);
-
-  useEffect(() => {
-    let frameId = null;
-    const updateSearchState = () => {
-      frameId = null;
-      const nextSearchInNav = window.scrollY > 300;
-      if (searchInNavRef.current !== nextSearchInNav) {
-        searchInNavRef.current = nextSearchInNav;
-        setSearchInNav(nextSearchInNav);
-      }
-    };
-    const handleScroll = () => {
-      if (frameId) return;
-      frameId = window.requestAnimationFrame(updateSearchState);
-    };
-    handleScroll();
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => {
-      window.removeEventListener('scroll', handleScroll);
-      if (frameId) window.cancelAnimationFrame(frameId);
-    };
-  }, []);
 
   useEffect(() => {
     let active = true;
@@ -276,7 +252,7 @@ function HomePage() {
               Search verified listings, compare real prices, and request safely from one clean view.
             </p>
 
-            <div className={`relative z-50 mt-5 w-full max-w-3xl rounded-[1.65rem] bg-white/[0.08] p-1 shadow-[0_20px_60px_-26px_rgba(0,0,0,0.75)] ring-1 ring-white/14 backdrop-blur-md transition-all duration-300 sm:mx-auto sm:mt-8 sm:bg-transparent sm:p-0 sm:shadow-none sm:ring-0 sm:backdrop-blur-0 ${searchInNav ? 'translate-y-3 opacity-0 pointer-events-none' : 'translate-y-0 opacity-100'}`}>
+            <div className="relative z-50 mt-5 w-full max-w-3xl rounded-[1.65rem] bg-white/[0.08] p-1 shadow-[0_20px_60px_-26px_rgba(0,0,0,0.75)] ring-1 ring-white/14 backdrop-blur-md sm:mx-auto sm:mt-8 sm:bg-transparent sm:p-0 sm:shadow-none sm:ring-0 sm:backdrop-blur-0">
               <SearchBar
                 criteria={searchCriteria}
                 onCriteriaChange={handleCriteriaChange}

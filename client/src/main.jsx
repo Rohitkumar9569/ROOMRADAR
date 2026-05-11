@@ -27,8 +27,17 @@ if ('serviceWorker' in navigator) {
     });
 }
 
-// Create QueryClient instance
-const queryClient = new QueryClient();
+// Keep tab switches and revisits feeling instant instead of refetching visible data immediately.
+const queryClient = new QueryClient({
+    defaultOptions: {
+        queries: {
+            staleTime: 2 * 60 * 1000,
+            gcTime: 10 * 60 * 1000,
+            refetchOnWindowFocus: false,
+            retry: 1,
+        },
+    },
+});
 
 // --- Core Layouts & Wrappers ---
 // Note: We import non-lazy layouts directly.

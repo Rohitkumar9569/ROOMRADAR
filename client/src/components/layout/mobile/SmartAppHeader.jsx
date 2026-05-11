@@ -6,7 +6,6 @@ import { useAuth } from '../../../context/AuthContext';
 import { useSocket } from '../../../context/SocketContext';
 import { useTheme } from '../../../context/ThemeContext';
 import { useUI } from '../../../context/UIContext';
-import useScrollState from '../../../hooks/useScrollState';
 
 const getInitial = (name = 'R') => name.charAt(0).toUpperCase();
 
@@ -55,7 +54,6 @@ const SmartAppHeader = () => {
   const { unreadNotificationCount = 0 } = useSocket() || {};
   const { isDarkMode, toggleTheme } = useTheme();
   const { headerSearchTerm, setHeaderSearchTerm, activeChatMeta, chatProfileOpen, setChatProfileOpen } = useUI();
-  const { isScrolled } = useScrollState(8, false, { mediaQuery: '(max-width: 767px)' });
   const path = location.pathname;
   const isHome = path === '/';
   const isSearchPage = path === '/rooms';
@@ -64,6 +62,7 @@ const SmartAppHeader = () => {
   const isInbox = /\/(?:profile|landlord)\/inbox(?:\/|$)/.test(path);
   const isChat = /\/(?:profile|landlord)\/inbox\/[^/]+/.test(path);
   const isOverlay = isHome;
+  const isScrolled = true;
   const mode = isChat ? 'chat' : isInbox ? 'inbox' : isSearchPage ? 'search' : isHome ? 'home' : 'surface';
   const pageTitle = getPageTitle(path);
   const profileRole = isAdmin ? 'admin' : isLandlord ? 'landlord' : activeRole;
@@ -74,7 +73,7 @@ const SmartAppHeader = () => {
   const chatStatus = formatStatusLabel(activeChatMeta?.statusLabel || activeChatMeta?.typeLabel);
   const showBack = isChat || path.startsWith('/room/') || path.includes('/payment/') || path.includes('/agreement/') || path.includes('/report-damage/') || /\/admin\/(?:users|rooms)\/[^/]+/.test(path);
   const compactLogo = isScrolled || isInbox || isAdmin || isLandlord || (!isHome && !showBack);
-  const showSearchPill = isSearchPage || (isHome && isScrolled);
+  const showSearchPill = isSearchPage;
   const renderPortal = (node) => (typeof document === 'undefined' ? node : createPortal(node, document.body));
 
   const headerClass = [

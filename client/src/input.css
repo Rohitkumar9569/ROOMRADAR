@@ -1813,6 +1813,19 @@
     bottom: calc(var(--rr-bottom-nav-height, 64px) + 124px + env(safe-area-inset-bottom));
   }
 
+  .floating-chatbot.is-home-route.is-scroll-tucked {
+    bottom: calc(var(--rr-bottom-nav-height, 64px) + 18px + env(safe-area-inset-bottom));
+  }
+
+  .floating-chatbot.is-scroll-tucked {
+    opacity: 0.92;
+    transform: translate3d(0, 14px, 0) scale(0.92);
+    box-shadow:
+      0 8px 22px rgba(6, 182, 212, 0.22),
+      0 8px 18px rgba(15, 23, 42, 0.18),
+      inset 0 1px 0 rgba(255, 255, 255, 0.24);
+  }
+
   .dark .floating-chatbot {
     background:
       radial-gradient(circle at 32% 18%, rgba(255, 255, 255, 0.22), transparent 30%),
@@ -1855,6 +1868,11 @@
       bottom: 24px;
     }
 
+    .floating-chatbot.is-scroll-tucked {
+      opacity: 1;
+      transform: none;
+    }
+
     .floating-chatbot svg {
       width: 22px;
       height: 22px;
@@ -1862,6 +1880,9 @@
   }
 
   .mobile-room-grid {
+    transform: translate3d(0, 0, 0);
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
     grid-template-columns: repeat(auto-fit, minmax(min(100%, 136px), 1fr));
   }
 
@@ -1885,6 +1906,8 @@
     display: grid;
     grid-template-rows: auto 1fr;
     overflow: hidden;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
     border-radius: 15px;
     border: 1px solid var(--rr-border);
     background:
@@ -1919,6 +1942,9 @@
 
   .rr-room-card-media {
     aspect-ratio: 1 / 1;
+    transform: translateZ(0);
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
   }
 
   .rr-card-badge {
@@ -3346,6 +3372,18 @@
   }
 }
 
+@keyframes rr-pwa-install-enter {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 10px, 0) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
 @keyframes rr-bottom-glass-sheen {
   0%,
   72%,
@@ -3424,6 +3462,17 @@
   background: rgba(15, 23, 42, 0.86);
 }
 
+.pwa-install-shell {
+  pointer-events: none;
+}
+
+.pwa-install-card {
+  pointer-events: auto;
+  contain: layout paint;
+  transform-origin: bottom left;
+  animation: rr-pwa-install-enter 260ms cubic-bezier(0.2, 0.85, 0.25, 1) both;
+}
+
 @media (max-width: 767px) {
   :root {
     --rr-blur: blur(10px) saturate(135%);
@@ -3496,7 +3545,7 @@
     box-shadow:
       0 10px 24px -18px rgba(15, 23, 42, 0.58),
       inset 0 1px 0 rgba(255, 255, 255, 0.28);
-    transition: transform 120ms ease;
+    transition: bottom 220ms ease, transform 140ms ease, opacity 140ms ease, box-shadow 140ms ease;
   }
 
   .floating-chatbot-halo {
@@ -3516,11 +3565,46 @@
   }
 
   .rr-room-card {
+    contain: layout paint style;
     transition: border-color 160ms ease;
   }
 
   .rr-room-card:hover {
     transform: none;
+  }
+
+  .mobile-room-grid {
+    align-items: stretch;
+    contain: layout style;
+  }
+
+  .rr-room-card-media > img {
+    transform: none !important;
+    transition: opacity 160ms ease !important;
+    will-change: auto;
+    -webkit-user-drag: none;
+    user-select: none;
+  }
+
+  .rr-card-badge,
+  .rr-card-heart-btn,
+  .rr-location-badge,
+  .rr-rating-badge {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
+  .rr-card-heart-btn {
+    transform: none;
+    transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
+  }
+
+  .rr-card-heart-btn:hover {
+    transform: none;
+  }
+
+  .rr-card-heart-btn.is-active svg {
+    filter: none;
   }
 
   .admin-panel-shell {
@@ -3547,7 +3631,7 @@
   @media (max-width: 767px) {
     .rr-room-card {
       content-visibility: auto;
-      contain-intrinsic-size: 18rem;
+      contain-intrinsic-size: 18rem 18rem;
     }
   }
 }

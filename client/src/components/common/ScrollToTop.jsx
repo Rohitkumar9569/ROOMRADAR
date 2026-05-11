@@ -10,29 +10,49 @@ const ScrollToTop = () => {
     useEffect(() => {
         const desktopQuery = window.matchMedia('(min-width: 768px)');
         let lastVisible = false;
+        let listening = false;
 
         const onScroll = () => {
-            const nextVisible = desktopQuery.matches && window.scrollY > 400;
+            const nextVisible = window.scrollY > 400;
             if (lastVisible !== nextVisible) {
                 lastVisible = nextVisible;
                 setVisible(nextVisible);
             }
         };
 
-        onScroll();
-        window.addEventListener('scroll', onScroll, { passive: true });
+        const attach = () => {
+            if (listening || !desktopQuery.matches) return;
+            listening = true;
+            onScroll();
+            window.addEventListener('scroll', onScroll, { passive: true });
+        };
+
+        const detach = (resetVisible = true) => {
+            if (!listening) return;
+            listening = false;
+            window.removeEventListener('scroll', onScroll);
+            lastVisible = false;
+            if (resetVisible) setVisible(false);
+        };
+
+        const sync = () => {
+            if (desktopQuery.matches) attach();
+            else detach();
+        };
+
+        sync();
         if (desktopQuery.addEventListener) {
-            desktopQuery.addEventListener('change', onScroll);
+            desktopQuery.addEventListener('change', sync);
         } else {
-            desktopQuery.addListener(onScroll);
+            desktopQuery.addListener(sync);
         }
 
         return () => {
-            window.removeEventListener('scroll', onScroll);
+            detach(false);
             if (desktopQuery.removeEventListener) {
-                desktopQuery.removeEventListener('change', onScroll);
+                desktopQuery.removeEventListener('change', sync);
             } else {
-                desktopQuery.removeListener(onScroll);
+                desktopQuery.removeListener(sync);
             }
         };
     }, []);

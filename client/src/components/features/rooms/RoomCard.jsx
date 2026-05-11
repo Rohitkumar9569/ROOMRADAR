@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
     Award,
@@ -23,27 +23,35 @@ import fallbackRoomImage from '../../../assets/background_img.jpg';
 
 const money = (value) => `\u20B9${Number(value || 0).toLocaleString('en-IN')}`;
 
+const supportsFineHover = () => (
+    typeof window !== 'undefined'
+    && window.matchMedia?.('(hover: hover) and (pointer: fine)').matches
+);
+
 function RoomCard({ room, context = 'default', onRemove, imagePriority = false }) {
     const { user, addToWishlist, removeFromWishlist } = useAuth();
-    const imageUrls = (Array.isArray(room.images) && room.images.length > 0
-        ? room.images
-        : Array.isArray(room.imageUrls) && room.imageUrls.length > 0
-            ? room.imageUrls
-            : [room.imageUrl || fallbackRoomImage])
-        .map((image) => image?.url || image)
-        .filter(Boolean);
+    const imageUrls = useMemo(() => (
+        (Array.isArray(room.images) && room.images.length > 0
+            ? room.images
+            : Array.isArray(room.imageUrls) && room.imageUrls.length > 0
+                ? room.imageUrls
+                : [room.imageUrl || fallbackRoomImage])
+            .map((image) => image?.url || image)
+            .filter(Boolean)
+    ), [room.imageUrl, room.imageUrls, room.images]);
 
     const [currentImageIndex, setCurrentImageIndex] = useState(0);
     const [isHovered, setIsHovered] = useState(false);
+    const canPreviewOnHover = useMemo(supportsFineHover, []);
     const isSavedContext = context === 'saved';
     const isWishlisted = Boolean(user?.wishlist?.some((item) => String(item?._id || item) === String(room._id)));
     const rating = room.averageRating || room.rating;
     const isGuestFavourite = Number(rating || 0) >= 4.8;
-    const configCardFields = getVisibleCardFields(room)
+    const configCardFields = useMemo(() => getVisibleCardFields(room)
         .filter(({ field }) => !['title', 'rent', 'beds', 'roomType', 'familyStatus', 'fullAddress', 'city', 'washroomType', 'attachedWashroom'].includes(field.key))
-        .slice(0, 3);
+        .slice(0, 3), [room]);
 
-    const handleWishlistClick = (event) => {
+    const handleWishlistClick = useCallback((event) => {
         event.preventDefault();
         event.stopPropagation();
         if (isSavedContext && onRemove) {
@@ -53,31 +61,39 @@ function RoomCard({ room, context = 'default', onRemove, imagePriority = false }
         if (!user) return;
         if (isWishlisted) removeFromWishlist(room._id);
         else addToWishlist(room._id);
-    };
+    }, [addToWishlist, isSavedContext, isWishlisted, onRemove, removeFromWishlist, room._id, user]);
 
-    const handleNextImage = (event) => {
+    const handleNextImage = useCallback((event) => {
         event.preventDefault();
         event.stopPropagation();
         setCurrentImageIndex((prevIndex) => (prevIndex + 1) % imageUrls.length);
-    };
+    }, [imageUrls.length]);
 
-    const handlePrevImage = (event) => {
+    const handlePrevImage = useCallback((event) => {
         event.preventDefault();
         event.stopPropagation();
         setCurrentImageIndex((prevIndex) => (prevIndex - 1 + imageUrls.length) % imageUrls.length);
-    };
+    }, [imageUrls.length]);
+
+    const handleMouseEnter = useCallback(() => {
+        if (canPreviewOnHover) setIsHovered(true);
+    }, [canPreviewOnHover]);
+
+    const handleMouseLeave = useCallback(() => {
+        if (canPreviewOnHover) setIsHovered(false);
+    }, [canPreviewOnHover]);
 
     useEffect(() => {
-        if (!isHovered || imageUrls.length <= 1) return undefined;
+        if (!canPreviewOnHover || !isHovered || imageUrls.length <= 1) return undefined;
 
         const previewTimer = window.setInterval(() => {
             setCurrentImageIndex((prevIndex) => (prevIndex + 1) % imageUrls.length);
         }, 3200);
 
         return () => window.clearInterval(previewTimer);
-    }, [imageUrls.length, isHovered]);
+    }, [canPreviewOnHover, imageUrls.length, isHovered]);
 
-    const getRoomTypeTag = () => {
+    const roomTag = useMemo(() => {
         const type = room.roomType || '';
         let Icon = User;
         let text = 'Private room';
@@ -97,9 +113,9 @@ function RoomCard({ room, context = 'default', onRemove, imagePriority = false }
         }
 
         return { Icon, text };
-    };
+    }, [room.roomType]);
 
-    const getTenantTag = () => {
+    const tenantTag = useMemo(() => {
         const prefs = room.tenantPreferences || {};
         const familyStatus = prefs.familyStatus || 'Any';
         const allowedGender = prefs.allowedGender || 'Any';
@@ -109,12 +125,10 @@ function RoomCard({ room, context = 'default', onRemove, imagePriority = false }
         if (familyStatus === 'Bachelors' && allowedGender === 'Female') return { Icon: User, text: 'Women' };
         if (familyStatus === 'Bachelors') return { Icon: Users, text: 'Bachelor' };
         return { Icon: Users2, text: 'Any' };
-    };
+    }, [room.tenantPreferences]);
 
     if (!room || !room._id) return null;
 
-    const roomTag = getRoomTypeTag();
-    const tenantTag = getTenantTag();
     const city = room.location?.city || room.city || 'India';
     const state = room.location?.state || '';
     const locationLabel = [city, state].filter(Boolean).join(', ');
@@ -138,7 +152,7 @@ function RoomCard({ room, context = 'default', onRemove, imagePriority = false }
     const imageLoading = imagePriority ? 'eager' : 'lazy';
     const imageFetchPriority = imagePriority ? 'high' : 'auto';
     const washroomText = room.washroomType || (room.attachedWashroom ? 'Attached' : '');
-    const detailTags = [
+    const detailTags = useMemo(() => [
         roomTag,
         tenantTag,
         {
@@ -156,7 +170,7 @@ function RoomCard({ room, context = 'default', onRemove, imagePriority = false }
             text: formatRoomFieldValue(field, value),
             tone: 'accent',
         })),
-    ].filter(Boolean);
+    ].filter(Boolean), [configCardFields, room.beds, roomTag, tenantTag, washroomText]);
 
     return (
         <article
@@ -165,8 +179,8 @@ function RoomCard({ room, context = 'default', onRemove, imagePriority = false }
             <Link to={`/room/${room._id}`} className="flex h-full flex-col">
                 <div
                     className="rr-room-card-media relative overflow-hidden bg-light-border dark:bg-dark-input"
-                    onMouseEnter={() => setIsHovered(true)}
-                    onMouseLeave={() => setIsHovered(false)}
+                    onMouseEnter={handleMouseEnter}
+                    onMouseLeave={handleMouseLeave}
                 >
                     <img
                         key={imageUrls[currentImageIndex]}
@@ -177,6 +191,7 @@ function RoomCard({ room, context = 'default', onRemove, imagePriority = false }
                         decoding="async"
                         fetchPriority={imageFetchPriority}
                         sizes="(max-width: 639px) 50vw, (max-width: 1023px) 50vw, 280px"
+                        draggable="false"
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-slate-950/52 via-transparent to-black/10 opacity-80" />
 

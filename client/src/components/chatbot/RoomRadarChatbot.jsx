@@ -187,6 +187,7 @@ const fallbackReply = (text, rooms) => {
 const RoomRadarChatbot = () => {
     const location = useLocation();
     const [open, setOpen] = useState(false);
+    const [scrollTucked, setScrollTucked] = useState(false);
     const [input, setInput] = useState('');
     const [messages, setMessages] = useState([
         {
@@ -283,6 +284,50 @@ const RoomRadarChatbot = () => {
     const isInboxRoute = /\/(?:profile|landlord)\/inbox(?:\/|$)/.test(location.pathname);
     const isListingFormRoute = /^\/landlord\/(?:add-room|edit-room\/[^/]+)\/?$/.test(location.pathname);
     const isHomeRoute = location.pathname === '/';
+    const isExploreRoute = isHomeRoute || location.pathname === '/rooms';
+
+    useEffect(() => {
+        if (!isExploreRoute || open || typeof window === 'undefined') {
+            setScrollTucked(false);
+            return undefined;
+        }
+
+        const mobileQuery = window.matchMedia('(max-width: 767px)');
+        let frameId = null;
+        let lastTucked = false;
+
+        const syncPosition = () => {
+            frameId = null;
+            const nextTucked = mobileQuery.matches && window.scrollY > (isHomeRoute ? 72 : 24);
+            if (lastTucked === nextTucked) return;
+            lastTucked = nextTucked;
+            setScrollTucked(nextTucked);
+        };
+
+        const scheduleSync = () => {
+            if (frameId) return;
+            frameId = window.requestAnimationFrame(syncPosition);
+        };
+
+        scheduleSync();
+        window.addEventListener('scroll', scheduleSync, { passive: true });
+
+        if (mobileQuery.addEventListener) {
+            mobileQuery.addEventListener('change', scheduleSync);
+        } else {
+            mobileQuery.addListener(scheduleSync);
+        }
+
+        return () => {
+            window.removeEventListener('scroll', scheduleSync);
+            if (mobileQuery.removeEventListener) {
+                mobileQuery.removeEventListener('change', scheduleSync);
+            } else {
+                mobileQuery.removeListener(scheduleSync);
+            }
+            if (frameId) window.cancelAnimationFrame(frameId);
+        };
+    }, [isExploreRoute, isHomeRoute, open]);
 
     if (isAuthRoute || isInboxRoute || isListingFormRoute) return null;
 
@@ -293,7 +338,7 @@ const RoomRadarChatbot = () => {
                 onClick={() => setOpen(true)}
                 whileHover={{ scale: 1.08 }}
                 whileTap={{ scale: 0.95 }}
-                className={`floating-chatbot ${isHomeRoute ? 'is-home-route' : ''}`}
+                className={`floating-chatbot ${isHomeRoute ? 'is-home-route' : ''} ${scrollTucked ? 'is-scroll-tucked' : ''}`}
                 aria-label="Open RoomRadar AI Assistant"
             >
                 <span className="floating-chatbot-halo" />
