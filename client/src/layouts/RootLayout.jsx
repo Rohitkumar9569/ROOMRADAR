@@ -4,6 +4,7 @@ import ScrollToTop from '../components/common/ScrollToTop';
 import Spinner from '../components/common/Spinner';
 import MaintenancePage from '../pages/MaintenancePage';
 import PWAInstallPrompt from '../components/common/PWAInstallPrompt';
+import TabScrollRestoration from '../components/common/TabScrollRestoration';
 import BottomNavBar from '../components/layout/student/BottomNavBar';
 import SmartAppHeader from '../components/layout/mobile/SmartAppHeader';
 import { useAuth } from '../context/AuthContext';
@@ -63,6 +64,7 @@ function RootLayout() {
 
     return (
         <div className={`app-route-surface min-h-screen bg-light-bg text-light-text dark:bg-dark-bg dark:text-dark-text ${wrapperClass}`}>
+            <TabScrollRestoration />
             {showAppHeader && <SmartAppHeader />}
             <Outlet />
             {showStudentBottomNav && <BottomNavBar />}

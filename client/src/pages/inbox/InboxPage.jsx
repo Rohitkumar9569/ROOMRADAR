@@ -25,6 +25,7 @@ import { io } from 'socket.io-client';
 import { SOCKET_URL } from '../../config/env';
 import { useUI } from '../../context/UIContext';
 import { readTabCache, setTabCache } from '../../utils/tabDataCache';
+import { readScroll, saveScroll } from '../../utils/scrollStore';
 
 const FILTERS_BY_ROLE = {
     landlord: ['All', 'Admin', 'Requests', 'Inquiries', 'Upcoming', 'Archived'],
@@ -393,6 +394,7 @@ const InboxPage = () => {
     const location = useLocation();
     const isLandlordView = location.pathname.startsWith('/landlord');
     const roleKey = isLandlordView ? 'landlord' : 'student';
+    const inboxListScrollKey = `inbox:${roleKey}:list-scroll`;
     const isDesktop = useMediaQuery('(min-width: 768px)');
     const conversationsCacheKey = `inbox:${roleKey}:conversations`;
     const cachedConversations = readTabCache(conversationsCacheKey)?.value;
@@ -675,6 +677,22 @@ const InboxPage = () => {
         }
     }, [allConversations, activeFilter, searchTerm, currentUser]);
 
+    useEffect(() => {
+        const listNode = conversationListRef.current;
+        if (!listNode || loading) return undefined;
+
+        const savedTop = readScroll(inboxListScrollKey);
+        const frameId = window.requestAnimationFrame(() => {
+            listNode.scrollTop = savedTop;
+            setInboxListScrolled?.(savedTop > 56);
+        });
+
+        return () => {
+            window.cancelAnimationFrame(frameId);
+            saveScroll(inboxListScrollKey, listNode.scrollTop);
+        };
+    }, [filteredConversations.length, inboxListScrollKey, loading, setInboxListScrolled]);
+
     const activeOtherMember = selectedConversation ? getConversationDisplayMember(selectedConversation, currentUser) : null;
     const activeConversationIsAdmin = selectedConversation ? isAdminConversation(selectedConversation) : false;
     const activeMemberOnline = activeOtherMember && !activeConversationIsAdmin ? onlineUserIds.includes(activeOtherMember._id?.toString()) : false;
@@ -682,6 +700,7 @@ const InboxPage = () => {
     const quickReplies = QUICK_REPLIES[roleKey];
 
     const handleConversationListScroll = (event) => {
+        saveScroll(inboxListScrollKey, event.currentTarget.scrollTop);
         setInboxListScrolled?.(event.currentTarget.scrollTop > 56);
     };
 
