@@ -3,13 +3,9 @@ import { io } from 'socket.io-client';
 import toast from 'react-hot-toast';
 import api from '../api';
 import { SOCKET_URL } from '../config/env';
+import { connectSocketAfterMount, socketOptions } from '../config/socketOptions';
 
 const SettingsContext = createContext(null);
-const socketOptions = {
-  transports: ['websocket'],
-  reconnectionAttempts: 5,
-  timeout: 10000,
-};
 
 const defaultSettings = {
   maintenanceMode: false,
@@ -50,6 +46,7 @@ export const SettingsProvider = ({ children }) => {
 
   useEffect(() => {
     const socket = io(SOCKET_URL, socketOptions);
+    const cleanupSocket = connectSocketAfterMount(socket);
 
     socket.on('platform_settings_updated', (nextSettings) => {
       setSettings({ ...defaultSettings, ...(nextSettings || {}) });
@@ -60,7 +57,7 @@ export const SettingsProvider = ({ children }) => {
       }
     });
 
-    return () => socket.disconnect();
+    return cleanupSocket;
   }, []);
 
   const updateSettings = async (patch) => {

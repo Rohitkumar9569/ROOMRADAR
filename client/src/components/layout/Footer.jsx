@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { FaFacebook, FaInstagram, FaTwitter } from 'react-icons/fa';
+import { FaExternalLinkAlt, FaFacebook, FaInstagram, FaTwitter } from 'react-icons/fa';
 
 const developers = [
   {
@@ -8,8 +8,9 @@ const developers = [
     name: 'Rohit Kumar',
     role: 'Lead Developer',
     color: 'from-brand to-red-600',
-    detail: 'GATE DA & CSE Qualifier (AIR 7275) - MERN Stack - Final Year B.Tech CSE - UPSC Aspirant',
-    href: 'https://rohitkumar-portfolio.vercel.app/',
+    detail: 'GATE DA & CSE Qualifier (AIR 7275) - MERN Stack - Final Year B.Tech CSE',
+    href: 'https://rohitkumar-portfolio.vercel.app',
+    linkLabel: 'View portfolio',
   },
   {
     initials: 'S',
@@ -106,7 +107,7 @@ function Footer({ className = '' }) {
           <div className="mt-4 grid grid-cols-1 gap-2.5 sm:mt-6 sm:grid-cols-2 sm:gap-4 md:grid-cols-4">
             {developers.map((developer) => {
               const content = (
-                <span className="group flex min-h-0 cursor-default items-center gap-3 rounded-2xl border border-light-border bg-light-bg p-3 text-left transition-all hover:-translate-y-1 hover:border-cyan-400/50 hover:bg-white hover:shadow-xl hover:shadow-cyan-500/10 dark:border-white/10 dark:bg-white/5 dark:hover:bg-white/10 sm:min-h-44 sm:flex-col sm:items-center sm:p-4 sm:text-center">
+                <span className={`group flex min-h-0 items-center gap-3 rounded-2xl border border-light-border bg-light-bg p-3 text-left transition-all hover:-translate-y-1 hover:border-cyan-400/50 hover:bg-white hover:shadow-xl hover:shadow-cyan-500/10 dark:border-white/10 dark:bg-white/5 dark:hover:bg-white/10 sm:min-h-44 sm:flex-col sm:items-center sm:p-4 sm:text-center ${developer.href ? 'cursor-pointer ring-1 ring-transparent hover:ring-cyan-300/50' : 'cursor-default'}`}>
                   <span className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br ${developer.color} text-sm font-black text-white shadow-lg transition-transform group-hover:scale-110 sm:mb-3 sm:h-12 sm:w-12 sm:text-lg`}>
                     {developer.initials}
                   </span>
@@ -116,12 +117,18 @@ function Footer({ className = '' }) {
                     <span className="mt-3 hidden text-xs leading-relaxed text-light-muted transition-colors group-hover:text-light-text dark:text-gray-500 dark:group-hover:text-gray-300 sm:block">
                       {developer.detail}
                     </span>
+                    {developer.href && (
+                      <span className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-cyan-500 px-3 py-1.5 text-[11px] font-black text-white shadow-sm shadow-cyan-500/20 transition group-hover:bg-cyan-600">
+                        {developer.linkLabel || 'Open link'}
+                        <FaExternalLinkAlt className="h-2.5 w-2.5" />
+                      </span>
+                    )}
                   </span>
                 </span>
               );
 
               return developer.href ? (
-                <a key={developer.name} href={developer.href} target="_blank" rel="noopener noreferrer">
+                <a key={developer.name} href={developer.href} target="_blank" rel="noopener noreferrer" aria-label={`${developer.name} portfolio`}>
                   {content}
                 </a>
               ) : (

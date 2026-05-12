@@ -22,6 +22,7 @@ function RootLayout() {
     const isAdminPath = path.startsWith('/admin');
     const isLandlordPath = path.startsWith('/landlord');
     const isStudentChatDetail = /^\/profile\/inbox\/[^/]+/.test(path);
+    const isRoomFlow = /^\/room\/[^/]+(?:\/book)?\/?$/.test(path);
     const showStudentBottomNav = !isAuthPath
         && !isAdminPath
         && !isLandlordPath
@@ -29,10 +30,10 @@ function RootLayout() {
         && !path.startsWith('/loading')
         && !isStudentChatDetail;
     const showAppHeader = !isAuthPath && !path.startsWith('/loading');
-    const showInstallPrompt = showAppHeader && !path.includes('/inbox');
+    const showInstallPrompt = showAppHeader && !path.includes('/inbox') && !isRoomFlow;
     const showChatbot = showInstallPrompt
         && !/^\/landlord\/(?:add-room|edit-room\/[^/]+)\/?$/.test(path);
-    const wrapperClass = showStudentBottomNav ? 'pb-20 md:pb-0' : '';
+    const wrapperClass = showStudentBottomNav ? 'pb-[calc(var(--rr-bottom-nav-height)+1rem)] md:pb-0' : '';
     const adminRoles = ['Admin', 'Super_Admin', 'Moderator', 'Support'];
     const isAdmin = user?.roles?.some(role => adminRoles.includes(role));
     const [chatbotReady, setChatbotReady] = useState(false);

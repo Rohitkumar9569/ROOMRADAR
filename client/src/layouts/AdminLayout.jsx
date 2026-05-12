@@ -34,7 +34,7 @@ const AdminLayout = () => {
                                     key={`${item.name}-${item.path}`}
                                     to={item.path}
                                     preventScrollReset
-                                    className={`inline-flex min-h-9 flex-shrink-0 items-center gap-1.5 rounded-full border px-3 text-[10px] font-black transition ${
+                                    className={`rr-filter-chip inline-flex min-h-10 flex-shrink-0 items-center gap-1.5 rounded-full border px-3.5 text-xs font-black transition ${
                                         active
                                             ? 'border-cyan-300 bg-cyan-500 text-white shadow-lg shadow-cyan-500/20'
                                             : 'border-light-border bg-light-card text-light-muted dark:border-dark-border dark:bg-dark-card dark:text-dark-muted'

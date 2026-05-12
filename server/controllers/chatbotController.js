@@ -1,5 +1,12 @@
 const asyncHandler = require('express-async-handler');
 const Room = require('../models/Room');
+const {
+    appendAndClause,
+    buildLocationQuery,
+    findDiscoveryFallbackRooms,
+    getRequestedFilterLabels,
+    normalizeDiscoveryFilters,
+} = require('../utils/roomDiscoveryUtils');
 
 let Anthropic = null;
 try {
@@ -23,7 +30,11 @@ ROOM SEARCH INTELLIGENCE:
 - Extract city, max_price, min_price, room_type, gender, family_status, occupants, sort_by, and amenities.
 - "sabse sasta", "cheapest", "lowest price", "kam budget" means sort_by = price_asc.
 - "sabse mahanga", "sabse costly", "expensive", "premium", "luxury" means sort_by = price_desc.
+- "best rooms", "top rooms", "good rooms", "recommended rooms" means sort_by = rating.
+- "price wise", "by price", "low to high", "according to price" means sort_by = price_asc.
 - "2 logo ke liye", "for 2 people", "hum 2 hain" means occupants = 2.
+- "give/show/list me 7 rooms" means limit = 7.
+- If a user asks for an unrealistically low budget such as ₹1 and no room exists, politely say rooms under that budget are unavailable and mention the minimum available rent from real data.
 - Always return results in requested sort order.
 - Never invent rooms. Only show real MongoDB data.
 
@@ -57,6 +68,7 @@ const JSON_INSTRUCTIONS = `Return only this JSON shape:
     "family_status": "Bachelors Only, Family Only, Any, or null",
     "occupants": "number or null",
     "sort_by": "price_asc, price_desc, rating, newest, or null",
+    "limit": "number between 1 and 12, or null",
     "amenities": ["wifi, ac, parking, meals, security, cctv, gym, laundry, or empty array"]
   }
 }`;
@@ -102,7 +114,8 @@ const detectLanguage = (text = '') => {
         'mahanga', 'mehenga', 'andar', 'liye', 'mein', 'room chahiye'
     ];
     const lowerText = text.toLowerCase();
-    const hinglishCount = hinglishWords.filter((word) => lowerText.includes(word)).length;
+    const tokens = new Set(lowerText.match(/[a-z0-9]+/g) || []);
+    const hinglishCount = hinglishWords.filter((word) => (word.includes(' ') ? lowerText.includes(word) : tokens.has(word))).length;
     return hinglishCount >= 1 ? 'hinglish' : 'english';
 };
 
@@ -129,6 +142,29 @@ const sanitizeCity = (value = '') => {
         .trim();
 };
 
+const GENERIC_CITY_WORDS = new Set([
+    'show', 'give', 'list', 'find', 'display', 'search', 'me', 'please',
+    'room', 'rooms', 'pg', 'flat', 'flats', 'listing', 'listings',
+    'best', 'top', 'good', 'recommended', 'price', 'view', 'price view',
+    'budget', 'under', 'below', 'available', 'newest', 'latest', 'cheapest',
+    'sasta', 'mahanga', 'mehenga', 'costly', 'expensive', 'near', 'city',
+    'location', 'area', 'anywhere', 'all', 'pt', 'pdt', 'pandit'
+]);
+
+const normalizeCityFilter = (...values) => {
+    for (const value of values) {
+        const city = sanitizeCity(String(value || ''));
+        const normalized = city.toLowerCase().replace(/\s+/g, ' ').trim();
+
+        if (!normalized || normalized.length < 2 || /^\d+$/.test(normalized)) continue;
+        if (GENERIC_CITY_WORDS.has(normalized) || GENERIC_CITY_WORDS.has(normalized.replace(/\s+/g, ''))) continue;
+
+        return city;
+    }
+
+    return undefined;
+};
+
 const extractFiltersLocally = (text = '') => {
     const filters = {};
     const lower = text.toLowerCase();
@@ -138,9 +174,10 @@ const extractFiltersLocally = (text = '') => {
     const city = sanitizeCity(cityBeforeHindi?.[1] || cityAfterEnglish?.[1] || '');
     if (city) filters.city = city;
 
-    const priceMatch = lower.match(/(?:under|below|upto|up to|within|budget|andar|kam)\D{0,12}(\d{3,7})/i)
-        || lower.match(/(\d{3,7})\s*(?:ke andar|se kam|tak|budget|under|below)/i)
-        || lower.match(/(?:rs\.?|inr)\s*(\d{3,7})/i);
+    const priceMatch = lower.match(/(?:under|below|upto|up to|within|budget|andar|kam)\D{0,12}(\d{1,7})/i)
+        || lower.match(/(\d{1,7})\s*(?:ke andar|se kam|tak|budget|under|below)/i)
+        || lower.match(/(?:rs\.?|inr|₹)\s*(\d{1,7})/i)
+        || lower.match(/(\d{1,7})\s*(?:rs\.?|rupees?|rupaye|₹)\b/i);
     if (priceMatch) filters.max_price = Number(priceMatch[1]);
 
     const minPriceMatch = lower.match(/(?:above|over|minimum|min|zyada|upar)\D{0,12}(\d{3,7})/i)
@@ -151,9 +188,17 @@ const extractFiltersLocally = (text = '') => {
         || lower.match(/(?:for|ke liye)\s*(\d{1,2})/i);
     if (occupantsMatch) filters.occupants = Number(occupantsMatch[1]);
 
+    const limitMatch = lower.match(/(?:show|give|list|find|display|dikhao|batao|de do|dedo)?\s*(\d{1,2})\s*(?:room|rooms|pg|flats?|listings?)\b/i)
+        || lower.match(/\b(?:top|best)\s*(\d{1,2})\b/i);
+    if (limitMatch && !/\b(?:bhk|log|logo|people|persons|occupants)\b/i.test(lower.slice(Math.max(0, limitMatch.index - 3), limitMatch.index + limitMatch[0].length + 16))) {
+        filters.limit = Math.min(Math.max(Number(limitMatch[1]) || 5, 1), 12);
+    }
+
     if (/(sabse sasta|sasta|cheapest|lowest price|low price|kam budget|minimum rent)/i.test(lower)) filters.sort_by = 'price_asc';
     if (/(sabse costly|sabse mehenga|sabse mahanga|mahanga|expensive|costliest|highest price|premium|luxury)/i.test(lower)) filters.sort_by = 'price_desc';
-    if (/(rating|rated|best rated|top rated)/i.test(lower)) filters.sort_by = 'rating';
+    if (/(rating|rated|best rated|top rated|best room|best rooms|top room|top rooms|recommended|good room|good rooms|achha|accha)/i.test(lower)) filters.sort_by = 'rating';
+    if (/(price\s*(wise|view|order)|price\s*(?:point\s*)?of\s*view|price\s*ke\s*(?:hisab|hisaab)|rent\s*wise|cost\s*wise|budget\s*wise|by price|according to price|low to high|lowest to highest|saste se|kam se)/i.test(lower)) filters.sort_by = 'price_asc';
+    if (/(high to low|highest to lowest|price high|costly first|expensive first)/i.test(lower)) filters.sort_by = 'price_desc';
     if (/(newest|latest|naya|recent)/i.test(lower)) filters.sort_by = 'newest';
 
     if (/\b1\s*bhk\b/i.test(text)) filters.room_type = '1BHK';
@@ -179,6 +224,16 @@ const extractFiltersLocally = (text = '') => {
     if (/cctv|camera/i.test(text)) amenities.push('cctv');
     if (/gym/i.test(text)) amenities.push('gym');
     if (/laundry|washing/i.test(text)) amenities.push('laundry');
+    if (/geyser|hot water/i.test(text)) amenities.push('hotWater');
+    if (/power backup|inverter/i.test(text)) amenities.push('powerBackup');
+    if (/24\s*(?:hr|hour)?\s*water|water supply/i.test(text)) amenities.push('waterSupply');
+    if (/attached washroom|attached bathroom/i.test(text)) amenities.push('attachedWashroom');
+    if (/balcony/i.test(text)) amenities.push('balcony');
+    if (/\blift\b|elevator/i.test(text)) amenities.push('lift');
+    if (/study table/i.test(text)) amenities.push('studyTable');
+    if (/kitchen|cooking/i.test(text)) amenities.push('kitchenAccess');
+    if (/water purifier|ro water/i.test(text)) amenities.push('waterPurifier');
+    if (/housekeeping|cleaning/i.test(text)) amenities.push('housekeeping');
     if (amenities.length) filters.amenities = amenities;
 
     return filters;
@@ -347,11 +402,12 @@ const mergeFilters = (aiFilters = {}, localFilters = {}) => {
     const maxPrice = Number(aiFilters.max_price || aiFilters.maxPrice || aiFilters.budget || localFilters.max_price);
     const minPrice = Number(aiFilters.min_price || aiFilters.minPrice || localFilters.min_price);
     const occupants = Number(aiFilters.occupants || aiFilters.people || localFilters.occupants);
+    const limit = Number(aiFilters.limit || aiFilters.count || aiFilters.number_of_rooms || localFilters.limit);
     const amenities = Array.isArray(aiFilters.amenities) && aiFilters.amenities.length
         ? aiFilters.amenities
         : (Array.isArray(localFilters.amenities) ? localFilters.amenities : []);
     const merged = {
-        city: aiFilters.city || aiFilters.location || localFilters.city,
+        city: normalizeCityFilter(aiFilters.city, aiFilters.location, localFilters.city),
         max_price: Number.isFinite(maxPrice) && maxPrice > 0 ? maxPrice : undefined,
         min_price: Number.isFinite(minPrice) && minPrice > 0 ? minPrice : undefined,
         room_type: aiFilters.room_type || aiFilters.roomType || localFilters.room_type,
@@ -359,6 +415,7 @@ const mergeFilters = (aiFilters = {}, localFilters = {}) => {
         family_status: normalizeFamilyStatus(aiFilters.family_status || aiFilters.familyStatus || localFilters.family_status || ''),
         occupants: Number.isFinite(occupants) && occupants > 0 ? occupants : undefined,
         sort_by: aiFilters.sort_by || aiFilters.sortBy || localFilters.sort_by,
+        limit: Number.isFinite(limit) && limit > 0 ? Math.min(Math.max(Math.round(limit), 1), 12) : undefined,
         amenities
     };
 
@@ -373,7 +430,7 @@ const hasSearchIntent = (text = '', filters = {}) => {
     const lower = text.toLowerCase();
     if (isGreeting(text) || isCreatorQuestion(text) || isIdentityQuestion(text) || getTeamProfileKey(text)) return false;
     return Object.keys(filters).length > 0
-        || /\b(room|rooms|pg|flat|bhk|rent|budget|under|below|andar|search|find|chahiye|available|boys|girls|family|sasta|cheapest|costly|expensive|mahanga|mehenga|people|logo)\b/i.test(lower);
+        || /\b(room|rooms|pg|flat|bhk|rent|budget|under|below|andar|search|find|show|give|list|best|top|price|chahiye|available|boys|girls|family|sasta|cheapest|costly|expensive|mahanga|mehenga|people|logo)\b/i.test(lower);
 };
 
 const isHinglish = (text = '') => detectLanguage(text) === 'hinglish';
@@ -441,7 +498,15 @@ const teamProfilesHindi = {
 const getTeamProfileReply = (profileKey, text = '') => {
     const language = detectLanguage(text);
     if (language === 'english') return teamProfilesEnglish[profileKey] || teamProfilesEnglish.rohit;
-    if (language === 'hindi') return teamProfilesHindi[profileKey] || teamProfilesHindi.rohit;
+    if (language === 'hindi') {
+        const hindiProfiles = {
+            rohit: 'रोहित कुमार RoomRadar के lead developer और creator हैं। वे Gurukul Kangri Vishwavidyalaya, Haridwar में B.Tech CSE final-year student हैं और GATE CSE तथा GATE DA qualified हैं।',
+            shubhanshu: 'शुभांशु RoomRadar team के software engineer हैं। वे TCS Digital role के लिए selected हुए और real-world coding, DSA और product quality पर strong focus रखते हैं।',
+            kamal: 'कमल कुमार RoomRadar team के software engineer हैं। उन्हें coding, DSA, books, AI/ML ideas और cooking में strong interest है।',
+            samrat: 'सम्राट प्रजापति RoomRadar team के teacher plus software engineer profile वाले member हैं। वे students को teach करते हैं और software engineering पर काम करते हैं।'
+        };
+        return hindiProfiles[profileKey] || hindiProfiles.rohit;
+    }
     return teamProfiles[profileKey] || teamProfiles.rohit;
 };
 
@@ -538,28 +603,90 @@ const createExtremeMessage = (intent, rooms, sourceText) => {
 const createSearchMessage = ({ rooms, filters, sourceText }) => {
     const cityText = filters.city ? ` in ${filters.city}` : '';
     const language = detectLanguage(sourceText);
+    const count = rooms.length;
     const sortText = filters.sort_by === 'price_asc'
-        ? (language === 'hindi' ? ' सबसे सस्ता option पहले दिख रहा है.' : isHinglish(sourceText) ? ' Sabse sasta option pehle dikh raha hai.' : ' The cheapest option is shown first.')
+        ? (language === 'hindi' ? ' ये rooms price low to high के अनुसार arranged हैं।' : isHinglish(sourceText) ? ' Ye rooms price low to high ke according arranged hain.' : ' These rooms are arranged by price from low to high.')
         : filters.sort_by === 'price_desc'
-            ? (language === 'hindi' ? ' सबसे premium/costly option पहले दिख रहा है.' : isHinglish(sourceText) ? ' Sabse premium/costly option pehle dikh raha hai.' : ' The most expensive option is shown first.')
-            : '';
+            ? (language === 'hindi' ? ' ये rooms price high to low के अनुसार arranged हैं।' : isHinglish(sourceText) ? ' Ye rooms price high to low ke according arranged hain.' : ' These rooms are arranged by price from high to low.')
+            : filters.sort_by === 'rating'
+                ? (language === 'hindi' ? ' ये best rooms rating और popularity के अनुसार arranged हैं।' : isHinglish(sourceText) ? ' Ye best rooms rating aur popularity ke according arranged hain.' : ' These best rooms are arranged by rating and popularity.')
+                : filters.sort_by === 'newest'
+                    ? (language === 'hindi' ? ' नए listings पहले दिख रहे हैं।' : isHinglish(sourceText) ? ' Newest listings pehle dikh rahe hain.' : ' The newest listings are shown first.')
+                    : '';
     if (language === 'hindi') {
         if (rooms.length > 0) {
-            return `मैंने ${rooms.length} real matching room${rooms.length > 1 ? 's' : ''}${cityText} ढूँढ लिए हैं.${sortText} Card में photo, price और View Details button है।`;
+            return `मैंने ${count} real matching room${count > 1 ? 's' : ''}${cityText} ढूँढ लिए हैं।${sortText} Card में photo, price और details साफ दिखेंगे।`;
         }
         return 'इस exact requirement पर room नहीं मिला। Budget, city या room type थोड़ा adjust करके फिर से try करें।';
     }
     if (isHinglish(sourceText)) {
         if (rooms.length > 0) {
-            return `Maine ${rooms.length} real matching room${rooms.length > 1 ? 's' : ''}${cityText} dhoondh liye hain.${sortText} Card me photo, price aur View Details button hai.`;
+            return `Maine ${count} real matching room${count > 1 ? 's' : ''}${cityText} dhoondh liye hain.${sortText} Card me photo, price aur details clear dikhengi.`;
         }
         return 'Is exact requirement par room nahi mila. Budget, city ya room type thoda adjust karke dobara try karo, main real listings me search kar dunga.';
     }
 
     if (rooms.length > 0) {
-        return `I found ${rooms.length} real matching room${rooms.length > 1 ? 's' : ''}${cityText}.${sortText} Open a card with View Details to continue booking.`;
+        return `I found ${count} real matching room${count > 1 ? 's' : ''}${cityText}.${sortText} Open a card to view details and continue booking.`;
     }
     return 'No exact match found for this requirement. Try adjusting the city, budget, or room type and I will search real listings again.';
+};
+
+const createBudgetUnavailableMessage = ({ requestedBudget, minimumRoom, sourceText }) => {
+    const language = detectLanguage(sourceText);
+    const requested = `₹${Number(requestedBudget || 0).toLocaleString('en-IN')}`;
+    const minimum = `₹${Number(minimumRoom?.rent || 0).toLocaleString('en-IN')}/month`;
+
+    if (language === 'hindi') {
+        return `${requested} के अंदर room available नहीं है। सबसे कम available room ${minimum} से शुरू हो रहा है। मैंने वह option नीचे दिखा दिया है।`;
+    }
+    if (isHinglish(sourceText)) {
+        return `${requested} ke andar room available nahi hai. Minimum available room ${minimum} se start ho raha hai. Maine wo option neeche dikha diya hai.`;
+    }
+    return `Rooms under ${requested} are not available. The lowest available room starts at ${minimum}, so I have shown that option below.`;
+};
+
+const joinLabels = (labels = []) => {
+    if (labels.length <= 1) return labels[0] || '';
+    if (labels.length === 2) return `${labels[0]} and ${labels[1]}`;
+    return `${labels.slice(0, -1).join(', ')}, and ${labels[labels.length - 1]}`;
+};
+
+const createRelaxedSearchMessage = ({ rooms, filters, sourceText }) => {
+    const language = detectLanguage(sourceText);
+    const hinglish = isHinglish(sourceText);
+    const normalized = normalizeDiscoveryFilters(filters);
+    const requestedLabels = getRequestedFilterLabels(filters);
+    const topMatch = rooms[0]?._match || {};
+    const matchedLabels = topMatch.matchedLabels || [];
+    const relaxedLabels = requestedLabels.filter((label) => !matchedLabels.includes(label));
+    const count = rooms.length;
+    const matchedText = matchedLabels.length ? joinLabels(matchedLabels.slice(0, 3)) : 'available listings';
+    const relaxedText = relaxedLabels.length ? joinLabels(relaxedLabels.slice(0, 3)) : '';
+    const sortText = normalized.sort === 'price_asc'
+        ? (hinglish ? ' Price low to high rakha hai.' : ' Results are ordered from low price to high.')
+        : normalized.sort === 'price_desc'
+            ? (hinglish ? ' Price high to low rakha hai.' : ' Results are ordered from high price to low.')
+            : normalized.sort === 'rating'
+                ? (hinglish ? ' Best rated options pehle hain.' : ' Best rated options are shown first.')
+                : '';
+
+    if (!count) {
+        if (language === 'hindi' || hinglish) return 'Is category me abhi koi published room available nahi mila. Thoda location, budget ya room type change karke try karo.';
+        return 'No published room is available for this category right now. Try changing the location, budget, or room type.';
+    }
+
+    if (language === 'hindi' || hinglish) {
+        if (relaxedText) {
+            return `Exact match nahi mila. ${relaxedText} exact available nahi tha, isliye maine ${matchedText} ke hisaab se ${count} closest real room${count > 1 ? 's' : ''} dikhaye hain.${sortText}`;
+        }
+        return `Exact phrase match nahi mila, lekin maine ${matchedText} ke hisaab se ${count} closest real room${count > 1 ? 's' : ''} dikhaye hain.${sortText}`;
+    }
+
+    if (relaxedText) {
+        return `No exact match found. ${relaxedText} was relaxed, so I found ${count} closest real room${count > 1 ? 's' : ''} based on ${matchedText}.${sortText}`;
+    }
+    return `No exact phrase match found, so I found ${count} closest real room${count > 1 ? 's' : ''} based on ${matchedText}.${sortText}`;
 };
 
 const createKnowledgeReply = (text = '') => {
@@ -620,12 +747,23 @@ const searchRooms = async (input = {}) => {
     const occupants = Number(input.occupants);
     const gender = normalizeGender(input.gender || '');
     const familyStatus = normalizeFamilyStatus(input.family_status || '');
+    const limit = Number.isFinite(Number(input.limit)) ? Math.min(Math.max(Math.round(Number(input.limit)), 1), 12) : 5;
 
-    if (city) query['location.city'] = new RegExp(escapeRegex(city), 'i');
+    if (city) {
+        const locationQuery = buildLocationQuery(city, { matchAll: true });
+        if (locationQuery) appendAndClause(query, locationQuery);
+    }
     if (Number.isFinite(maxPrice) && maxPrice > 0) query.rent = { ...query.rent, $lte: maxPrice };
     if (Number.isFinite(minPrice) && minPrice > 0) query.rent = { ...query.rent, $gte: minPrice };
     if (roomType) query.roomType = new RegExp(escapeRegex(roomType), 'i');
-    if (Number.isFinite(occupants) && occupants > 1) query.beds = { $gte: occupants };
+    if (Number.isFinite(occupants) && occupants > 1) {
+        andClauses.push({
+            $or: [
+                { maxOccupants: { $gte: occupants } },
+                { beds: { $gte: occupants } }
+            ]
+        });
+    }
     if (gender && gender !== 'Any') {
         andClauses.push({
             $or: [
@@ -652,11 +790,11 @@ const searchRooms = async (input = {}) => {
     if (Array.isArray(input.amenities)) {
         input.amenities.forEach((amenity) => {
             if (typeof amenity === 'string' && /^[a-zA-Z]+$/.test(amenity)) {
-                query[amenity] = true;
+                query[`facilities.${amenity}`] = true;
             }
         });
     }
-    if (andClauses.length > 0) query.$and = andClauses;
+    if (andClauses.length > 0) query.$and = [...(query.$and || []), ...andClauses];
 
     const sortMap = {
         price_asc: { rent: 1 },
@@ -667,9 +805,9 @@ const searchRooms = async (input = {}) => {
     const sort = sortMap[input.sort_by] || { views: -1, createdAt: -1 };
 
     return Room.find(query)
-        .select('title rent location roomType gender familyStatus beds imageUrl images averageRating _id')
+        .select('title rent location roomType gender familyStatus beds maxOccupants facilities imageUrl images averageRating numReviews views _id')
         .sort(sort)
-        .limit(5)
+        .limit(limit)
         .lean();
 };
 
@@ -717,13 +855,52 @@ exports.chat = asyncHandler(async (req, res) => {
         });
     }
 
-    const rooms = await searchRooms(filters);
+    let rooms = await searchRooms(filters);
+    let message = createSearchMessage({ rooms, filters, sourceText: lastUserText });
+    let responseSort = filters.sort_by;
+    let matchType = rooms.length > 0 ? 'exact' : 'none';
+
+    if (rooms.length === 0 && Number(filters.max_price) > 0) {
+        const minimumCandidates = await searchRooms({
+            ...filters,
+            max_price: undefined,
+            sort_by: 'price_asc',
+            limit: 1
+        });
+        const minimumRoom = minimumCandidates[0];
+        if (minimumRoom && Number(minimumRoom.rent || 0) > Number(filters.max_price)) {
+            rooms = minimumCandidates;
+            message = createBudgetUnavailableMessage({
+                requestedBudget: filters.max_price,
+                minimumRoom,
+                sourceText: lastUserText
+            });
+            responseSort = 'price_asc';
+            matchType = 'budget_floor';
+        }
+    }
+
+    if (rooms.length === 0) {
+        const relaxedRooms = await findDiscoveryFallbackRooms(Room, filters, {
+            resultLimit: filters.limit || 5,
+            candidateLimit: 180,
+        });
+
+        if (relaxedRooms.length > 0) {
+            rooms = relaxedRooms;
+            message = createRelaxedSearchMessage({ rooms, filters, sourceText: lastUserText });
+            responseSort = filters.sort_by;
+            matchType = 'relaxed';
+        }
+    }
+
     res.json({
-        message: createSearchMessage({ rooms, filters, sourceText: lastUserText }),
+        message,
         rooms,
         filters,
-        sort: filters.sort_by,
+        sort: responseSort,
+        matchType,
         provider: aiResult.provider,
-        fallback: aiResult.fallback
+        fallback: aiResult.fallback || matchType === 'relaxed'
     });
 });

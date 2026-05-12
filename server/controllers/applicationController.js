@@ -7,6 +7,7 @@ const PlatformSetting = require('../models/PlatformSetting');
 const Transaction = require('../models/Transaction');
 const mongoose = require('mongoose');
 const { toOptionalDate } = require('../utils/dateUtils');
+const { normalizeOptionalIndianMobile, requireValidIndianMobile } = require('../utils/phoneUtils');
 
 const ACTIVE_APPLICATION_STATUSES = ['pending', 'approved', 'confirmed'];
 const LOCKED_INVENTORY_STATUSES = ['approved', 'confirmed', 'external', 'blocked'];
@@ -15,6 +16,66 @@ const makeHttpError = (statusCode, message) => {
     const error = new Error(message);
     error.statusCode = statusCode;
     return error;
+};
+
+const getUnreadConversationCountForUser = async (userId) => {
+    const normalizedUserId = new mongoose.Types.ObjectId(userId);
+    const conversations = await Conversation.find({ members: normalizedUserId }).select('_id').lean();
+    const conversationIds = conversations.map((conversation) => conversation._id);
+
+    if (conversationIds.length === 0) return 0;
+
+    return Message.countDocuments({
+        conversationId: { $in: conversationIds },
+        sender: { $ne: normalizedUserId },
+        readBy: { $ne: normalizedUserId }
+    });
+};
+
+const emitUnreadConversationCount = async (userId) => {
+    try {
+        const { io } = require('../index');
+        if (!io || !userId) return;
+        const count = await getUnreadConversationCountForUser(userId);
+        io.to(userId.toString()).emit('unread_count_update', { count });
+    } catch (error) {
+        // Socket count sync should not block booking actions.
+    }
+};
+
+const emitChatMessageToRecipients = async ({
+    conversationId,
+    message,
+    senderId,
+    receiverIds = [],
+    text = '',
+    messageType = 'text',
+    senderName = '',
+    roomTitle = '',
+}) => {
+    try {
+        const { io } = require('../index');
+        if (!io || !conversationId || !message) return;
+
+        const payload = {
+            _id: message._id,
+            senderId: senderId?.toString(),
+            senderName,
+            text,
+            messageType,
+            conversationId: conversationId.toString(),
+            roomTitle,
+            createdAt: message.createdAt,
+        };
+
+        receiverIds.forEach((receiverId) => {
+            if (receiverId) io.to(receiverId.toString()).emit('getMessage', payload);
+        });
+
+        await Promise.all(receiverIds.map((receiverId) => emitUnreadConversationCount(receiverId)));
+    } catch (error) {
+        // Realtime fan-out is best-effort; persisted booking state is the source of truth.
+    }
 };
 
 const getApplicationDateRange = (application) => {
@@ -407,6 +468,15 @@ const postSystemMessage = async ({ landlordId, studentId, roomId, text, senderId
         await systemMessage.save();
         conversation.lastMessage = systemMessage._id;
         await conversation.save();
+        await emitChatMessageToRecipients({
+            conversationId: conversation._id,
+            message: systemMessage,
+            senderId: messageSender,
+            receiverIds: [landlordId, studentId].filter((memberId) => memberId?.toString() !== messageSender.toString()),
+            text,
+            messageType: 'text',
+            senderName: 'RoomRadar',
+        });
     } catch (error) {}
 };
 
@@ -491,7 +561,14 @@ const createApplication = asyncHandler(async (req, res) => {
     };
     const normalizedProfileType = String(profileType || otherDetails.purposeOfStay || 'Travelling').trim();
     const normalizedFullName = String(fullName || req.user.name || '').trim();
-    const normalizedMobileNumber = String(mobileNumber || req.user.mobileNumber || req.user.phone || '').trim();
+    const normalizedMobileNumber = normalizeOptionalIndianMobile(mobileNumber || req.user.mobileNumber || req.user.phone || '', 'Mobile number');
+    const normalizedOtherDetails = { ...otherDetails };
+    if (normalizedOtherDetails.emergencyContact?.phone) {
+        normalizedOtherDetails.emergencyContact = {
+            ...normalizedOtherDetails.emergencyContact,
+            phone: requireValidIndianMobile(normalizedOtherDetails.emergencyContact.phone, 'Emergency contact number')
+        };
+    }
 
     const requestedStartDate = toOptionalDate(checkInDate);
     const requestedEndDate = toOptionalDate(checkOutDate);
@@ -586,7 +663,7 @@ const createApplication = asyncHandler(async (req, res) => {
             notes: 'Awaiting landlord approval inside the platform response window.',
         },
         amountBreakdown: await buildAmountBreakdown(room, durationMonths),
-        ...otherDetails
+        ...normalizedOtherDetails
     });
 
     const createdApplication = await application.save();
@@ -633,6 +710,17 @@ const createApplication = asyncHandler(async (req, res) => {
     await systemMessage.save();
     conversation.lastMessage = systemMessage._id;
     await conversation.save();
+
+    await emitChatMessageToRecipients({
+        conversationId: conversation._id,
+        message: systemMessage,
+        senderId: studentId,
+        receiverIds: [landlordId],
+        text: `${normalizedFullName || 'A student'} sent a booking request for "${room.title}".`,
+        messageType: 'booking_request',
+        senderName: normalizedFullName || req.user.name || 'RoomRadar student',
+        roomTitle: room.title,
+    });
 
     emitBookingStatus(createdApplication, 'pending');
 
@@ -987,6 +1075,16 @@ const updateApplication = asyncHandler(async (req, res) => {
         approvedAt,
         ...safeUpdates
     } = req.body;
+
+    if (Object.prototype.hasOwnProperty.call(safeUpdates, 'mobileNumber')) {
+        safeUpdates.mobileNumber = requireValidIndianMobile(safeUpdates.mobileNumber, 'Mobile number');
+    }
+    if (safeUpdates.emergencyContact?.phone) {
+        safeUpdates.emergencyContact = {
+            ...safeUpdates.emergencyContact,
+            phone: requireValidIndianMobile(safeUpdates.emergencyContact.phone, 'Emergency contact number')
+        };
+    }
 
     Object.assign(application, safeUpdates);
     application.isUpdated = true;

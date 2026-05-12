@@ -4,6 +4,8 @@ import toast from 'react-hot-toast';
 import { BadgeCheck, Banknote, Camera, CheckCircle2, Home, Landmark, MapPin, Phone, ShieldCheck, Sparkles, UserRound, Wallet } from 'lucide-react';
 import api from '../../../api';
 import { useAuth } from '../../../context/AuthContext';
+import { isValidIndianMobile, phoneInputProps, sanitizePhoneInput } from '../../../utils/phoneUtils';
+import { switchRoleSmoothly } from '../../../utils/roleSwitch';
 
 const studentFields = [
   { key: 'name', label: 'Full name', type: 'text', required: true },
@@ -55,8 +57,8 @@ function PremiumProfileEditor({ mode = 'student' }) {
   const roleProfile = user?.roleProfiles?.[roleKey] || {};
   const [form, setForm] = useState({
     name: roleProfile.name || user?.name || '',
-    mobileNumber: roleProfile.mobileNumber || roleProfile.phone || user?.mobileNumber || user?.phone || '',
-    phone: roleProfile.phone || roleProfile.mobileNumber || user?.phone || user?.mobileNumber || '',
+    mobileNumber: sanitizePhoneInput(roleProfile.mobileNumber || roleProfile.phone || user?.mobileNumber || user?.phone || ''),
+    phone: sanitizePhoneInput(roleProfile.phone || roleProfile.mobileNumber || user?.phone || user?.mobileNumber || ''),
     city: roleProfile.city || user?.city || '',
     gender: roleProfile.gender || user?.gender || '',
     occupation: isHost
@@ -88,11 +90,14 @@ function PremiumProfileEditor({ mode = 'student' }) {
   ].filter(Boolean).length;
 
   const updateField = (key, value) => {
+    const nextValue = key === 'mobileNumber' || key === 'phone'
+      ? sanitizePhoneInput(value)
+      : value;
     setForm((prev) => ({
       ...prev,
-      [key]: value,
-      ...(key === 'mobileNumber' ? { phone: value } : {}),
-      ...(key === 'avatarUrl' ? { profilePicture: value } : {}),
+      [key]: nextValue,
+      ...(key === 'mobileNumber' ? { phone: nextValue } : {}),
+      ...(key === 'avatarUrl' ? { profilePicture: nextValue } : {}),
     }));
   };
 
@@ -104,6 +109,10 @@ function PremiumProfileEditor({ mode = 'student' }) {
     }
     if (form.bio.length > 500) {
       toast.error('Bio must be under 500 characters.');
+      return;
+    }
+    if (form.mobileNumber && !isValidIndianMobile(form.mobileNumber)) {
+      toast.error('Please enter a valid 10-digit mobile number.');
       return;
     }
 
@@ -127,16 +136,24 @@ function PremiumProfileEditor({ mode = 'student' }) {
     { key: isHost ? 'property' : 'student', label: isHost ? 'Property' : 'Profile', active: isHost ? verifications.property : verifications.student },
   ];
 
-  const handleRoleSwitch = () => {
+  const handleRoleSwitch = async () => {
     if (isHost) {
-      switchRole('student');
-      navigate('/profile');
+      await switchRoleSmoothly({
+        role: 'student',
+        path: '/profile',
+        switchRole,
+        navigate,
+      });
       return;
     }
 
     if (user?.roles?.includes('Landlord')) {
-      switchRole('landlord');
-      navigate('/landlord/overview');
+      await switchRoleSmoothly({
+        role: 'landlord',
+        path: '/landlord/overview',
+        switchRole,
+        navigate,
+      });
     } else {
       navigate('/list-your-room');
     }
@@ -244,7 +261,7 @@ function PremiumProfileEditor({ mode = 'student' }) {
               </button>
             </div>
 
-            <div className="grid gap-4 md:grid-cols-2">
+            <div className="grid grid-cols-2 gap-3 sm:gap-4">
               {profileFields.map((field) => (
                 <label key={field.key} className="block">
                   <span className="mb-2 block text-[clamp(12px,3.1vw,14px)] font-black text-light-text dark:text-dark-text">{field.label}{field.required ? ' *' : ''}</span>
@@ -253,7 +270,15 @@ function PremiumProfileEditor({ mode = 'student' }) {
                       {field.options.map((option) => <option key={option} value={option}>{option || 'Select'}</option>)}
                     </select>
                   ) : (
-                    <input value={form[field.key]} onChange={(event) => updateField(field.key, event.target.value)} type={field.type} className="input-field min-h-12 rounded-2xl bg-white/92 dark:bg-slate-950/50" required={field.required} />
+                    <input
+                      value={form[field.key]}
+                      onChange={(event) => updateField(field.key, event.target.value)}
+                      type={field.type}
+                      className="input-field min-h-12 rounded-2xl bg-white/92 dark:bg-slate-950/50"
+                      required={field.required}
+                      placeholder={field.type === 'tel' ? '9876543210' : undefined}
+                      {...(field.type === 'tel' ? phoneInputProps : {})}
+                    />
                   )}
                 </label>
               ))}
@@ -286,7 +311,7 @@ function PremiumProfileEditor({ mode = 'student' }) {
                   </div>
                 </div>
 
-                <div className="grid gap-4 md:grid-cols-2">
+                <div className="grid grid-cols-2 gap-3 sm:gap-4">
                   <label className="block">
                     <span className="mb-2 flex items-center gap-2 text-sm font-bold text-light-text dark:text-dark-text">
                       <Wallet className="h-4 w-4 text-cyan-500" />
@@ -350,7 +375,7 @@ function PremiumProfileEditor({ mode = 'student' }) {
                     <input value={form.bankIfsc} onChange={(event) => updateField('bankIfsc', event.target.value.toUpperCase())} type="text" className="input-field uppercase" placeholder="IFSC code" />
                   </label>
 
-                  <label className="block md:col-span-2">
+                  <label className="col-span-2 block">
                     <span className="mb-2 block text-sm font-bold text-light-text dark:text-dark-text">Payout note</span>
                     <textarea
                       value={form.payoutNotes}

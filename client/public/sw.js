@@ -62,3 +62,23 @@ self.addEventListener('fetch', (event) => {
     })
   );
 });
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+
+  const targetUrl = event.notification?.data?.url || '/profile/inbox';
+  const normalizedTarget = new URL(targetUrl, self.location.origin).href;
+
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      const sameOriginClient = clientList.find((client) => client.url.startsWith(self.location.origin));
+
+      if (sameOriginClient) {
+        sameOriginClient.focus();
+        return sameOriginClient.navigate(normalizedTarget);
+      }
+
+      return self.clients.openWindow(normalizedTarget);
+    })
+  );
+});

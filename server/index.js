@@ -116,11 +116,6 @@ const broadcastOnlineUsers = () => {
   io.emit('getUsers', onlineUsers.map((user) => user.userId));
 };
 
-const getUser = (userId) => {
-  const normalizedUserId = userId?.toString();
-  return onlineUsers.find((user) => user.userId === normalizedUserId);
-};
-
 io.on('connection', (socket) => {
   socket.on('setup', (userId) => {
     if (userId) {
@@ -136,18 +131,18 @@ io.on('connection', (socket) => {
     }
   });
 
-  socket.on('sendMessage', ({ senderId, receiverId, text, conversationId }) => {
+  socket.on('sendMessage', ({ senderId, receiverId, text, conversationId, senderName, senderAvatarUrl, roomTitle, messageType = 'text' }) => {
     const payload = {
       senderId,
-      text,
+      senderName,
+      senderAvatarUrl,
+      roomTitle,
+      text: typeof text === 'string' ? text : '',
+      messageType,
       conversationId,
       createdAt: new Date(),
     };
 
-    const receiver = getUser(receiverId);
-    if (receiver) {
-      io.to(receiver.socketId).emit('getMessage', payload);
-    }
     if (receiverId) {
       io.to(receiverId.toString()).emit('getMessage', payload);
     }

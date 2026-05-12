@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
     Award,
@@ -28,40 +28,124 @@ const supportsFineHover = () => (
     && window.matchMedia?.('(hover: hover) and (pointer: fine)').matches
 );
 
+const IMAGE_AUTO_ADVANCE_MS = 3600;
+const ACTIVE_PREVIEW_EVENT = 'roomradar:active-room-card-preview';
+const mobilePreviewRegistry = new Map();
+let activeMobilePreviewId = null;
+let previewSyncFrame = null;
+let previewListenerCount = 0;
+
+const getVisibleRatio = (rect) => {
+    if (!rect.height || rect.bottom <= 0 || rect.top >= window.innerHeight) return 0;
+    const visibleHeight = Math.min(rect.bottom, window.innerHeight) - Math.max(rect.top, 0);
+    return Math.max(0, Math.min(1, visibleHeight / rect.height));
+};
+
+const syncActiveMobilePreview = () => {
+    previewSyncFrame = null;
+    if (typeof window === 'undefined') return;
+    if (supportsFineHover()) return;
+
+    const viewportFocusY = window.innerHeight * 0.48;
+    let nextActiveId = null;
+    let nextScore = -Infinity;
+
+    mobilePreviewRegistry.forEach((node, id) => {
+        if (!node?.isConnected) return;
+        const rect = node.getBoundingClientRect();
+        const visibleRatio = getVisibleRatio(rect);
+        if (visibleRatio < 0.45) return;
+
+        const centerY = rect.top + rect.height / 2;
+        const centerX = rect.left + rect.width / 2;
+        const score = (visibleRatio * 1000)
+            - Math.abs(centerY - viewportFocusY)
+            - Math.abs(centerX - window.innerWidth / 2) * 0.08;
+
+        if (score > nextScore) {
+            nextScore = score;
+            nextActiveId = id;
+        }
+    });
+
+    if (nextActiveId === activeMobilePreviewId) return;
+    activeMobilePreviewId = nextActiveId;
+    window.dispatchEvent(new CustomEvent(ACTIVE_PREVIEW_EVENT, { detail: { id: activeMobilePreviewId } }));
+};
+
+const scheduleActiveMobilePreviewSync = () => {
+    if (typeof window === 'undefined' || previewSyncFrame) return;
+    previewSyncFrame = window.requestAnimationFrame(syncActiveMobilePreview);
+};
+
+const ensureMobilePreviewListeners = () => {
+    if (typeof window === 'undefined') return;
+    previewListenerCount += 1;
+    if (previewListenerCount > 1) return;
+    window.addEventListener('scroll', scheduleActiveMobilePreviewSync, { passive: true });
+    window.addEventListener('resize', scheduleActiveMobilePreviewSync);
+    window.addEventListener('orientationchange', scheduleActiveMobilePreviewSync);
+    document.addEventListener('scroll', scheduleActiveMobilePreviewSync, true);
+};
+
+const releaseMobilePreviewListeners = () => {
+    if (typeof window === 'undefined') return;
+    previewListenerCount = Math.max(0, previewListenerCount - 1);
+    if (previewListenerCount > 0) return;
+    window.removeEventListener('scroll', scheduleActiveMobilePreviewSync);
+    window.removeEventListener('resize', scheduleActiveMobilePreviewSync);
+    window.removeEventListener('orientationchange', scheduleActiveMobilePreviewSync);
+    document.removeEventListener('scroll', scheduleActiveMobilePreviewSync, true);
+    if (previewSyncFrame) {
+        window.cancelAnimationFrame(previewSyncFrame);
+        previewSyncFrame = null;
+    }
+    activeMobilePreviewId = null;
+};
+
 function RoomCard({ room, context = 'default', onRemove, imagePriority = false }) {
     const { user, addToWishlist, removeFromWishlist } = useAuth();
+    const cardRoom = room || {};
+    const roomId = cardRoom._id;
     const imageUrls = useMemo(() => (
-        (Array.isArray(room.images) && room.images.length > 0
-            ? room.images
-            : Array.isArray(room.imageUrls) && room.imageUrls.length > 0
-                ? room.imageUrls
-                : [room.imageUrl || fallbackRoomImage])
+        (Array.isArray(cardRoom.images) && cardRoom.images.length > 0
+            ? cardRoom.images
+            : Array.isArray(cardRoom.imageUrls) && cardRoom.imageUrls.length > 0
+                ? cardRoom.imageUrls
+                : [cardRoom.imageUrl || fallbackRoomImage])
             .map((image) => image?.url || image)
             .filter(Boolean)
-    ), [room.imageUrl, room.imageUrls, room.images]);
+    ), [cardRoom.imageUrl, cardRoom.imageUrls, cardRoom.images]);
 
     const [currentImageIndex, setCurrentImageIndex] = useState(0);
     const [isHovered, setIsHovered] = useState(false);
+    const [isMediaVisible, setIsMediaVisible] = useState(false);
+    const [isActiveMobilePreview, setIsActiveMobilePreview] = useState(false);
+    const mediaRef = useRef(null);
+    const previewIdRef = useRef(null);
+    if (!previewIdRef.current) {
+        previewIdRef.current = `${roomId || 'room'}-${Math.random().toString(36).slice(2)}`;
+    }
     const canPreviewOnHover = useMemo(supportsFineHover, []);
     const isSavedContext = context === 'saved';
-    const isWishlisted = Boolean(user?.wishlist?.some((item) => String(item?._id || item) === String(room._id)));
-    const rating = room.averageRating || room.rating;
+    const isWishlisted = Boolean(user?.wishlist?.some((item) => String(item?._id || item) === String(roomId)));
+    const rating = cardRoom.averageRating || cardRoom.rating;
     const isGuestFavourite = Number(rating || 0) >= 4.8;
-    const configCardFields = useMemo(() => getVisibleCardFields(room)
+    const configCardFields = useMemo(() => getVisibleCardFields(cardRoom)
         .filter(({ field }) => !['title', 'rent', 'beds', 'roomType', 'familyStatus', 'fullAddress', 'city', 'washroomType', 'attachedWashroom'].includes(field.key))
-        .slice(0, 3), [room]);
+        .slice(0, 3), [cardRoom]);
 
     const handleWishlistClick = useCallback((event) => {
         event.preventDefault();
         event.stopPropagation();
         if (isSavedContext && onRemove) {
-            onRemove(room._id);
+            onRemove(roomId);
             return;
         }
         if (!user) return;
-        if (isWishlisted) removeFromWishlist(room._id);
-        else addToWishlist(room._id);
-    }, [addToWishlist, isSavedContext, isWishlisted, onRemove, removeFromWishlist, room._id, user]);
+        if (isWishlisted) removeFromWishlist(roomId);
+        else addToWishlist(roomId);
+    }, [addToWishlist, isSavedContext, isWishlisted, onRemove, removeFromWishlist, roomId, user]);
 
     const handleNextImage = useCallback((event) => {
         event.preventDefault();
@@ -84,17 +168,74 @@ function RoomCard({ room, context = 'default', onRemove, imagePriority = false }
     }, [canPreviewOnHover]);
 
     useEffect(() => {
-        if (!canPreviewOnHover || !isHovered || imageUrls.length <= 1) return undefined;
+        setCurrentImageIndex(0);
+    }, [imageUrls.length]);
+
+    useEffect(() => {
+        const mediaNode = mediaRef.current;
+        if (!mediaNode || imageUrls.length <= 1 || typeof IntersectionObserver === 'undefined') {
+            setIsMediaVisible(true);
+            return undefined;
+        }
+
+        const observer = new IntersectionObserver(
+            ([entry]) => setIsMediaVisible(entry.isIntersecting && entry.intersectionRatio > 0.35),
+            { threshold: [0, 0.35, 0.7] }
+        );
+
+        observer.observe(mediaNode);
+        return () => observer.disconnect();
+    }, [imageUrls.length]);
+
+    useEffect(() => {
+        if (canPreviewOnHover || imageUrls.length <= 1 || typeof window === 'undefined') {
+            setIsActiveMobilePreview(false);
+            return undefined;
+        }
+
+        const previewId = previewIdRef.current;
+        const mediaNode = mediaRef.current;
+        if (!previewId || !mediaNode) return undefined;
+
+        mobilePreviewRegistry.set(previewId, mediaNode);
+        ensureMobilePreviewListeners();
+
+        const handleActivePreviewChange = (event) => {
+            setIsActiveMobilePreview(event.detail?.id === previewId);
+        };
+
+        window.addEventListener(ACTIVE_PREVIEW_EVENT, handleActivePreviewChange);
+        scheduleActiveMobilePreviewSync();
+
+        return () => {
+            mobilePreviewRegistry.delete(previewId);
+            window.removeEventListener(ACTIVE_PREVIEW_EVENT, handleActivePreviewChange);
+            if (activeMobilePreviewId === previewId) {
+                activeMobilePreviewId = null;
+                scheduleActiveMobilePreviewSync();
+            }
+            releaseMobilePreviewListeners();
+            setIsActiveMobilePreview(false);
+        };
+    }, [canPreviewOnHover, imageUrls.length]);
+
+    const shouldAutoAdvanceImages = imageUrls.length > 1
+        && isMediaVisible
+        && (canPreviewOnHover ? isHovered : isActiveMobilePreview);
+
+    useEffect(() => {
+        if (!shouldAutoAdvanceImages) return undefined;
+        if (typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return undefined;
 
         const previewTimer = window.setInterval(() => {
             setCurrentImageIndex((prevIndex) => (prevIndex + 1) % imageUrls.length);
-        }, 3200);
+        }, IMAGE_AUTO_ADVANCE_MS);
 
         return () => window.clearInterval(previewTimer);
-    }, [canPreviewOnHover, imageUrls.length, isHovered]);
+    }, [imageUrls.length, shouldAutoAdvanceImages]);
 
     const roomTag = useMemo(() => {
-        const type = room.roomType || '';
+        const type = cardRoom.roomType || '';
         let Icon = User;
         let text = 'Private room';
 
@@ -113,10 +254,10 @@ function RoomCard({ room, context = 'default', onRemove, imagePriority = false }
         }
 
         return { Icon, text };
-    }, [room.roomType]);
+    }, [cardRoom.roomType]);
 
     const tenantTag = useMemo(() => {
-        const prefs = room.tenantPreferences || {};
+        const prefs = cardRoom.tenantPreferences || {};
         const familyStatus = prefs.familyStatus || 'Any';
         const allowedGender = prefs.allowedGender || 'Any';
 
@@ -125,9 +266,34 @@ function RoomCard({ room, context = 'default', onRemove, imagePriority = false }
         if (familyStatus === 'Bachelors' && allowedGender === 'Female') return { Icon: User, text: 'Women' };
         if (familyStatus === 'Bachelors') return { Icon: Users, text: 'Bachelor' };
         return { Icon: Users2, text: 'Any' };
-    }, [room.tenantPreferences]);
+    }, [cardRoom.tenantPreferences]);
 
-    if (!room || !room._id) return null;
+    const imageLoading = imagePriority ? 'eager' : 'lazy';
+    const imageFetchPriority = imagePriority ? 'high' : 'auto';
+    const indicatorCount = Math.min(imageUrls.length, 5);
+    const activeIndicatorIndex = indicatorCount > 0 ? currentImageIndex % indicatorCount : 0;
+    const washroomText = cardRoom.washroomType || (cardRoom.attachedWashroom ? 'Attached' : '');
+    const detailTags = useMemo(() => [
+        roomTag,
+        tenantTag,
+        {
+            Icon: BedDouble,
+            text: `${cardRoom.beds || 1} bed${Number(cardRoom.beds || 1) > 1 ? 's' : ''}`,
+            tone: 'accent',
+        },
+        washroomText && {
+            Icon: Bath,
+            text: washroomText,
+            tone: 'accent',
+        },
+        ...configCardFields.slice(0, 2).map(({ field, value }) => ({
+            Icon: Bath,
+            text: formatRoomFieldValue(field, value),
+            tone: 'accent',
+        })),
+    ].filter(Boolean), [cardRoom.beds, configCardFields, roomTag, tenantTag, washroomText]);
+
+    if (!roomId) return null;
 
     const city = room.location?.city || room.city || 'India';
     const state = room.location?.state || '';
@@ -149,28 +315,6 @@ function RoomCard({ room, context = 'default', onRemove, imagePriority = false }
         || landlord.verifications?.identity
         || landlord.verifications?.property
     );
-    const imageLoading = imagePriority ? 'eager' : 'lazy';
-    const imageFetchPriority = imagePriority ? 'high' : 'auto';
-    const washroomText = room.washroomType || (room.attachedWashroom ? 'Attached' : '');
-    const detailTags = useMemo(() => [
-        roomTag,
-        tenantTag,
-        {
-            Icon: BedDouble,
-            text: `${room.beds || 1} bed${Number(room.beds || 1) > 1 ? 's' : ''}`,
-            tone: 'accent',
-        },
-        washroomText && {
-            Icon: Bath,
-            text: washroomText,
-            tone: 'accent',
-        },
-        ...configCardFields.slice(0, 2).map(({ field, value }) => ({
-            Icon: Bath,
-            text: formatRoomFieldValue(field, value),
-            tone: 'accent',
-        })),
-    ].filter(Boolean), [configCardFields, room.beds, roomTag, tenantTag, washroomText]);
 
     return (
         <article
@@ -178,6 +322,7 @@ function RoomCard({ room, context = 'default', onRemove, imagePriority = false }
         >
             <Link to={`/room/${room._id}`} className="flex h-full flex-col">
                 <div
+                    ref={mediaRef}
                     className="rr-room-card-media relative overflow-hidden bg-light-border dark:bg-dark-input"
                     onMouseEnter={handleMouseEnter}
                     onMouseLeave={handleMouseLeave}
@@ -189,7 +334,7 @@ function RoomCard({ room, context = 'default', onRemove, imagePriority = false }
                         className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.025]"
                         loading={imageLoading}
                         decoding="async"
-                        fetchPriority={imageFetchPriority}
+                        fetchpriority={imageFetchPriority}
                         sizes="(max-width: 639px) 50vw, (max-width: 1023px) 50vw, 280px"
                         draggable="false"
                     />
@@ -264,12 +409,16 @@ function RoomCard({ room, context = 'default', onRemove, imagePriority = false }
                     )}
 
                     {imageUrls.length > 1 && (
-                        <div className="absolute bottom-3 left-1/2 hidden -translate-x-1/2 gap-1 sm:flex">
-                            {imageUrls.slice(0, 5).map((_, slideIndex) => (
+                        <div className="rr-image-progress-strip" style={{ '--rr-slide-duration': `${IMAGE_AUTO_ADVANCE_MS}ms` }}>
+                            {imageUrls.slice(0, indicatorCount).map((_, slideIndex) => (
                                 <span
                                     key={slideIndex}
-                                    className={`h-1.5 rounded-full transition-all ${currentImageIndex === slideIndex ? 'w-5 bg-cyan-500' : 'w-1.5 bg-white/60'}`}
-                                />
+                                    className={`rr-image-progress-dot ${shouldAutoAdvanceImages && activeIndicatorIndex === slideIndex ? 'is-active' : ''}`}
+                                >
+                                    {activeIndicatorIndex === slideIndex && shouldAutoAdvanceImages && (
+                                        <span className="rr-image-progress-fill" />
+                                    )}
+                                </span>
                             ))}
                         </div>
                     )}
@@ -326,7 +475,7 @@ function RoomCard({ room, context = 'default', onRemove, imagePriority = false }
                                 } ${tagIndex > 2 ? 'rr-wide-only' : ''}`}
                             >
                                 <Icon className="h-3.5 w-3.5 flex-shrink-0 sm:h-4 sm:w-4" />
-                                <span className="rr-feature-label min-w-0 truncate">{text}</span>
+                                <span className="rr-feature-label min-w-0 whitespace-nowrap">{text}</span>
                             </span>
                         ))}
                     </div>

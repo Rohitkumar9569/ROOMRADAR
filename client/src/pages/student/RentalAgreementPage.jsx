@@ -129,7 +129,7 @@ const RentalAgreementPage = () => {
                                     <Home className="h-6 w-6 text-cyan-600 dark:text-cyan-300" />
                                     <h2 className="text-xl font-black text-slate-950 dark:text-white">Property</h2>
                                 </div>
-                                <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                                <div className="mt-4 grid grid-cols-2 gap-3">
                                     <Detail label="Room" value={room.title} />
                                     <Detail label="Address" value={room.location?.fullAddress || [room.location?.city, room.location?.state].filter(Boolean).join(', ')} />
                                     <Detail label="Stay dates" value={stayDates || 'Not set'} />
@@ -137,7 +137,7 @@ const RentalAgreementPage = () => {
                                 </div>
                             </section>
 
-                            <section className="grid gap-4 md:grid-cols-2">
+                            <section className="grid grid-cols-2 gap-3 sm:gap-4">
                                 <PartyCard title="Landlord" name={landlord.name} email={landlord.email} phone={landlord.mobileNumber} />
                                 <PartyCard title="Tenant" name={application.fullName || student.name} email={student.email} phone={application.mobileNumber || student.mobileNumber} />
                             </section>

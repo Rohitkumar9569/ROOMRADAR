@@ -5,6 +5,7 @@ import { useUI } from '../../../context/UIContext';
 import { useSocket } from '../../../context/SocketContext';
 import { Compass, FileText, Heart, LogOut, Mail, PanelLeftClose, PanelLeftOpen, User } from 'lucide-react';
 import Tippy from '@tippyjs/react';
+import { preloadRoleDestination, switchRoleSmoothly } from '../../../utils/roleSwitch';
 
 const navItems = [
     { to: '/', label: 'Explore', Icon: Compass, end: true },
@@ -28,10 +29,14 @@ const ProfileSidebar = () => {
         navigate('/');
     };
 
-    const handleSwitchRole = () => {
+    const handleSwitchRole = async () => {
         if (user?.roles?.includes('Landlord')) {
-            switchRole('landlord');
-            navigate('/landlord/overview');
+            await switchRoleSmoothly({
+                role: 'landlord',
+                path: '/landlord/overview',
+                switchRole,
+                navigate,
+            });
         } else {
             navigate('/list-your-room');
         }
@@ -73,12 +78,18 @@ const ProfileSidebar = () => {
         <aside className={`hidden md:flex fixed left-0 top-0 z-40 h-screen ${sidebarWidth} flex-col border-r border-light-border bg-white/90 p-4 shadow-2xl shadow-slate-900/5 backdrop-blur-xl transition-all duration-300 dark:border-dark-border dark:bg-dark-sidebar/95`}>
             <div className={`flex items-center ${isSidebarOpen ? 'justify-between' : 'justify-center'}`}>
                 <Link to="/" className={`flex items-center ${isSidebarOpen ? 'gap-3' : ''}`}>
-                    <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-rose-500 to-cyan-500 text-lg font-black text-white shadow-lg shadow-rose-500/20">R</span>
                     {isSidebarOpen && (
                         <div>
-                            <p className="text-lg font-black leading-5 text-light-text dark:text-white">RoomRadar</p>
-                            <p className="inline-flex rounded-full bg-cyan-500/10 px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-[0.16em] text-cyan-600 dark:text-cyan-300">Travelling</p>
+                            <p className="text-2xl font-black leading-6 tracking-tight text-light-text dark:text-white">
+                                <span className="text-brand">Room</span><span className="text-cyan-500">Radar</span>
+                            </p>
+                            <p className="inline-flex rounded-full bg-cyan-500/10 px-2 py-0.5 text-xs font-extrabold uppercase tracking-[0.1em] text-cyan-600 dark:text-cyan-300">Travelling</p>
                         </div>
+                    )}
+                    {!isSidebarOpen && (
+                        <span className="text-lg font-black leading-none tracking-tight">
+                            <span className="text-brand">R</span><span className="text-cyan-500">R</span>
+                        </span>
                     )}
                 </Link>
                 {isSidebarOpen && (
@@ -116,6 +127,8 @@ const ProfileSidebar = () => {
                 <Tippy content={user?.roles?.includes('Landlord') ? 'Switch to Hosting' : 'Become a Host'} placement="right" disabled={isSidebarOpen}>
                     <button
                         onClick={handleSwitchRole}
+                        onMouseEnter={() => preloadRoleDestination(user?.roles?.includes('Landlord') ? 'landlord' : 'hostForm')}
+                        onFocus={() => preloadRoleDestination(user?.roles?.includes('Landlord') ? 'landlord' : 'hostForm')}
                         className={`flex w-full items-center rounded-2xl bg-gradient-to-r from-cyan-400 to-cyan-600 px-3 py-3 text-sm font-extrabold text-white shadow-lg shadow-cyan-500/30 transition hover:brightness-105 ${isSidebarOpen ? 'justify-center' : 'justify-center'}`}
                     >
                         {isSidebarOpen ? (user?.roles?.includes('Landlord') ? 'Switch to Hosting' : 'Become a Host') : 'Host'}

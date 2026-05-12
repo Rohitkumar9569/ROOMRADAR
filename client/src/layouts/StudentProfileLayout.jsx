@@ -4,20 +4,20 @@ import { useUI } from '../context/UIContext';
 import ProfileSidebar from '../components/layout/student/ProfileSidebar';
 
 const FilterTabs = ({ tabs, counts, activeFilter, onFilterChange }) => (
-    <div className="sticky top-14 z-30 border-b border-light-border bg-light-bg/95 backdrop-blur-xl dark:border-dark-border dark:bg-dark-bg/90 md:top-0">
+    <div className="rr-filter-tabs sticky top-14 z-30 border-b border-light-border bg-light-bg/95 backdrop-blur-xl dark:border-dark-border dark:bg-dark-bg/90 md:top-0">
         <div className="mx-auto flex max-w-7xl items-center gap-2 overflow-x-auto px-4 py-3 sm:px-6 lg:px-8">
             {tabs.map((tab) => ((counts[tab] > 0 || tab === 'all') && (
                 <button
                     key={tab}
                     onClick={() => onFilterChange(tab)}
-                    className={`flex-shrink-0 rounded-full px-4 py-2 text-sm font-extrabold capitalize transition ${
+                    className={`rr-filter-chip flex-shrink-0 rounded-full px-4 py-2 text-sm font-extrabold capitalize transition ${
                         activeFilter === tab
-                            ? 'bg-cyan-500 text-white shadow-lg shadow-cyan-500/25'
+                            ? 'is-active bg-cyan-500 text-white shadow-lg shadow-cyan-500/25'
                             : 'bg-light-card text-light-muted ring-1 ring-light-border hover:text-light-text dark:bg-dark-card dark:text-dark-muted dark:ring-dark-border'
                     }`}
                 >
                     {tab}
-                    <span className="ml-2 rounded-full bg-black/10 px-2 py-0.5 text-xs">{counts[tab]}</span>
+                    <span className="rr-filter-chip-count ml-2 rounded-full bg-black/10 px-2 py-0.5 text-xs">{counts[tab]}</span>
                 </button>
             )))}
         </div>
@@ -52,8 +52,6 @@ const StudentProfileLayout = () => {
     let pageType = 'default';
     if (location.pathname.includes('/inbox')) pageType = 'inbox';
     if (location.pathname.includes('/my-applications')) pageType = 'applications';
-
-    const isChatOpen = pageType === 'inbox' && /\/inbox\/[^/]+/.test(location.pathname);
 
     const setActiveChatName = useCallback((name) => {
         setActiveChatMeta((prev) => {

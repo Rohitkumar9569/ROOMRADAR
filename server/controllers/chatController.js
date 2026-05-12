@@ -29,6 +29,32 @@ const emitUnreadCount = async (userId) => {
     }
 };
 
+const emitMessageToRecipients = async ({ conversationId, message, senderId, receiverIds = [], roomTitle = '' }) => {
+    try {
+        const { io } = require('../index');
+        if (!io || !message) return;
+
+        const sender = message.sender || {};
+        const payload = {
+            _id: message._id,
+            senderId: senderId.toString(),
+            senderName: sender.name,
+            senderAvatarUrl: sender.avatarUrl || sender.profilePicture,
+            text: message.text,
+            messageType: message.messageType || 'text',
+            conversationId: conversationId.toString(),
+            roomTitle,
+            createdAt: message.createdAt,
+        };
+
+        receiverIds.forEach((receiverId) => {
+            if (receiverId) io.to(receiverId.toString()).emit('getMessage', payload);
+        });
+    } catch (error) {
+        // Socket fan-out should never block message persistence.
+    }
+};
+
 // Base aggregation pipeline that gathers all necessary data
 const getBaseConversationPipeline = (userId) => [
     //  Find all conversations the user is a member of
@@ -195,6 +221,13 @@ exports.findOrCreateConversation = asyncHandler(async (req, res) => {
         const savedMessage = await initialMessage.save();
         conversation.lastMessage = savedMessage._id;
         await conversation.save();
+        const populatedMessage = await Message.findById(savedMessage._id).populate('sender', 'name avatarUrl profilePicture');
+        await emitMessageToRecipients({
+            conversationId: conversation._id,
+            message: populatedMessage,
+            senderId: currentUserId,
+            receiverIds: [otherUserId],
+        });
         await emitUnreadCount(otherUserId);
     }
     res.status(200).json({ message: "Conversation ready.", conversationId: conversation._id });
@@ -248,7 +281,13 @@ exports.createMessage = asyncHandler(async (req, res) => {
     await Conversation.findByIdAndUpdate(conversationId, { lastMessage: savedMessage._id });
     const receiverIds = conversation.members.filter((memberId) => memberId.toString() !== senderId.toString());
     await Promise.all(receiverIds.map((receiverId) => emitUnreadCount(receiverId)));
-    const populatedMessage = await Message.findById(savedMessage._id).populate('sender', 'name profilePicture');
+    const populatedMessage = await Message.findById(savedMessage._id).populate('sender', 'name avatarUrl profilePicture');
+    await emitMessageToRecipients({
+        conversationId,
+        message: populatedMessage,
+        senderId,
+        receiverIds,
+    });
     res.status(201).json(populatedMessage);
 });
 

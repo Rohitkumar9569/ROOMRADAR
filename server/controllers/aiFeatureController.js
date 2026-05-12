@@ -1,6 +1,12 @@
 const asyncHandler = require('express-async-handler');
 const Room = require('../models/Room');
 const Review = require('../models/Review');
+const {
+    appendAndClause,
+    buildLocationQuery,
+    createSortOption,
+    findDiscoveryFallbackRooms,
+} = require('../utils/roomDiscoveryUtils');
 
 let Anthropic = null;
 try {
@@ -40,8 +46,13 @@ const normalizeGender = (query = '') => {
 const parseSmartQueryLocally = (query = '') => {
     const lower = query.toLowerCase();
     const maxPriceMatch = lower.match(/(?:under|below|upto|up to|andar|ke andar|se kam)\s*(?:rs\.?|₹)?\s*(\d{3,6})/) || lower.match(/(\d{4,6})/);
-    const cityMatch = query.match(/(?:in|near|around|mein|me|andar)\s+([a-zA-Z\s]+?)(?:\s+(?:under|below|upto|for|ke|se|boys?|girls?|family|bachelor|room|flat|pg)|$)/i);
+    const cityBeforeHindi = query.match(/([a-zA-Z][a-zA-Z.\s-]{1,48}?)\s+(?:mein|me)\b/i);
+    const cityAfterKeyword = query.match(/(?:in|near|around|mein|me|andar)\s+([a-zA-Z][a-zA-Z.\s-]{1,48}?)(?:\s+(?:under|below|upto|for|ke|se|boys?|girls?|family|bachelor|room|flat|pg)|$)/i);
     const roomTypeMatch = query.match(/\b(1bhk|2bhk|3bhk|pg|flat|studio|single|shared)\b/i);
+    const city = (cityBeforeHindi?.[1] || cityAfterKeyword?.[1] || '')
+        .replace(/[^\w\s-]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
 
     let roomType;
     if (roomTypeMatch) {
@@ -52,11 +63,18 @@ const parseSmartQueryLocally = (query = '') => {
     }
 
     return {
-        city: cityMatch?.[1]?.trim(),
+        city,
         maxRent: maxPriceMatch ? Number(maxPriceMatch[1]) : undefined,
         roomType,
         gender: normalizeGender(query),
-        familyStatus: lower.includes('family') ? 'Family' : lower.includes('bachelor') ? 'Bachelors' : undefined
+        familyStatus: lower.includes('family') ? 'Family' : lower.includes('bachelor') ? 'Bachelors' : undefined,
+        sort: /(sabse sasta|sasta|cheapest|lowest|low to high|price wise|price view|by price)/i.test(lower)
+            ? 'price_asc'
+            : /(best|top|rating|rated|recommended)/i.test(lower)
+                ? 'rating'
+                : /(expensive|costly|high to low|premium)/i.test(lower)
+                    ? 'price_desc'
+                    : undefined,
     };
 };
 
@@ -65,7 +83,10 @@ const activePublishedQuery = () => ({ status: 'Published', isDeleted: { $ne: tru
 const buildRoomQuery = (filters = {}) => {
     const query = activePublishedQuery();
 
-    if (filters.city) query['location.city'] = new RegExp(escapeRegex(filters.city), 'i');
+    if (filters.city) {
+        const locationQuery = buildLocationQuery(filters.city, { matchAll: true });
+        if (locationQuery) appendAndClause(query, locationQuery);
+    }
     if (filters.maxRent) query.rent = { $lte: Number(filters.maxRent) };
     if (filters.minRent) query.rent = { ...(query.rent || {}), $gte: Number(filters.minRent) };
     if (filters.roomType) query.roomType = new RegExp(escapeRegex(filters.roomType), 'i');
@@ -105,34 +126,73 @@ exports.smartSearch = asyncHandler(async (req, res) => {
     const client = getClient();
 
     if (client) {
-        const response = await client.messages.create({
-            model: modelName(),
-            max_tokens: 500,
-            system: 'Extract RoomRadar search filters from Indian room-search text. Return only JSON with keys: city, minRent, maxRent, roomType, gender, familyStatus. Use null for unknown.',
-            messages: [{ role: 'user', content: query }]
+        try {
+            const response = await client.messages.create({
+                model: modelName(),
+                max_tokens: 500,
+                system: 'Extract RoomRadar search filters from Indian room-search text. Return only JSON with keys: city, minRent, maxRent, roomType, gender, familyStatus, sort. Use null for unknown.',
+                messages: [{ role: 'user', content: query }]
+            });
+            const text = response.content?.find((block) => block.type === 'text')?.text;
+            const aiFilters = parseJson(text);
+            if (aiFilters) {
+                filters = {
+                    ...filters,
+                    city: aiFilters.city || filters.city,
+                    minRent: aiFilters.minRent || filters.minRent,
+                    maxRent: aiFilters.maxRent || filters.maxRent,
+                    roomType: aiFilters.roomType || filters.roomType,
+                    gender: aiFilters.gender || filters.gender,
+                    familyStatus: aiFilters.familyStatus || filters.familyStatus,
+                    sort: aiFilters.sort || aiFilters.sort_by || filters.sort
+                };
+            }
+        } catch (error) {
+            // Local parsing keeps smart search usable when the AI provider is unavailable.
+        }
+    }
+
+    let rooms = await Room.find(buildRoomQuery(filters))
+        .populate('landlord', 'name avatarUrl profilePicture trustScore verificationLevel')
+        .sort(createSortOption(filters.sort))
+        .limit(12)
+        .lean();
+    let fallback = null;
+    const exactCount = rooms.length;
+
+    if (filters.city && rooms.length < 12) {
+        const relaxedRooms = await findDiscoveryFallbackRooms(Room, filters, {
+            resultLimit: 12 - rooms.length,
+            candidateLimit: 180,
+            excludeIds: rooms.map((room) => room._id),
         });
-        const text = response.content?.find((block) => block.type === 'text')?.text;
-        const aiFilters = parseJson(text);
-        if (aiFilters) {
-            filters = {
-                ...filters,
-                city: aiFilters.city || filters.city,
-                minRent: aiFilters.minRent || filters.minRent,
-                maxRent: aiFilters.maxRent || filters.maxRent,
-                roomType: aiFilters.roomType || filters.roomType,
-                gender: aiFilters.gender || filters.gender,
-                familyStatus: aiFilters.familyStatus || filters.familyStatus
+        if (relaxedRooms.length) {
+            const populatedRelaxedRooms = await Room.populate(relaxedRooms, { path: 'landlord', select: 'name avatarUrl profilePicture trustScore verificationLevel' });
+            rooms = [...rooms, ...populatedRelaxedRooms].slice(0, 12);
+            fallback = {
+                type: exactCount > 0 ? 'location_expanded' : 'location_primary',
+                message: exactCount > 0
+                    ? 'Showing exact matches first, then more rooms from this location.'
+                    : 'No exact match found. Showing rooms from this location first, then closest alternatives.',
             };
         }
     }
 
-    const rooms = await Room.find(buildRoomQuery(filters))
-        .populate('landlord', 'name avatarUrl profilePicture trustScore verificationLevel')
-        .sort({ views: -1, createdAt: -1 })
-        .limit(12)
-        .lean();
+    if (rooms.length === 0) {
+        rooms = await findDiscoveryFallbackRooms(Room, filters, {
+            resultLimit: 12,
+            candidateLimit: 180,
+        });
+        if (rooms.length) {
+            rooms = await Room.populate(rooms, { path: 'landlord', select: 'name avatarUrl profilePicture trustScore verificationLevel' });
+            fallback = {
+                type: 'relaxed',
+                message: 'No exact match found. Showing the closest available rooms based on your smart search.',
+            };
+        }
+    }
 
-    res.json({ filters, rooms, count: rooms.length });
+    res.json({ filters, rooms, count: rooms.length, exactCount, fallback });
 });
 
 exports.suggestPrice = asyncHandler(async (req, res) => {

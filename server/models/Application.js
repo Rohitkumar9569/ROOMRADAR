@@ -2,6 +2,13 @@
 const mongoose = require('mongoose');
 const { toOptionalDate } = require('../utils/dateUtils');
 
+const optionalIndianMobileValidator = {
+  validator(value) {
+    return !value || /^[6-9]\d{9}$/.test(String(value));
+  },
+  message: 'Mobile number must be a valid 10-digit number.',
+};
+
 const applicationSchema = new mongoose.Schema(
   {
     room: {
@@ -41,7 +48,8 @@ const applicationSchema = new mongoose.Schema(
     },
     mobileNumber: {
       type: String,
-      required: function () { return this.type === 'request'; }
+      required: function () { return this.type === 'request'; },
+      validate: optionalIndianMobileValidator,
     },
     profileType: {
       type: String,
@@ -64,7 +72,7 @@ const applicationSchema = new mongoose.Schema(
     },
     emergencyContact: {
       name: { type: String, trim: true },
-      phone: { type: String, trim: true },
+      phone: { type: String, trim: true, validate: optionalIndianMobileValidator },
     },
     agreedToTerms: {
       type: Boolean,

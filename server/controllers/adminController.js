@@ -146,9 +146,11 @@ const sendRoomDecisionUpdateToLandlord = async (req, room, { decision, reason = 
 
         emitToUser(req, landlordId, 'getMessage', {
             senderId: adminId,
+            senderName: 'RoomRadar Admin',
             text: message,
             messageType: 'admin_update',
             conversationId: conversation._id,
+            roomTitle: room.title,
             createdAt: systemMessage.createdAt,
         });
         await emitUnreadConversationCount(req, landlordId);

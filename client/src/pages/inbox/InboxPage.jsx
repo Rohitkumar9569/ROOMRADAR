@@ -10,6 +10,7 @@ import {
     EllipsisVerticalIcon,
     HomeModernIcon,
     InboxIcon,
+    MagnifyingGlassIcon,
     PaperAirplaneIcon,
     SparklesIcon,
     UserCircleIcon,
@@ -23,6 +24,7 @@ import Spinner from '../../components/common/Spinner';
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
 import { io } from 'socket.io-client';
 import { SOCKET_URL } from '../../config/env';
+import { connectSocketAfterMount, socketOptions } from '../../config/socketOptions';
 import { useUI } from '../../context/UIContext';
 import { readTabCache, setTabCache } from '../../utils/tabDataCache';
 import { readScroll, saveScroll } from '../../utils/scrollStore';
@@ -44,12 +46,6 @@ const QUICK_REPLIES = {
         'Could you share rent and amenities?',
     ],
 };
-const socketOptions = {
-    transports: ['websocket'],
-    reconnectionAttempts: 5,
-    timeout: 10000,
-};
-
 const STATUS_STYLES = {
     pending: 'bg-amber-100 text-amber-800 ring-amber-200 dark:bg-amber-500/15 dark:text-amber-200 dark:ring-amber-400/20',
     approved: 'bg-sky-100 text-sky-800 ring-sky-200 dark:bg-sky-500/15 dark:text-sky-200 dark:ring-sky-400/20',
@@ -386,8 +382,10 @@ const InboxPage = () => {
     const { user: currentUser } = useAuth();
     const {
         searchTerm,
+        setSearchTerm,
         setActiveChatName,
         setActiveChatMeta,
+        inboxSearchInNav,
         setInboxListScrolled,
     } = useOutletContext();
     const { chatProfileOpen, setChatProfileOpen } = useUI();
@@ -423,9 +421,11 @@ const InboxPage = () => {
     useEffect(() => {
         if (!currentUser?._id) return undefined;
 
-        socket.current = io(SOCKET_URL, socketOptions);
+        const nextSocket = io(SOCKET_URL, socketOptions);
+        socket.current = nextSocket;
+        const cleanupSocket = connectSocketAfterMount(nextSocket);
 
-        socket.current.on('getMessage', (data) => {
+        nextSocket.on('getMessage', (data) => {
             if (data.conversationId === conversationIdRef.current && data.senderId !== currentUserIdRef.current) {
                 setMessages((prev) => {
                     const nextMessages = [
@@ -443,12 +443,15 @@ const InboxPage = () => {
             }
         });
 
-        socket.current.on('getUsers', (users = []) => {
+        nextSocket.on('getUsers', (users = []) => {
             setOnlineUserIds(users.map((id) => id?.toString()));
         });
 
         return () => {
-            socket.current?.disconnect();
+            cleanupSocket();
+            if (socket.current === nextSocket) {
+                socket.current = null;
+            }
         };
     }, [currentUser?._id, roleKey]);
 
@@ -578,13 +581,6 @@ const InboxPage = () => {
         setIsSending(true);
         const tempId = `temp-${Date.now()}`;
 
-        socket.current?.emit('sendMessage', {
-            senderId: currentUser._id,
-            receiverId: otherMember._id,
-            text,
-            conversationId,
-        });
-
         const messagesCacheKey = `inbox:${roleKey}:messages:${conversationId}`;
         setMessages((prev) => {
             const nextMessages = [
@@ -707,20 +703,30 @@ const InboxPage = () => {
     const ConversationListPanel = (
         <div className="flex h-full flex-col overflow-hidden border-r border-[#e9edef] bg-[#f7f6f3] dark:border-[#26343d] dark:bg-[#111b21]">
             <div className="flex-shrink-0 border-b border-[#e9edef]/80 bg-white/90 px-3 pb-2 pt-2 shadow-sm backdrop-blur-xl dark:border-[#26343d] dark:bg-[#111b21]/95 sm:px-4 sm:pb-3 md:pt-3">
+                {!inboxSearchInNav && (
+                    <label className="inbox-inline-search mb-2 flex md:hidden">
+                        <MagnifyingGlassIcon className="h-4 w-4 flex-shrink-0 text-cyan-600 dark:text-cyan-300" />
+                        <input
+                            value={searchTerm}
+                            onChange={(event) => setSearchTerm?.(event.target.value)}
+                            placeholder="Search chats"
+                        />
+                    </label>
+                )}
                 <ScrollStrip className="pb-1">
                     {filters.map((filter) => (
                         <button
                             key={filter}
                             type="button"
                             onClick={() => setActiveFilter(filter)}
-                            className={`inline-flex flex-shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1.5 text-xs font-extrabold transition sm:gap-2 sm:px-3 sm:text-sm ${
+                            className={`rr-filter-chip inline-flex flex-shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1.5 text-xs font-extrabold transition sm:gap-2 sm:px-3 sm:text-sm ${
                                 activeFilter === filter
                                     ? 'bg-[#00a884] text-white shadow-sm'
                                     : 'bg-white text-[#54656f] ring-1 ring-[#e9edef] hover:text-[#111b21] dark:bg-[#1f2c34] dark:text-[#aebac1] dark:ring-[#2a3942]'
                             }`}
                         >
                             {filter}
-                            <span className={`rounded-full px-2 py-0.5 text-[11px] ${activeFilter === filter ? 'bg-white/20 text-white' : 'bg-[#f0f2f5] dark:bg-[#202c33]'}`}>
+                            <span className={`rr-filter-chip-count rounded-full px-2 py-0.5 text-[11px] ${activeFilter === filter ? 'bg-white/20 text-white' : 'bg-[#f0f2f5] dark:bg-[#202c33]'}`}>
                                 {filterCounts[filter] || 0}
                             </span>
                         </button>

@@ -1,35 +1,70 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 
 const ThemeContext = createContext();
+const getSystemDarkMode = () => (
+  typeof window !== 'undefined'
+  && window.matchMedia
+  && window.matchMedia('(prefers-color-scheme: dark)').matches
+);
+
+const getSavedThemePreference = () => {
+  if (typeof window === 'undefined') return 'system';
+  const savedTheme = window.localStorage.getItem('theme-preference');
+  return savedTheme === 'dark' || savedTheme === 'light' ? savedTheme : 'system';
+};
 
 export const ThemeProvider = ({ children }) => {
-  const [isDarkMode, setIsDarkMode] = useState(() => {
-    // Check localStorage for saved preference
-    const savedTheme = localStorage.getItem('theme');
-    if (savedTheme) {
-      return savedTheme === 'dark';
-    }
-    // Check system preference
-    return window.matchMedia('(prefers-color-scheme: dark)').matches;
-  });
+  const [themePreference, setThemePreference] = useState(getSavedThemePreference);
+  const [systemDarkMode, setSystemDarkMode] = useState(getSystemDarkMode);
+  const isDarkMode = themePreference === 'system' ? systemDarkMode : themePreference === 'dark';
 
   useEffect(() => {
-    // Apply theme to document
     if (isDarkMode) {
       document.documentElement.classList.add('dark');
-      localStorage.setItem('theme', 'dark');
     } else {
       document.documentElement.classList.remove('dark');
-      localStorage.setItem('theme', 'light');
     }
+
+    const themeColor = isDarkMode ? '#0f0f0f' : '#ffffff';
+    document.querySelectorAll('meta[name="theme-color"]').forEach((meta) => {
+      meta.setAttribute('content', themeColor);
+    });
   }, [isDarkMode]);
 
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return undefined;
+
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    const handleSystemThemeChange = (event) => {
+      setSystemDarkMode(event.matches);
+    };
+
+    if (mediaQuery.addEventListener) {
+      mediaQuery.addEventListener('change', handleSystemThemeChange);
+    } else {
+      mediaQuery.addListener(handleSystemThemeChange);
+    }
+
+    setSystemDarkMode(mediaQuery.matches);
+
+    return () => {
+      if (mediaQuery.removeEventListener) {
+        mediaQuery.removeEventListener('change', handleSystemThemeChange);
+      } else {
+        mediaQuery.removeListener(handleSystemThemeChange);
+      }
+    };
+  }, []);
+
   const toggleTheme = () => {
-    setIsDarkMode(!isDarkMode);
+    const nextTheme = isDarkMode ? 'light' : 'dark';
+    window.localStorage.setItem('theme-preference', nextTheme);
+    window.localStorage.setItem('theme', nextTheme);
+    setThemePreference(nextTheme);
   };
 
   return (
-    <ThemeContext.Provider value={{ isDarkMode, toggleTheme }}>
+    <ThemeContext.Provider value={{ isDarkMode, themePreference, toggleTheme }}>
       {children}
     </ThemeContext.Provider>
   );

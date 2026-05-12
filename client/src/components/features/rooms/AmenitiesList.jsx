@@ -46,13 +46,13 @@ const AmenitiesList = ({ facilities = {} }) => {
 
     return (
         <div>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="grid grid-cols-2 gap-2 sm:gap-3">
                 {previewAmenities.map(key => {
                     const AmenityIcon = amenitiesMap[key].icon;
                     return (
-                        <div key={key} className="flex items-center gap-3 rounded-2xl bg-slate-50 p-4 dark:bg-secondary-900">
-                            <AmenityIcon className="h-6 w-6 flex-shrink-0 text-cyan-600 dark:text-cyan-300" />
-                            <span className="text-sm font-black text-slate-800 dark:text-secondary-100">{amenitiesMap[key].name}</span>
+                        <div key={key} className="flex min-h-[74px] items-center gap-2 rounded-2xl bg-slate-50 p-3 dark:bg-secondary-900 sm:gap-3 sm:p-4">
+                            <AmenityIcon className="h-5 w-5 flex-shrink-0 text-cyan-600 dark:text-cyan-300 sm:h-6 sm:w-6" />
+                            <span className="min-w-0 text-xs font-black leading-snug text-slate-800 dark:text-secondary-100 sm:text-sm">{amenitiesMap[key].name}</span>
                         </div>
                     );
                 })}
@@ -78,7 +78,7 @@ const AmenitiesList = ({ facilities = {} }) => {
                             <div></div>
                         </div>
                         <div className="max-h-[70vh] overflow-y-auto p-5">
-                            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                            <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
                                 {availableAmenities.map(key => {
                                     const AmenityIcon = amenitiesMap[key].icon;
                                     return (

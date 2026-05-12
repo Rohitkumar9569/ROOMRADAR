@@ -366,7 +366,7 @@ const AdminDashboardPage = () => {
               <p className="mt-1 text-sm font-semibold text-light-muted dark:text-dark-muted">There are no pending rooms to review.</p>
             </div>
           ) : (
-            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            <div className="grid grid-cols-2 gap-3 xl:grid-cols-3">
               {pendingRooms.slice(0, 6).map((room) => (
                 <div key={room._id} className="rounded-3xl border border-light-border bg-light-bg p-4 dark:border-dark-border dark:bg-dark-input">
                   <div className="flex items-start justify-between gap-3">

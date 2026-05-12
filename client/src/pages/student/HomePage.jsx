@@ -1,5 +1,6 @@
 import React, { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import toast from 'react-hot-toast';
 import api from '../../api';
 import Header from '../../components/layout/Header';
 import SearchBar from '../../components/features/search/SearchBar';
@@ -93,13 +94,74 @@ function HomePage() {
   const [loading, setLoading] = useState(() => !cachedLandingData);
   const [categoryLoading, setCategoryLoading] = useState(false);
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
-  const [searchCriteria, setSearchCriteria] = useState({ location: null, moveInDate: null, radius: 5 });
+  const [isMobileSearchCollapsed, setIsMobileSearchCollapsed] = useState(false);
+  const [isMobileSearchPinned, setIsMobileSearchPinned] = useState(false);
+  const [searchCriteria, setSearchCriteria] = useState({
+    location: null,
+    locationQuery: '',
+    moveInDate: null,
+    radius: 5,
+    adults: 1,
+    children: 0,
+    infants: 0,
+    gender: 'Any',
+    maxOccupants: 1,
+  });
 
   const trustStats = useMemo(() => [
     { label: 'Verified rooms', value: formatCount(stats.verifiedRooms || stats.totalRooms), Icon: ShieldCheck },
     { label: 'Published listings', value: formatCount(stats.totalRooms), Icon: Building2 },
     { label: 'Active cities', value: formatCount(stats.totalCities), Icon: MapPin },
   ], [stats]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined;
+
+    const mobileQuery = window.matchMedia('(max-width: 639px)');
+    let frameId = null;
+
+    const syncSearchDock = () => {
+      frameId = null;
+      setIsMobileSearchCollapsed(mobileQuery.matches && window.scrollY > 96 && !isMobileSearchPinned);
+    };
+
+    const scheduleSync = () => {
+      if (frameId) return;
+      frameId = window.requestAnimationFrame(syncSearchDock);
+    };
+
+    scheduleSync();
+    window.addEventListener('scroll', scheduleSync, { passive: true });
+
+    if (mobileQuery.addEventListener) {
+      mobileQuery.addEventListener('change', scheduleSync);
+    } else {
+      mobileQuery.addListener(scheduleSync);
+    }
+
+    return () => {
+      window.removeEventListener('scroll', scheduleSync);
+      if (mobileQuery.removeEventListener) {
+        mobileQuery.removeEventListener('change', scheduleSync);
+      } else {
+        mobileQuery.removeListener(scheduleSync);
+      }
+      if (frameId) window.cancelAnimationFrame(frameId);
+    };
+  }, [isMobileSearchPinned]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined;
+
+    const handleHeaderLocationSearch = (event) => {
+      if (event.detail?.inputId !== 'home-mobile-location-search') return;
+      setIsMobileSearchPinned(true);
+      setIsMobileSearchCollapsed(false);
+    };
+
+    window.addEventListener('roomradar:open-location-search', handleHeaderLocationSearch);
+    return () => window.removeEventListener('roomradar:open-location-search', handleHeaderLocationSearch);
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -190,21 +252,45 @@ function HomePage() {
     setSearchCriteria((prev) => ({ ...prev, ...newCriteria }));
   };
 
-  const handleSearch = () => {
+  const handleSearch = (overrides = {}) => {
+    const nextCriteria = { ...searchCriteria, ...overrides };
     const params = new URLSearchParams();
-    if (searchCriteria.location?.properties) {
-      const props = searchCriteria.location.properties;
+    const typedLocation = nextCriteria.locationQuery?.trim();
+    if (nextCriteria.location?.properties) {
+      const props = nextCriteria.location.properties;
       if (props.city || props.address_line1) params.set('city', props.city || props.address_line1);
       if (props.lat) params.set('latitude', props.lat);
       if (props.lon) params.set('longitude', props.lon);
+    } else if (typedLocation) {
+      params.set('city', typedLocation);
+    } else {
+      toast.error('Please enter a location first.');
+      return;
     }
-    if (searchCriteria.radius) params.set('radius', searchCriteria.radius);
-    if (searchCriteria.moveInDate) params.set('moveInDate', searchCriteria.moveInDate.toISOString());
+    if (nextCriteria.radius) params.set('radius', nextCriteria.radius);
+    const adults = Math.max(1, Number(nextCriteria.adults || nextCriteria.maxOccupants || 1));
+    const children = Math.max(0, Number(nextCriteria.children || 0));
+    const infants = Math.max(0, Number(nextCriteria.infants || 0));
+    const roomOccupants = Math.max(1, adults + children);
+    params.set('maxOccupants', roomOccupants);
+    if (nextCriteria.gender && nextCriteria.gender !== 'Any') params.set('gender', nextCriteria.gender);
+    if (children > 0 || infants > 0) params.set('familyStatus', 'Family');
+    if (nextCriteria.moveInDate) params.set('availableFrom', nextCriteria.moveInDate.toISOString().slice(0, 10));
     navigate(`/rooms?${params.toString()}`);
   };
 
   const handleClearSearch = () => {
-    setSearchCriteria({ location: null, moveInDate: null, radius: 5 });
+    setSearchCriteria({
+      location: null,
+      locationQuery: '',
+      moveInDate: null,
+      radius: 5,
+      adults: 1,
+      children: 0,
+      infants: 0,
+      gender: 'Any',
+      maxOccupants: 1,
+    });
   };
 
   const handleCityClick = (cityName) => {
@@ -222,58 +308,76 @@ function HomePage() {
   return (
     <div className="min-h-screen bg-light-bg text-light-text dark:bg-dark-bg dark:text-dark-text">
       <Header />
-      <section className="relative flex min-h-[100svh] flex-col overflow-hidden">
+      <div
+        id="home-mobile-search-dock"
+        data-home-search-dock
+        className={`home-mobile-search-dock fixed inset-x-0 top-[var(--rr-mobile-header-offset)] z-40 border-b border-light-border bg-light-bg/95 px-3 pb-2 pt-2 shadow-sm dark:border-dark-border dark:bg-dark-bg/95 sm:hidden ${isMobileSearchCollapsed ? 'is-collapsed' : ''} ${isMobileSearchPinned ? 'is-forced-open' : ''}`}
+      >
+        <div className="mx-auto max-w-md">
+          <SearchBar
+            criteria={searchCriteria}
+            onCriteriaChange={handleCriteriaChange}
+            onSearch={handleSearch}
+            onFilterClick={() => setIsFilterModalOpen(true)}
+            onClear={handleClearSearch}
+            inputId="home-mobile-location-search"
+          />
+        </div>
+      </div>
+
+      <section className="relative flex min-h-[250px] flex-col overflow-visible bg-light-bg pt-[calc(var(--rr-mobile-header-offset)+5rem)] dark:bg-dark-bg sm:min-h-[100svh] sm:overflow-visible sm:pt-0">
         <img
           src={heroImage}
           alt="Premium RoomRadar stay"
-          className="absolute inset-0 h-full w-full object-cover object-[center_58%]"
+          className="absolute inset-0 hidden h-full w-full object-cover object-[center_58%] sm:block"
           loading="eager"
           decoding="async"
-          fetchPriority="high"
+          fetchpriority="high"
         />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_16%,rgba(255,255,255,0.10),transparent_26%),linear-gradient(180deg,rgba(0,0,0,0.62)_0%,rgba(0,0,0,0.30)_38%,rgba(0,0,0,0.72)_100%)]" />
-        <div className="pointer-events-none absolute inset-x-0 top-0 h-40 bg-gradient-to-b from-black/56 via-black/18 to-transparent" />
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-72 bg-gradient-to-b from-transparent via-slate-950/26 to-light-bg dark:via-dark-bg/58 dark:to-dark-bg" />
+        <div className="absolute inset-0 hidden bg-[radial-gradient(circle_at_50%_16%,rgba(255,255,255,0.10),transparent_26%),linear-gradient(180deg,rgba(0,0,0,0.62)_0%,rgba(0,0,0,0.30)_38%,rgba(0,0,0,0.72)_100%)] sm:block" />
+        <div className="pointer-events-none absolute inset-x-0 top-0 hidden h-40 bg-gradient-to-b from-black/56 via-black/18 to-transparent sm:block" />
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 hidden h-72 bg-gradient-to-b from-transparent via-slate-950/26 to-light-bg dark:via-dark-bg/58 dark:to-dark-bg sm:block" />
 
-        <div className="relative z-10 mx-auto flex min-h-[100svh] w-full max-w-7xl flex-1 flex-col justify-between px-5 pb-[calc(var(--rr-bottom-nav-height)+1.1rem)] pt-[calc(var(--rr-nav-height)+1.05rem)] text-center sm:items-center sm:justify-center sm:px-6 sm:pb-8 sm:pt-24 lg:px-8">
+        <div className="relative z-10 mx-auto flex w-full max-w-7xl flex-1 flex-col justify-start px-4 pb-4 pt-0 text-center sm:min-h-[100svh] sm:items-center sm:justify-center sm:px-6 sm:pb-8 sm:pt-24 lg:px-8">
           <div className="mx-auto flex w-full max-w-md flex-col items-center sm:max-w-4xl">
-            <div className="mb-3 inline-flex max-w-full items-center justify-center gap-2 rounded-full border border-cyan-200/22 bg-cyan-300/10 px-2.5 py-1.5 text-white shadow-lg shadow-cyan-950/20 backdrop-blur-xl sm:mb-5 sm:px-4 sm:py-2">
+            <div className="mb-3 hidden max-w-full items-center justify-center gap-2 rounded-full border border-cyan-200/22 bg-cyan-300/10 px-2.5 py-1.5 text-white shadow-lg shadow-cyan-950/20 backdrop-blur-xl sm:mb-5 sm:inline-flex sm:px-4 sm:py-2">
               <span className="flex h-6 w-6 items-center justify-center rounded-full bg-cyan-300/18 text-cyan-200">
                 <ShieldCheck className="h-3.5 w-3.5" />
               </span>
               <span className="truncate text-[10px] font-black uppercase tracking-[0.09em] text-white/92 sm:text-xs">Verified room discovery</span>
             </div>
 
-            <h1 className="max-w-[14ch] text-center text-[clamp(31px,9.4vw,60px)] font-black leading-[0.96] tracking-[-0.045em] text-white drop-shadow-[0_16px_32px_rgba(0,0,0,0.42)] sm:max-w-[18ch] sm:leading-[1.02]">
+            <h1 className="hidden max-w-[14ch] text-center text-[clamp(31px,9.4vw,60px)] font-black leading-[0.96] tracking-[-0.045em] text-white drop-shadow-[0_16px_32px_rgba(0,0,0,0.42)] sm:block sm:max-w-[18ch] sm:leading-[1.02]">
               <span className="block sm:inline">Find Your Perfect</span>
               <span className="block sm:inline sm:ml-3">Room</span>
             </h1>
-            <p className="mt-3 max-w-[30ch] text-center text-[clamp(13px,3.7vw,17px)] font-semibold leading-[1.45] text-white/82 sm:mt-5 sm:max-w-[38ch]">
+            <p className="mt-3 hidden max-w-[30ch] text-center text-[clamp(13px,3.7vw,17px)] font-semibold leading-[1.45] text-white/82 sm:mt-5 sm:block sm:max-w-[38ch]">
               Search verified listings, compare real prices, and request safely from one clean view.
             </p>
 
-            <div className="relative z-50 mt-5 w-full max-w-3xl rounded-[1.65rem] bg-white/[0.08] p-1 shadow-[0_20px_60px_-26px_rgba(0,0,0,0.75)] ring-1 ring-white/14 backdrop-blur-md sm:mx-auto sm:mt-8 sm:bg-transparent sm:p-0 sm:shadow-none sm:ring-0 sm:backdrop-blur-0">
+            <div className="relative z-50 mt-0 hidden w-full max-w-3xl rounded-[1.65rem] bg-transparent p-0 shadow-none ring-0 sm:mx-auto sm:mt-8 sm:block">
               <SearchBar
                 criteria={searchCriteria}
                 onCriteriaChange={handleCriteriaChange}
                 onSearch={handleSearch}
                 onFilterClick={() => setIsFilterModalOpen(true)}
                 onClear={handleClearSearch}
+                inputId="home-desktop-location-search"
               />
             </div>
 
-            <div className="relative z-10 mt-4 grid w-full max-w-md grid-cols-3 overflow-hidden rounded-[1.35rem] border border-white/12 bg-slate-950/42 shadow-2xl shadow-black/18 backdrop-blur-xl sm:mx-auto sm:mt-8 sm:max-w-2xl sm:gap-4 sm:overflow-visible sm:border-0 sm:bg-transparent sm:shadow-none sm:backdrop-blur-0">
+            <div className="relative z-10 mt-3 grid w-full max-w-md grid-cols-3 overflow-hidden rounded-[1.15rem] border border-light-border bg-white shadow-sm dark:border-dark-border dark:bg-dark-card sm:mx-auto sm:mt-8 sm:max-w-2xl sm:gap-4 sm:overflow-visible sm:border-0 sm:bg-transparent sm:shadow-none sm:backdrop-blur-0">
               {trustStats.map(({ label, value, Icon }, index) => (
-                <div key={label} className={`min-w-0 p-3 text-center sm:rounded-2xl sm:border sm:border-white/10 sm:bg-white/95 sm:p-5 sm:shadow-lg sm:backdrop-blur-sm dark:sm:bg-dark-sidebar/95 ${index > 0 ? 'border-l border-white/10 sm:border-l-white/10' : ''}`}>
-                  <Icon className="mx-auto h-4 w-4 text-cyan-300 sm:h-5 sm:w-5 sm:text-cyan-500" />
-                  <p className="mt-1.5 text-xl font-black text-cyan-200 sm:mt-3 sm:text-3xl sm:text-cyan-600 dark:sm:text-cyan-300">{value}</p>
-                  <p className="mt-0.5 text-[9.5px] font-bold leading-tight text-white/64 sm:mt-1 sm:text-sm sm:text-gray-600 dark:sm:text-gray-400">{label}</p>
+                <div key={label} className={`min-w-0 p-2.5 text-center sm:rounded-2xl sm:border sm:border-white/10 sm:bg-white/95 sm:p-5 sm:shadow-lg sm:backdrop-blur-sm dark:sm:bg-dark-sidebar/95 ${index > 0 ? 'border-l border-light-border dark:border-dark-border sm:border-l-white/10' : ''}`}>
+                  <Icon className="mx-auto h-4 w-4 text-cyan-600 dark:text-cyan-300 sm:h-5 sm:w-5 sm:text-cyan-500" />
+                  <p className="mt-1 text-lg font-black text-light-text dark:text-dark-text sm:mt-3 sm:text-3xl sm:text-cyan-600 dark:sm:text-cyan-300">{value}</p>
+                  <p className="mt-0.5 text-[9px] font-bold leading-tight text-light-muted dark:text-dark-muted sm:mt-1 sm:text-sm sm:text-gray-600 dark:sm:text-gray-400">{label}</p>
                 </div>
               ))}
             </div>
           </div>
 
-          <div className="mt-5 w-full max-w-md sm:hidden">
+          <div className="hidden mt-5 w-full max-w-md sm:hidden">
             <div className="rounded-[1.45rem] border border-white/16 bg-slate-950/30 p-3 text-white shadow-2xl shadow-black/24 backdrop-blur-2xl">
               <button
                 type="button"
@@ -385,7 +489,7 @@ function HomePage() {
 
         <section className="mt-10 grid gap-2.5 sm:mt-12 sm:gap-4 md:grid-cols-3">
           {[
-            { title: 'Search', text: 'Use city, date, radius, and filters to find the right room.', Icon: Search },
+            { title: 'Search', text: 'Use location, people, radius, and filters to find the right room.', Icon: Search },
             { title: 'Request', text: 'Send a booking request with profile and stay details.', Icon: MessageCircle },
             { title: 'Move In', text: 'Confirm after host approval and keep the record in your dashboard.', Icon: CheckCircle2 },
           ].map(({ title, text, Icon }) => (

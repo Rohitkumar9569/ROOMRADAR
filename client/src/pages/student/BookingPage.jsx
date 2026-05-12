@@ -20,6 +20,7 @@ import api from '../../api';
 import { useAuth } from '../../context/AuthContext';
 import Spinner from '../../components/common/Spinner';
 import fallbackRoomImage from '../../assets/background_img.jpg';
+import { isValidIndianMobile, phoneInputProps, sanitizePhoneInput } from '../../utils/phoneUtils';
 
 const durations = [
     { label: '1M', months: 1 },
@@ -69,7 +70,7 @@ const BookingPage = () => {
         durationMonths: 3,
         occupants: 1,
         fullName: user?.name || '',
-        mobileNumber: user?.mobileNumber || user?.phone || '',
+        mobileNumber: sanitizePhoneInput(user?.mobileNumber || user?.phone || ''),
         purposeOfStay: 'Travelling',
         idProofType: 'Aadhaar Card',
         emergencyName: '',
@@ -82,7 +83,7 @@ const BookingPage = () => {
         setForm((current) => ({
             ...current,
             fullName: current.fullName || user?.name || '',
-            mobileNumber: current.mobileNumber || user?.mobileNumber || user?.phone || ''
+            mobileNumber: current.mobileNumber || sanitizePhoneInput(user?.mobileNumber || user?.phone || '')
         }));
     }, [user]);
 
@@ -120,7 +121,10 @@ const BookingPage = () => {
     const customDurationActive = !durations.some((duration) => duration.months === Number(form.durationMonths));
 
     const updateForm = (key, value) => {
-        setForm((current) => ({ ...current, [key]: value }));
+        const nextValue = ['mobileNumber', 'emergencyPhone'].includes(key)
+            ? sanitizePhoneInput(value)
+            : value;
+        setForm((current) => ({ ...current, [key]: nextValue }));
     };
 
     const validateStep = () => {
@@ -132,11 +136,11 @@ const BookingPage = () => {
 
         if (step === 1) {
             if (!form.fullName.trim()) return 'Please enter your full name.';
-            if (!/^[6-9]\d{9}$/.test(form.mobileNumber.trim())) return 'Please enter a valid 10-digit mobile number.';
+            if (!isValidIndianMobile(form.mobileNumber)) return 'Please enter a valid 10-digit mobile number.';
             if (!form.idProofType) return 'Please select an ID proof type.';
             if (!idProofFile && !form.idProofImage) return 'Please upload your ID proof image.';
             if (!form.emergencyName.trim()) return 'Please enter an emergency contact name.';
-            if (!/^[6-9]\d{9}$/.test(form.emergencyPhone.trim())) return 'Please enter a valid emergency contact number.';
+            if (!isValidIndianMobile(form.emergencyPhone)) return 'Please enter a valid emergency contact number.';
         }
 
         if (step === 2 && !form.agreedToTerms) {
@@ -188,14 +192,14 @@ const BookingPage = () => {
                     females: 0
                 },
                 fullName: form.fullName.trim(),
-                mobileNumber: form.mobileNumber.trim(),
+                mobileNumber: sanitizePhoneInput(form.mobileNumber),
                 profileType: form.purposeOfStay,
                 purposeOfStay: form.purposeOfStay,
                 idProofType: form.idProofType,
                 idProofImage,
                 emergencyContact: {
                     name: form.emergencyName.trim(),
-                    phone: form.emergencyPhone.trim()
+                    phone: sanitizePhoneInput(form.emergencyPhone)
                 },
                 message: form.message.trim(),
                 agreedToTerms: form.agreedToTerms
@@ -342,12 +346,12 @@ const BookingPage = () => {
                                 )}
 
                                 {step === 1 && (
-                                    <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} className="grid gap-5 md:grid-cols-2">
+                                    <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} className="grid grid-cols-2 gap-3 sm:gap-5">
                                         <Field label="Full name" icon={UserRound}>
                                             <input value={form.fullName} onChange={(event) => updateForm('fullName', event.target.value)} className="input-field" />
                                         </Field>
                                         <Field label="Mobile number" icon={Users}>
-                                            <input value={form.mobileNumber} onChange={(event) => updateForm('mobileNumber', event.target.value)} className="input-field" inputMode="numeric" maxLength="10" />
+                                            <input value={form.mobileNumber} onChange={(event) => updateForm('mobileNumber', event.target.value)} className="input-field" {...phoneInputProps} />
                                         </Field>
                                         <Field label="Purpose of stay" icon={Home}>
                                             <select value={form.purposeOfStay} onChange={(event) => updateForm('purposeOfStay', event.target.value)} className="input-field">
@@ -365,7 +369,7 @@ const BookingPage = () => {
                                                 <option>College ID</option>
                                             </select>
                                         </Field>
-                                        <div className="md:col-span-2">
+                                        <div className="col-span-2">
                                             <label className="mb-2 block text-sm font-semibold">ID proof upload</label>
                                             <label className="flex min-h-[132px] cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed border-light-border bg-light-bg px-4 text-center transition hover:border-brand dark:border-dark-border dark:bg-dark-input">
                                                 <UploadCloud className="h-8 w-8 text-brand" />
@@ -378,9 +382,9 @@ const BookingPage = () => {
                                             <input value={form.emergencyName} onChange={(event) => updateForm('emergencyName', event.target.value)} className="input-field" />
                                         </Field>
                                         <Field label="Emergency contact phone" icon={ShieldCheck}>
-                                            <input value={form.emergencyPhone} onChange={(event) => updateForm('emergencyPhone', event.target.value)} className="input-field" inputMode="numeric" maxLength="10" />
+                                            <input value={form.emergencyPhone} onChange={(event) => updateForm('emergencyPhone', event.target.value)} className="input-field" {...phoneInputProps} />
                                         </Field>
-                                        <div className="md:col-span-2">
+                                        <div className="col-span-2">
                                             <label className="mb-2 block text-sm font-semibold">Message to landlord</label>
                                             <textarea
                                                 value={form.message}

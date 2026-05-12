@@ -45,7 +45,6 @@ const MobileBottomNav = ({ items, hidden = false, currentPath, className = '', v
   const nav = (
     <nav className={`app-mobile-bottom-nav fixed bottom-0 left-0 right-0 z-50 w-full md:hidden ${className}`} aria-label="Primary mobile navigation">
       <div className={`rr-bottom-track rr-bottom-track--${variant}`} style={{ '--rr-active-index': activeIndex }}>
-        <span className="rr-bottom-orb" aria-hidden="true" />
         {items.map((item) => {
           const Icon = item.Icon;
           const isProtected = Boolean(item.protected);
@@ -80,15 +79,9 @@ const MobileBottomNav = ({ items, hidden = false, currentPath, className = '', v
                   <div
                     className="rr-bottom-item-inner"
                   >
-                    {active && !item.center && (
-                      <span
-                        className="rr-bottom-active-pill"
-                        aria-hidden="true"
-                      />
-                    )}
                     {item.center ? (
                       <span className={`rr-bottom-fab ${active ? 'is-active' : ''}`}>
-                        <Icon className="h-[22px] w-[22px]" strokeWidth={2.65} />
+                        <Icon className="h-6 w-6" strokeWidth={active ? 2.7 : 2.25} fill="none" />
                       </span>
                     ) : (
                       <span className={`rr-bottom-icon ${active ? 'is-active' : ''}`}>
@@ -98,8 +91,9 @@ const MobileBottomNav = ({ items, hidden = false, currentPath, className = '', v
                           </span>
                         ) : (
                           <Icon
-                            size={21}
-                            strokeWidth={active ? 2.55 : 2.05}
+                            size={25}
+                            strokeWidth={active ? 2.65 : 2.12}
+                            fill="none"
                           />
                         )}
                         {badge > 0 && (
@@ -107,15 +101,11 @@ const MobileBottomNav = ({ items, hidden = false, currentPath, className = '', v
                             {badge > 99 ? '99+' : badge}
                           </span>
                         )}
-                        {active && <span className="rr-bottom-active-sheen" />}
                       </span>
                     )}
                     <span className={`rr-bottom-label ${active ? 'is-active' : ''} ${item.center ? 'is-center' : ''}`}>
                       {item.label}
                     </span>
-                    {active && !item.center && (
-                      <span className="rr-bottom-active-dot" aria-hidden="true" />
-                    )}
                   </div>
                 );
               }}

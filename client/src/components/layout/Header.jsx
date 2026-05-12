@@ -6,6 +6,7 @@ import { Bell, ChevronRight, Home, LogIn, Moon, Search, Sparkles, Sun, UserPlus 
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import useScrollState from '../../hooks/useScrollState';
+import { preloadRoleDestination, switchRoleSmoothly } from '../../utils/roleSwitch';
 
 const UserMenu = ({ isOverlay = false }) => {
     const { user, logout, activeRole, switchRole } = useAuth();
@@ -21,13 +22,21 @@ const UserMenu = ({ isOverlay = false }) => {
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
-    const handleSwitchRole = () => {
+    const handleSwitchRole = async () => {
         if (activeRole === 'student') {
-            switchRole('landlord');
-            navigate('/landlord/overview');
+            await switchRoleSmoothly({
+                role: 'landlord',
+                path: '/landlord/overview',
+                switchRole,
+                navigate,
+            });
         } else {
-            switchRole('student');
-            navigate('/');
+            await switchRoleSmoothly({
+                role: 'student',
+                path: '/',
+                switchRole,
+                navigate,
+            });
         }
         setIsMenuOpen(false);
     };
@@ -150,7 +159,12 @@ const UserMenu = ({ isOverlay = false }) => {
     return (
         <div className="flex items-center gap-3" ref={menuRef}>
             {user?.roles?.includes('Landlord') ? (
-                <button onClick={handleSwitchRole} className={hostLinkClass}>
+                <button
+                    onClick={handleSwitchRole}
+                    onMouseEnter={() => preloadRoleDestination(activeRole === 'student' ? 'landlord' : 'student')}
+                    onFocus={() => preloadRoleDestination(activeRole === 'student' ? 'landlord' : 'student')}
+                    className={hostLinkClass}
+                >
                     {activeRole === 'student' ? 'Switch to Hosting' : 'Switch to Travelling'}
                 </button>
             ) : (

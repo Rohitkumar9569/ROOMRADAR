@@ -1,6 +1,7 @@
 const crypto = require('crypto');
 const Verification = require('../models/Verification');
 const User = require('../models/User');
+const { requireValidIndianMobile } = require('../utils/phoneUtils');
 
 // Generate random token
 const generateToken = () => {
@@ -115,6 +116,7 @@ exports.verifyEmail = async (req, res) => {
 exports.sendPhoneOTP = async (req, res) => {
   try {
     const { userId, phoneNumber } = req.body;
+    const normalizedPhoneNumber = requireValidIndianMobile(phoneNumber, 'Phone number');
     
     const otp = generateOTP();
     const otpExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
@@ -126,7 +128,7 @@ exports.sendPhoneOTP = async (req, res) => {
     }
     
     verification.phone = {
-      number: phoneNumber,
+      number: normalizedPhoneNumber,
       verified: false,
       otp,
       otpExpires
@@ -141,7 +143,7 @@ exports.sendPhoneOTP = async (req, res) => {
       expiresIn: '10 minutes'
     });
   } catch (error) {
-    res.status(500).json({ message: 'Failed to send OTP' });
+    res.status(error.statusCode || 500).json({ message: error.statusCode ? error.message : 'Failed to send OTP' });
   }
 };
 

@@ -7,6 +7,12 @@ const Notification = require('../models/Notification');
 const jwt = require('jsonwebtoken');
 const { getFilterableFields } = require('../utils/roomConfigUtils');
 const { sanitizeDateRange, toOptionalDate } = require('../utils/dateUtils');
+const { normalizeOptionalIndianMobile } = require('../utils/phoneUtils');
+const {
+    appendAndClause,
+    buildLocationQuery,
+    findDiscoveryFallbackRooms,
+} = require('../utils/roomDiscoveryUtils');
 
 const LANDLORD_PUBLIC_FIELDS = [
     'name',
@@ -30,7 +36,7 @@ const LANDLORD_PUBLIC_FIELDS = [
 const LANDLORD_DETAIL_FIELDS = `${LANDLORD_PUBLIC_FIELDS} email mobileNumber phone`;
 const handledRoomQueryKeys = new Set([
     'keyword', 'city', 'type', 'sort', 'limit', 'page', 'exclude', 'minRent', 'maxRent',
-    'beds', 'roomType', 'gender', 'familyStatus', 'amenities', 'availableFrom',
+    'beds', 'maxOccupants', 'roomType', 'gender', 'familyStatus', 'amenities', 'availableFrom',
     'checkInDate', 'checkOutDate', 'moveInDate', 'latitude', 'longitude', 'radius'
 ]);
 const lockedInventoryStatuses = ['approved', 'confirmed', 'external', 'blocked'];
@@ -132,6 +138,30 @@ const normalizeValueUnitPayload = (payload = {}) => {
     return normalizedPayload;
 };
 
+const normalizeRoomPhonePayload = (payload = {}) => {
+    if (!payload || typeof payload !== 'object') return payload;
+    const normalizedPayload = { ...payload };
+
+    if (Object.prototype.hasOwnProperty.call(normalizedPayload, 'emergencyContactPhone')) {
+        normalizedPayload.emergencyContactPhone = normalizeOptionalIndianMobile(
+            normalizedPayload.emergencyContactPhone,
+            'Emergency contact phone'
+        );
+    }
+
+    if (normalizedPayload.guidebook && typeof normalizedPayload.guidebook === 'object') {
+        normalizedPayload.guidebook = { ...normalizedPayload.guidebook };
+        if (Object.prototype.hasOwnProperty.call(normalizedPayload.guidebook, 'emergencyContactPhone')) {
+            normalizedPayload.guidebook.emergencyContactPhone = normalizeOptionalIndianMobile(
+                normalizedPayload.guidebook.emergencyContactPhone,
+                'Emergency contact phone'
+            );
+        }
+    }
+
+    return normalizedPayload;
+};
+
 const normalizeRulesPayload = (rules = {}) => {
     if (!rules || typeof rules !== 'object') return rules;
     const normalizedRules = { ...rules };
@@ -223,7 +253,7 @@ const addAvailabilityExclusion = (query, { startDate, endDate }) => {
 // CREATE ROOM
 exports.createRoom = asyncHandler(async (req, res) => {
     try {
-        const roomPayload = normalizeNumericRoomPayload(sanitizeRoomDatePayload(normalizeValueUnitPayload({ ...req.body })));
+        const roomPayload = normalizeRoomPhonePayload(normalizeNumericRoomPayload(sanitizeRoomDatePayload(normalizeValueUnitPayload({ ...req.body }))));
         roomPayload.rules = normalizeRulesPayload(roomPayload.rules);
 
         if (!roomPayload.location || !roomPayload.location.coordinates || !roomPayload.location.fullAddress || !roomPayload.location.city) {
@@ -276,6 +306,7 @@ exports.getAllRooms = asyncHandler(async (req, res) => {
             minRent,
             maxRent,
             beds,
+            maxOccupants,
             roomType,
             gender,
             familyStatus,
@@ -291,7 +322,10 @@ exports.getAllRooms = asyncHandler(async (req, res) => {
         const query = { status: 'Published', isDeleted: { $ne: true } };
 
         const cityKeyword = city || keyword;
-        if (cityKeyword) query['location.city'] = { $regex: cityKeyword, $options: 'i' };
+        if (cityKeyword) {
+            const locationQuery = buildLocationQuery(cityKeyword, { matchAll: true });
+            if (locationQuery) appendAndClause(query, locationQuery);
+        }
         if (latitude && longitude && radius) {
             const radiusInMeters = Math.max(Number(radius) || 5, 1) * 1000;
             query.location = {
@@ -334,6 +368,18 @@ exports.getAllRooms = asyncHandler(async (req, res) => {
             if (minRent) query.rent.$gte = Number(minRent);
             if (maxRent) query.rent.$lte = Number(maxRent);
         }
+        const occupantCount = Number(maxOccupants);
+        if (Number.isFinite(occupantCount) && occupantCount > 0) {
+            query.$and = [
+                ...(query.$and || []),
+                {
+                    $or: [
+                        { maxOccupants: { $gte: occupantCount } },
+                        { beds: { $gte: occupantCount } },
+                    ],
+                },
+            ];
+        }
         if (beds) query.beds = Number(beds);
         const availableFromDate = toOptionalDate(availableFrom);
         if (availableFromDate) query.availableFrom = { $lte: availableFromDate };
@@ -365,18 +411,73 @@ exports.getAllRooms = asyncHandler(async (req, res) => {
         if (skip) findQuery.skip(skip);
         if (limitNumber) findQuery.limit(limitNumber);
 
-        const [rooms, total] = await Promise.all([
+        let [rooms, total] = await Promise.all([
             findQuery.lean(),
             pageNumber ? Room.countDocuments(query) : Promise.resolve(0),
         ]);
+        let fallbackMeta = null;
+        const exactTotal = total;
+        const hasLocationIntent = Boolean(cityKeyword || (latitude && longitude));
+
+        if (pageNumber === 1 && hasLocationIntent && limitNumber && rooms.length < limitNumber) {
+            let fallbackRooms = await findDiscoveryFallbackRooms(Room, {
+                ...req.query,
+                city: cityKeyword || city,
+                sort,
+                limit: limitNumber - rooms.length,
+            }, {
+                resultLimit: limitNumber - rooms.length,
+                candidateLimit: 180,
+                excludeIds: [
+                    ...(exclude ? [exclude] : []),
+                    ...rooms.map((room) => room._id),
+                ],
+            });
+
+            if (fallbackRooms.length > 0) {
+                fallbackRooms = await Room.populate(fallbackRooms, { path: 'landlord', select: LANDLORD_PUBLIC_FIELDS });
+                rooms = [...rooms, ...fallbackRooms].slice(0, limitNumber);
+                total = Math.max(total, rooms.length);
+                fallbackMeta = {
+                    type: exactTotal > 0 ? 'location_expanded' : 'location_primary',
+                    message: exactTotal > 0
+                        ? 'Showing exact matches first, then more rooms from this location.'
+                        : 'No exact match found. Showing rooms from this location first, then closest alternatives.',
+                };
+            }
+        }
+
+        if (pageNumber === 1 && rooms.length === 0) {
+            let fallbackRooms = await findDiscoveryFallbackRooms(Room, {
+                ...req.query,
+                sort,
+                limit: limitNumber || 12,
+            }, {
+                resultLimit: limitNumber || 12,
+                candidateLimit: 180,
+                excludeIds: exclude ? [exclude] : [],
+            });
+
+            if (fallbackRooms.length > 0) {
+                fallbackRooms = await Room.populate(fallbackRooms, { path: 'landlord', select: LANDLORD_PUBLIC_FIELDS });
+                rooms = fallbackRooms;
+                total = fallbackRooms.length;
+                fallbackMeta = {
+                    type: 'relaxed',
+                    message: 'No exact match found. Showing the closest available rooms based on your search filters.',
+                };
+            }
+        }
 
         if (pageNumber) {
             return res.json({
                 data: rooms,
                 count: rooms.length,
                 total,
+                exactTotal,
                 page: pageNumber,
                 totalPages: limitNumber ? Math.ceil(total / limitNumber) : 1,
+                fallback: fallbackMeta,
             });
         }
 
@@ -400,7 +501,8 @@ exports.searchRooms = asyncHandler(async (req, res) => {
             };
         }
         else if (city) {
-            query['location.city'] = { $regex: city, $options: 'i' };
+            const locationQuery = buildLocationQuery(city, { matchAll: true });
+            if (locationQuery) appendAndClause(query, locationQuery);
         }
         if (minRent || maxRent) {
             query.rent = {};
@@ -414,13 +516,28 @@ exports.searchRooms = asyncHandler(async (req, res) => {
             endDate: checkOutDate,
         });
 
-        const rooms = await Room.find(query)
+        let rooms = await Room.find(query)
             .populate('landlord', LANDLORD_PUBLIC_FIELDS)
             .lean();
+        let fallback = null;
+        if (rooms.length === 0) {
+            rooms = await findDiscoveryFallbackRooms(Room, req.body, {
+                resultLimit: 12,
+                candidateLimit: 180,
+            });
+            if (rooms.length) {
+                rooms = await Room.populate(rooms, { path: 'landlord', select: LANDLORD_PUBLIC_FIELDS });
+                fallback = {
+                    type: 'relaxed',
+                    message: 'No exact match found. Showing the closest available rooms based on your search filters.',
+                };
+            }
+        }
         res.status(200).json({
             message: `${rooms.length} rooms found.`,
             count: rooms.length,
-            data: rooms
+            data: rooms,
+            fallback
         });
     } catch (error) {
         res.status(500).json({ message: 'Server Error', error: error.message });
@@ -485,6 +602,81 @@ exports.getPriceRange = asyncHandler(async (req, res) => {
     res.json(result[0] || { min: 0, max: 0 });
 });
 
+const normalizeSimilarityText = (value) => String(value || '').trim().toLowerCase();
+
+const escapeRegex = (value) => String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+const getRoomCoordinates = (room = {}) => {
+    const coordinates = room.location?.coordinates;
+    if (!Array.isArray(coordinates) || coordinates.length !== 2) return null;
+    const [longitude, latitude] = coordinates.map(Number);
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
+    return { latitude, longitude };
+};
+
+const calculateDistanceKm = (from, to) => {
+    if (!from || !to) return null;
+    const toRadians = (degrees) => (degrees * Math.PI) / 180;
+    const earthRadiusKm = 6371;
+    const dLat = toRadians(to.latitude - from.latitude);
+    const dLon = toRadians(to.longitude - from.longitude);
+    const lat1 = toRadians(from.latitude);
+    const lat2 = toRadians(to.latitude);
+    const a = Math.sin(dLat / 2) ** 2
+        + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLon / 2) ** 2;
+    return earthRadiusKm * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+};
+
+const getTruthyFacilities = (room = {}) => Object.entries(room.facilities || {})
+    .filter(([, enabled]) => Boolean(enabled))
+    .map(([key]) => key);
+
+const valuesMatchOrOpen = (candidateValue, sourceValue) => {
+    const candidate = normalizeSimilarityText(candidateValue || 'Any');
+    const source = normalizeSimilarityText(sourceValue || 'Any');
+    if (!candidate || !source) return false;
+    return candidate === source || candidate === 'any' || source === 'any';
+};
+
+const calculateRoomSimilarityScore = (candidate, source, { group = 'similar', distanceKm } = {}) => {
+    if (!candidate || !source || String(candidate._id) === String(source._id)) return -1;
+
+    const candidateRent = Number(candidate.rent || 0);
+    const sourceRent = Number(source.rent || 0);
+    const rentGap = candidateRent && sourceRent ? Math.abs(candidateRent - sourceRent) / sourceRent : 1;
+    const candidateAmenities = getTruthyFacilities(candidate);
+    const sourceAmenities = getTruthyFacilities(source);
+    const sharedAmenities = candidateAmenities.filter((amenity) => sourceAmenities.includes(amenity)).length;
+    let score = 0;
+
+    if (group === 'nearby') score += 28;
+    if (group === 'host') score += 34;
+
+    if (normalizeSimilarityText(candidate.location?.city) === normalizeSimilarityText(source.location?.city)) score += 70;
+    if (normalizeSimilarityText(candidate.location?.locality) && normalizeSimilarityText(candidate.location?.locality) === normalizeSimilarityText(source.location?.locality)) score += 30;
+    if (normalizeSimilarityText(candidate.location?.state) && normalizeSimilarityText(candidate.location?.state) === normalizeSimilarityText(source.location?.state)) score += 12;
+
+    if (Number.isFinite(distanceKm)) {
+        if (distanceKm <= 5) score += 60;
+        else if (distanceKm <= 10) score += 45;
+        else if (distanceKm <= 25) score += 28;
+    }
+
+    if (normalizeSimilarityText(candidate.roomType) === normalizeSimilarityText(source.roomType)) score += 34;
+    if (candidateRent && sourceRent) score += Math.max(0, 30 - Math.round(rentGap * 46));
+    if (candidateRent && sourceRent && candidateRent <= sourceRent) score += 4;
+    if (Number(candidate.beds || 0) === Number(source.beds || 0)) score += 9;
+    if (Number(candidate.maxOccupants || 0) && Number(candidate.maxOccupants || 0) >= Number(source.maxOccupants || source.beds || 1)) score += 6;
+    if (valuesMatchOrOpen(candidate.gender || candidate.tenantPreferences?.allowedGender, source.gender || source.tenantPreferences?.allowedGender)) score += 12;
+    if (valuesMatchOrOpen(candidate.familyStatus || candidate.tenantPreferences?.familyStatus, source.familyStatus || source.tenantPreferences?.familyStatus)) score += 8;
+    score += Math.min(sharedAmenities * 3, 21);
+    score += Math.min(Number(candidate.averageRating || 0), 5) * 2;
+    score += Math.min(Number(candidate.numReviews || 0), 20) / 4;
+    score += Math.min(Number(candidate.views || 0), 120) / 20;
+
+    return score;
+};
+
 exports.getSimilarRooms = asyncHandler(async (req, res) => {
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
         return res.status(400).json({ message: 'Invalid room id.' });
@@ -495,25 +687,183 @@ exports.getSimilarRooms = asyncHandler(async (req, res) => {
         return res.status(404).json({ message: 'Room not found' });
     }
 
-    const rent = Number(room.rent || 0);
-    const orClauses = [];
-    if (room.location?.city) orClauses.push({ 'location.city': room.location.city });
-    if (room.roomType) orClauses.push({ roomType: room.roomType });
-    if (rent > 0) {
-        orClauses.push({ rent: { $gte: rent * 0.7, $lte: rent * 1.3 } });
-    }
-
-    const similar = await Room.find({
-        _id: { $ne: room._id },
+    const baseQuery = {
         status: 'Published',
         isDeleted: { $ne: true },
-        ...(orClauses.length ? { $or: orClauses } : {}),
-    })
-        .populate('landlord', LANDLORD_PUBLIC_FIELDS)
-        .select('title rent location roomType images imageUrl averageRating numReviews beds gender familyStatus facilities createdAt landlord')
-        .sort({ averageRating: -1, views: -1, createdAt: -1 })
-        .limit(8)
-        .lean();
+    };
+    const baseSelection = 'title rent location roomType images imageUrl averageRating numReviews beds maxOccupants gender familyStatus tenantPreferences facilities createdAt landlord views';
+    const seenIds = new Set([String(room._id)]);
+    const sourceCoordinates = getRoomCoordinates(room);
+    const rankCandidates = (rooms, group = 'similar') => rooms
+        .map((candidate, index) => ({
+            candidate,
+            index,
+            distanceKm: candidate._distanceKm ?? calculateDistanceKm(sourceCoordinates, getRoomCoordinates(candidate)),
+        }))
+        .map((entry) => ({
+            ...entry,
+            score: calculateRoomSimilarityScore(entry.candidate, room, { group, distanceKm: entry.distanceKm }),
+        }))
+        .filter(({ score }) => score >= (group === 'similar' ? 42 : 18))
+        .sort((a, b) => (
+            b.score - a.score
+            || (Number.isFinite(a.distanceKm) ? a.distanceKm : Number.MAX_SAFE_INTEGER) - (Number.isFinite(b.distanceKm) ? b.distanceKm : Number.MAX_SAFE_INTEGER)
+            || Number(b.candidate.averageRating || 0) - Number(a.candidate.averageRating || 0)
+            || Number(b.candidate.views || 0) - Number(a.candidate.views || 0)
+            || new Date(b.candidate.createdAt || 0).getTime() - new Date(a.candidate.createdAt || 0).getTime()
+            || a.index - b.index
+        ))
+        .map(({ candidate, score, distanceKm }) => ({
+            ...candidate,
+            _recommendation: {
+                group,
+                tier: group === 'nearby' ? 0 : group === 'host' ? 1 : 2,
+                score: Math.round(score),
+                distanceKm: Number.isFinite(distanceKm) ? Math.round(distanceKm * 10) / 10 : undefined,
+                reason: group === 'host'
+                    ? 'More from this host'
+                    : group === 'nearby'
+                        ? Number.isFinite(distanceKm)
+                            ? `${Math.round(distanceKm * 10) / 10} km from this listing`
+                            : `Near ${room.location?.city || 'this listing'}`
+                        : 'Similar price and room type',
+            },
+        }));
+    const appendUnique = (target, candidates, maxItems) => {
+        for (const candidate of candidates) {
+            if (target.length >= maxItems) break;
+            const id = String(candidate._id);
+            if (seenIds.has(id)) continue;
+            seenIds.add(id);
+            target.push(candidate);
+        }
+        return target;
+    };
+
+    const appendCandidatePool = (target, rooms) => {
+        const poolSeen = new Set(target.map((item) => String(item._id)));
+        rooms.forEach((candidate) => {
+            const id = String(candidate._id);
+            if (poolSeen.has(id) || seenIds.has(id)) return;
+            poolSeen.add(id);
+            target.push(candidate);
+        });
+        return target;
+    };
+
+    const locationQuery = buildLocationQuery([
+        room.location?.city,
+        room.location?.locality,
+        room.location?.landmark,
+    ].filter(Boolean).join(' '), { matchAll: false });
+
+    const locationCandidates = locationQuery
+        ? await Room.find({
+            ...baseQuery,
+            _id: { $ne: room._id },
+            ...locationQuery,
+        })
+            .populate('landlord', LANDLORD_PUBLIC_FIELDS)
+            .select(baseSelection)
+            .sort({ averageRating: -1, views: -1, createdAt: -1 })
+            .limit(48)
+            .lean()
+        : [];
+
+    const nearbyCandidates = [];
+    if (sourceCoordinates) {
+        try {
+            const geoCandidates = await Room.aggregate([
+                {
+                    $geoNear: {
+                        near: {
+                            type: 'Point',
+                            coordinates: [sourceCoordinates.longitude, sourceCoordinates.latitude],
+                        },
+                        distanceField: '_distanceMeters',
+                        spherical: true,
+                        maxDistance: 25000,
+                        query: {
+                            status: 'Published',
+                            isDeleted: { $ne: true },
+                            _id: { $ne: room._id },
+                        },
+                    },
+                },
+                { $limit: 72 },
+                {
+                    $project: {
+                        title: 1,
+                        rent: 1,
+                        location: 1,
+                        roomType: 1,
+                        images: 1,
+                        imageUrl: 1,
+                        averageRating: 1,
+                        numReviews: 1,
+                        beds: 1,
+                        maxOccupants: 1,
+                        gender: 1,
+                        familyStatus: 1,
+                        tenantPreferences: 1,
+                        facilities: 1,
+                        createdAt: 1,
+                        landlord: 1,
+                        views: 1,
+                        _distanceMeters: 1,
+                    },
+                },
+            ]);
+            geoCandidates.forEach((candidate) => {
+                candidate._distanceKm = Number(candidate._distanceMeters || 0) / 1000;
+            });
+            appendCandidatePool(nearbyCandidates, await Room.populate(geoCandidates, { path: 'landlord', select: LANDLORD_PUBLIC_FIELDS }));
+        } catch {
+            // Location text matches below still keep the recommendation rail useful if geo search is unavailable.
+        }
+    }
+
+    appendCandidatePool(nearbyCandidates, locationCandidates);
+
+    const similar = appendUnique([], rankCandidates(nearbyCandidates, 'nearby'), 8);
+
+    if (similar.length < 8 && room.landlord) {
+        const landlordCandidates = await Room.find({
+            ...baseQuery,
+            _id: { $nin: [...seenIds] },
+            landlord: room.landlord,
+        })
+            .populate('landlord', LANDLORD_PUBLIC_FIELDS)
+            .select(baseSelection)
+            .sort({ averageRating: -1, views: -1, createdAt: -1 })
+            .limit(48)
+            .lean();
+
+        appendUnique(similar, rankCandidates(landlordCandidates, 'host'), 8);
+    }
+
+    if (similar.length < 8) {
+        const rent = Number(room.rent || 0);
+        const fallbackClauses = [];
+        if (room.location?.state) fallbackClauses.push({ 'location.state': { $regex: `^${escapeRegex(room.location.state)}$`, $options: 'i' } });
+        if (room.roomType) fallbackClauses.push({ roomType: room.roomType });
+        if (room.gender && room.gender !== 'Any') fallbackClauses.push({ $or: [{ gender: room.gender }, { 'tenantPreferences.allowedGender': room.gender }, { gender: 'Any' }, { 'tenantPreferences.allowedGender': 'Any' }] });
+        if (rent > 0) fallbackClauses.push({ rent: { $gte: rent * 0.65, $lte: rent * 1.35 } });
+        getTruthyFacilities(room).slice(0, 4).forEach((amenity) => fallbackClauses.push({ [`facilities.${amenity}`]: true }));
+
+        const fallbackCandidates = fallbackClauses.length ? await Room.find({
+            ...baseQuery,
+            _id: { $nin: [...seenIds] },
+            $or: fallbackClauses,
+        })
+            .populate('landlord', LANDLORD_PUBLIC_FIELDS)
+            .select(baseSelection)
+            .sort({ averageRating: -1, views: -1, createdAt: -1 })
+            .limit(48)
+            .lean() : [];
+
+        appendUnique(similar, rankCandidates(fallbackCandidates, 'similar'), 8);
+    }
 
     res.json({ data: similar, count: similar.length });
 });
@@ -617,7 +967,7 @@ exports.updateRoom = asyncHandler(async (req, res) => {
             return res.status(401).json({ message: 'Not authorized' });
         }
 
-        const newRoomData = normalizeNumericRoomPayload(sanitizeRoomDatePayload(normalizeValueUnitPayload({ ...req.body })));
+        const newRoomData = normalizeRoomPhonePayload(normalizeNumericRoomPayload(sanitizeRoomDatePayload(normalizeValueUnitPayload({ ...req.body }))));
         newRoomData.rules = normalizeRulesPayload(newRoomData.rules);
         if (Object.prototype.hasOwnProperty.call(newRoomData, 'preferredOccupant')) {
             newRoomData.preferredOccupant = normalizePreferredOccupant(newRoomData.preferredOccupant);
@@ -728,7 +1078,6 @@ exports.updateRoomStatus = asyncHandler(async (req, res) => {
         if (['Pending', 'Pending_Review'].includes(room.status)) {
             return res.status(409).json({ message: 'This listing is already waiting for admin review.' });
         }
-
         const nextStatus = status === 'Published' && ['Unpublished', 'Rejected', 'Suspended'].includes(room.status)
             ? 'Pending'
             : status;

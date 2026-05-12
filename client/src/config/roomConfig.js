@@ -107,7 +107,7 @@ export const roomConfig = {
         { key: 'applianceInstructions', label: 'Appliance Instructions', type: 'textarea', required: false, icon: 'plug', showOnCard: false, showOnDetail: false, postBookingOnly: true },
         { key: 'localTips', label: 'Local Tips', type: 'textarea', required: false, icon: 'map', showOnCard: false, showOnDetail: false, postBookingOnly: true },
         { key: 'emergencyContactName', label: 'Emergency Contact Name', type: 'text', required: false, icon: 'user-check', showOnCard: false, showOnDetail: false, postBookingOnly: true },
-        { key: 'emergencyContactPhone', label: 'Emergency Contact Phone', type: 'text', required: false, icon: 'phone', showOnCard: false, showOnDetail: false, postBookingOnly: true },
+        { key: 'emergencyContactPhone', label: 'Emergency Contact Phone', type: 'tel', required: false, icon: 'phone', showOnCard: false, showOnDetail: false, postBookingOnly: true },
       ],
     },
   ],

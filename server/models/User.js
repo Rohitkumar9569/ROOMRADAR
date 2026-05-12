@@ -1,12 +1,19 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 
+const optionalIndianMobileValidator = {
+    validator(value) {
+        return !value || /^[6-9]\d{9}$/.test(String(value));
+    },
+    message: 'Mobile number must be a valid 10-digit number.',
+};
+
 const RoleProfileSchema = new mongoose.Schema({
     name: { type: String, default: '' },
     profilePicture: { type: String, default: '' },
     avatarUrl: { type: String, default: '' },
-    mobileNumber: { type: String, default: '' },
-    phone: { type: String, default: '' },
+    mobileNumber: { type: String, default: '', validate: optionalIndianMobileValidator },
+    phone: { type: String, default: '', validate: optionalIndianMobileValidator },
     city: { type: String, default: '' },
     gender: {
         type: String,
@@ -59,11 +66,13 @@ const UserSchema = new mongoose.Schema({
     },
     mobileNumber: {
         type: String,
-        default: ''
+        default: '',
+        validate: optionalIndianMobileValidator
     },
     phone: {
         type: String,
-        default: ''
+        default: '',
+        validate: optionalIndianMobileValidator
     },
     city: {
         type: String,

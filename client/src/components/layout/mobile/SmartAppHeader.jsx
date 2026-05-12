@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Bell, ChevronLeft, Moon, Search, Settings, Sun } from 'lucide-react';
@@ -53,7 +53,14 @@ const SmartAppHeader = () => {
   const { user, activeRole } = useAuth();
   const { unreadNotificationCount = 0 } = useSocket() || {};
   const { isDarkMode, toggleTheme } = useTheme();
-  const { headerSearchTerm, setHeaderSearchTerm, activeChatMeta, chatProfileOpen, setChatProfileOpen } = useUI();
+  const {
+    headerSearchTerm,
+    setHeaderSearchTerm,
+    activeChatMeta,
+    chatProfileOpen,
+    setChatProfileOpen,
+    inboxListScrolled,
+  } = useUI();
   const path = location.pathname;
   const isHome = path === '/';
   const isSearchPage = path === '/rooms';
@@ -61,9 +68,14 @@ const SmartAppHeader = () => {
   const isLandlord = path.startsWith('/landlord');
   const isInbox = /\/(?:profile|landlord)\/inbox(?:\/|$)/.test(path);
   const isChat = /\/(?:profile|landlord)\/inbox\/[^/]+/.test(path);
-  const isOverlay = isHome;
-  const isScrolled = true;
+  const isOverlay = false;
+  const [isScrolled, setIsScrolled] = useState(!(isHome || isSearchPage));
+  const [isNavbarSearchFocused, setIsNavbarSearchFocused] = useState(false);
+  const [navbarLocationDraft, setNavbarLocationDraft] = useState('');
+  const navbarLocationInputRef = useRef(null);
   const mode = isChat ? 'chat' : isInbox ? 'inbox' : isSearchPage ? 'search' : isHome ? 'home' : 'surface';
+  const keepNavbarSearchOpen = (isHome || isSearchPage) && isNavbarSearchFocused;
+  const headerSearchActive = isScrolled || keepNavbarSearchOpen;
   const pageTitle = getPageTitle(path);
   const profileRole = isAdmin ? 'admin' : isLandlord ? 'landlord' : activeRole;
   const profile = getRoleProfile(user, profileRole);
@@ -72,15 +84,100 @@ const SmartAppHeader = () => {
   const chatAvatar = activeChatMeta?.avatarUrl;
   const chatStatus = formatStatusLabel(activeChatMeta?.statusLabel || activeChatMeta?.typeLabel);
   const showBack = isChat || path.startsWith('/room/') || path.includes('/payment/') || path.includes('/agreement/') || path.includes('/report-damage/') || /\/admin\/(?:users|rooms)\/[^/]+/.test(path);
-  const compactLogo = isScrolled || isInbox || isAdmin || isLandlord || (!isHome && !showBack);
-  const showSearchPill = isSearchPage;
+  const inboxHeaderSearchActive = isInbox && !isChat && inboxListScrolled;
+  const compactLogo = inboxHeaderSearchActive || isAdmin || isLandlord || ((isHome || isSearchPage) && headerSearchActive) || (!isHome && !isSearchPage && !showBack);
+  const showSearchPill = (isHome || isSearchPage) && headerSearchActive;
   const renderPortal = (node) => (typeof document === 'undefined' ? node : createPortal(node, document.body));
+
+  const handleSearchPillClick = (event) => {
+    event?.preventDefault();
+    event?.stopPropagation();
+
+    if (!isHome && !isSearchPage) {
+      navigate('/rooms');
+      return;
+    }
+
+    if (typeof window === 'undefined' || typeof document === 'undefined') return;
+    const isMobileViewport = window.matchMedia('(max-width: 767px)').matches;
+    const targetInputId = isSearchPage
+      ? (isMobileViewport ? 'rooms-mobile-location-search' : 'rooms-location-search')
+      : 'home-mobile-location-search';
+    const shouldUseDock = isHome || (isSearchPage && isMobileViewport);
+
+    const openLocationSearch = () => {
+      window.dispatchEvent(new CustomEvent('roomradar:open-location-search', {
+        detail: {
+          inputId: targetInputId,
+          forceDockOpen: shouldUseDock,
+          scrollIntoView: isSearchPage && !isMobileViewport,
+        },
+      }));
+      document.getElementById(targetInputId)?.focus();
+    };
+
+    if (isSearchPage && !isMobileViewport) {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    openLocationSearch();
+    window.requestAnimationFrame(openLocationSearch);
+    window.setTimeout(openLocationSearch, isSearchPage ? 260 : 120);
+  };
+
+  const handleNavbarLocationSubmit = (event) => {
+    event.preventDefault();
+    const query = navbarLocationDraft.trim();
+
+    if (!query) {
+      handleSearchPillClick(event);
+      return;
+    }
+
+    if (isSearchPage && typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('roomradar:navbar-location-submit', {
+        detail: { locationQuery: query },
+      }));
+      return;
+    }
+
+    navigate(`/rooms?city=${encodeURIComponent(query)}`);
+  };
+
+  const focusNavbarLocationInput = (event) => {
+    if (event.target.closest('button')) return;
+    navbarLocationInputRef.current?.focus({ preventScroll: true });
+  };
+
+  useEffect(() => {
+    if (!isSearchPage) {
+      if (!isHome) setNavbarLocationDraft('');
+      return;
+    }
+
+    const params = new URLSearchParams(location.search);
+    setNavbarLocationDraft(params.get('city') || params.get('search') || '');
+  }, [isHome, isSearchPage, location.search]);
+
+  useEffect(() => {
+    if (!isHome && !isSearchPage) {
+      setIsScrolled(true);
+      return undefined;
+    }
+
+    const threshold = isSearchPage ? 64 : 96;
+    const updateHeaderVisibility = () => setIsScrolled(window.scrollY > threshold);
+
+    updateHeaderVisibility();
+    window.addEventListener('scroll', updateHeaderVisibility, { passive: true });
+    return () => window.removeEventListener('scroll', updateHeaderVisibility);
+  }, [isHome, isSearchPage]);
 
   const headerClass = [
     'smart-app-header',
     `smart-app-header--${mode}`,
     isOverlay ? 'smart-app-header--overlay' : 'smart-app-header--surface',
-    isScrolled ? 'is-scrolled' : '',
+    headerSearchActive ? 'is-scrolled' : '',
     compactLogo ? 'is-compact' : '',
     isChat ? 'smart-app-header--chat' : '',
   ].filter(Boolean).join(' ');
@@ -106,7 +203,7 @@ const SmartAppHeader = () => {
 
   const renderThemeButton = () => (
     <button type="button" onClick={toggleTheme} className="smart-header-action smart-header-action--theme" aria-label="Toggle theme">
-      {isDarkMode ? <Sun className="h-[18px] w-[18px]" /> : <Moon className="h-[18px] w-[18px]" />}
+      {isDarkMode ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
     </button>
   );
 
@@ -134,8 +231,8 @@ const SmartAppHeader = () => {
               <span className={`smart-header-online-dot ${activeChatMeta?.isOnline ? 'is-online' : ''}`} />
             </span>
             <span className="min-w-0 flex-1 text-left">
-              <span className="block truncate text-[clamp(13px,3.6vw,15px)] font-black leading-tight">{chatName}</span>
-              <span className="block truncate text-[clamp(10px,2.8vw,11px)] font-bold leading-tight text-slate-500 dark:text-slate-400">{chatSubtitle}</span>
+              <span className="block truncate text-[clamp(14px,3.9vw,16px)] font-black leading-tight">{chatName}</span>
+              <span className="block truncate text-[clamp(11.2px,3.1vw,12.5px)] font-bold leading-tight text-slate-500 dark:text-slate-400">{chatSubtitle}</span>
             </span>
           </button>
           {chatStatus && (
@@ -160,7 +257,7 @@ const SmartAppHeader = () => {
         </div>
 
         <div className="smart-header-center">
-          {isInbox ? (
+          {isInbox && inboxHeaderSearchActive ? (
             <label className="smart-header-search">
               <Search className="h-3.5 w-3.5 flex-shrink-0 text-cyan-500" />
               <input
@@ -170,11 +267,40 @@ const SmartAppHeader = () => {
               />
             </label>
           ) : showSearchPill ? (
-            <button type="button" onClick={() => navigate('/rooms')} className="smart-header-search smart-header-search--button" aria-label="Open room search">
-              <Search className="h-3.5 w-3.5 flex-shrink-0 text-cyan-500" />
-              <span>{isHome ? 'Start search' : 'Search rooms'}</span>
-            </button>
-          ) : isHome && !isScrolled ? null : (
+            <form
+              onSubmit={handleNavbarLocationSubmit}
+              onClick={focusNavbarLocationInput}
+              className={`smart-header-search smart-header-search--inline ${(isHome || isSearchPage) ? 'smart-header-search--home-scroll' : ''}`}
+              aria-label={isHome ? 'Search by location' : 'Search rooms by location'}
+              role="search"
+            >
+              {(isHome || isSearchPage) ? (
+                <>
+                  <input
+                    ref={navbarLocationInputRef}
+                    type="search"
+                    value={navbarLocationDraft}
+                    onChange={(event) => setNavbarLocationDraft(event.target.value)}
+                    onFocus={() => setIsNavbarSearchFocused(true)}
+                    onBlur={() => window.setTimeout(() => setIsNavbarSearchFocused(false), 120)}
+                    placeholder="Search address, area, city"
+                    aria-label="Search address, area, city, or campus"
+                    autoComplete="street-address"
+                    enterKeyHint="search"
+                    spellCheck="false"
+                  />
+                  <button type="submit" className="smart-header-search-submit" aria-label="Search rooms">
+                    <Search className="h-5 w-5" strokeWidth={2.4} />
+                  </button>
+                </>
+              ) : (
+                <>
+                  <Search className="h-3.5 w-3.5 flex-shrink-0 text-cyan-500" />
+                  <span>Search rooms</span>
+                </>
+              )}
+            </form>
+          ) : isHome || isSearchPage ? null : (
             <span className="smart-header-title">{isLandlord && path === '/landlord/overview' ? 'Hosting' : pageTitle}</span>
           )}
         </div>
@@ -182,13 +308,13 @@ const SmartAppHeader = () => {
         <div className="smart-header-right">
           {isAdmin && (
             <Link to="/admin/settings" className="smart-header-action smart-header-action--secondary" aria-label="Admin settings">
-              <Settings className="h-[18px] w-[18px]" />
+              <Settings className="h-5 w-5" />
             </Link>
           )}
           {!isInbox && renderThemeButton()}
-          {!isAdmin && !isInbox && (
+          {!isAdmin && !isInbox && !isHome && !isSearchPage && (
             <Link to={isLandlord ? '/landlord/inbox' : '/profile/inbox'} className="smart-header-action smart-header-action--secondary" aria-label="Notifications">
-              <Bell className="h-[18px] w-[18px]" />
+              <Bell className="h-5 w-5" />
               {unreadNotificationCount > 0 && <span className="smart-header-badge">{unreadNotificationCount > 99 ? '99+' : unreadNotificationCount}</span>}
             </Link>
           )}

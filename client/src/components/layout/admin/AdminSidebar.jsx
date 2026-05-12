@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink, Link, useLocation } from 'react-router-dom';
-import { LogOut, Moon, ShieldCheck, Sun } from 'lucide-react';
+import { LogOut, Moon, Sun } from 'lucide-react';
 import { useAuth } from '../../../context/AuthContext';
 import { useTheme } from '../../../context/ThemeContext';
 import { adminNavigation } from '../../../config/adminNavigation';
@@ -20,14 +20,14 @@ const AdminSidebar = () => {
     return (
         <aside className="fixed inset-y-0 left-0 z-40 hidden w-72 flex-col border-r border-light-border bg-white/90 p-4 text-light-text shadow-sm backdrop-blur-xl dark:border-dark-border dark:bg-dark-sidebar/95 dark:text-dark-text md:flex">
             <Link to="/admin/dashboard" className="mb-5 flex items-center gap-3 rounded-3xl border border-light-border bg-light-card p-3 shadow-sm dark:border-dark-border dark:bg-dark-card">
-                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-cyan-500/12 text-cyan-500">
-                    <ShieldCheck className="h-5 w-5" />
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-[15px] font-black leading-none shadow-sm ring-1 ring-slate-200 dark:bg-slate-950 dark:ring-slate-800">
+                    <span className="text-brand">R</span><span className="text-cyan-500">R</span>
                 </div>
                 <div>
                     <p className="text-lg font-black tracking-tight">
                         <span className="text-brand">Room</span><span className="text-cyan-500">Radar</span>
                     </p>
-                    <p className="text-[10px] font-black uppercase tracking-[0.22em] text-light-muted dark:text-dark-muted">Admin OS</p>
+                    <p className="text-xs font-black uppercase tracking-[0.16em] text-light-muted dark:text-dark-muted">Admin OS</p>
                 </div>
             </Link>
 
@@ -36,7 +36,7 @@ const AdminSidebar = () => {
                 <p className="truncate text-xs font-medium text-light-muted dark:text-dark-muted">{user?.email}</p>
                 <div className="mt-3 flex flex-wrap gap-1.5">
                     {(user?.roles || ['Admin']).filter(role => ['Admin', 'Super_Admin', 'Moderator', 'Support'].includes(role)).map(role => (
-                        <span key={role} className="rounded-full bg-cyan-500/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-cyan-600 dark:text-cyan-300">
+                        <span key={role} className="rounded-full bg-cyan-500/10 px-2.5 py-1 text-xs font-bold uppercase tracking-wide text-cyan-600 dark:text-cyan-300">
                             {role.replace('_', ' ')}
                         </span>
                     ))}
@@ -46,7 +46,7 @@ const AdminSidebar = () => {
             <nav className="min-h-0 flex-1 space-y-5 overflow-y-auto pr-1">
                 {adminNavigation.map((section) => (
                     <div key={section.section}>
-                        <p className="mb-2 px-3 text-[10px] font-black uppercase tracking-[0.2em] text-light-muted dark:text-dark-muted">
+                        <p className="mb-2 px-3 text-xs font-black uppercase tracking-[0.16em] text-light-muted dark:text-dark-muted">
                             {section.section}
                         </p>
                         <div className="space-y-1">

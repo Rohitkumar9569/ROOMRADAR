@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useOutletContext } from 'react-router-dom';
 import { format } from 'date-fns';
 import toast from 'react-hot-toast';
-import { motion } from 'framer-motion';
 import {
     CheckCircle2,
     Edit3,
@@ -58,12 +57,14 @@ const statusMeta = {
 
 const money = (value) => `₹${Number(value || 0).toLocaleString('en-IN')}`;
 
+const formatPrice = (value) => money(value).replace(/^[^\d-]+/, '\u20b9');
+
 const getRoomImage = (room) => room?.images?.[0]?.url || room?.images?.[0] || room?.imageUrl || fallbackRoomImage;
 
 const SkeletonLoader = () => (
     <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
         {Array.from({ length: 4 }).map((_, index) => (
-            <div key={index} className="h-72 animate-pulse rounded-3xl border border-slate-200 bg-white p-4 shadow-sm dark:border-secondary-700 dark:bg-secondary-800">
+            <div key={index} className="rr-smooth-card h-72 animate-pulse rounded-3xl border border-slate-200 bg-white p-4 shadow-sm dark:border-secondary-700 dark:bg-secondary-800">
                 <div className="h-32 rounded-2xl bg-slate-200 dark:bg-secondary-700" />
                 <div className="mt-4 h-5 w-2/3 rounded bg-slate-200 dark:bg-secondary-700" />
                 <div className="mt-3 h-4 w-1/2 rounded bg-slate-200 dark:bg-secondary-700" />
@@ -74,7 +75,7 @@ const SkeletonLoader = () => (
 );
 
 const EmptyState = ({ hasSearch, activeFilter }) => (
-    <div className="rounded-3xl border border-dashed border-slate-300 bg-white p-10 text-center shadow-sm dark:border-secondary-700 dark:bg-secondary-800">
+    <div className="rr-smooth-card rounded-3xl border border-dashed border-slate-300 bg-white p-10 text-center shadow-sm dark:border-secondary-700 dark:bg-secondary-800">
         <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-cyan-50 text-cyan-600 dark:bg-cyan-500/15 dark:text-cyan-300">
             <FileText className="h-8 w-8" />
         </div>
@@ -107,17 +108,18 @@ const StudentApplicationCard = ({ application, onCancel, onEdit }) => {
     const stop = (event) => event.stopPropagation();
 
     return (
-        <motion.article
-            whileTap={{ scale: 0.98 }}
+        <article
             onClick={() => navigate(cardTarget)}
-            className="group cursor-pointer overflow-hidden rounded-2xl border border-light-border bg-white shadow-sm transition-all hover:-translate-y-1 hover:shadow-xl dark:border-dark-border dark:bg-dark-card"
+            className="rr-application-card rr-smooth-card group cursor-pointer overflow-hidden rounded-2xl border border-light-border bg-white shadow-sm transition-colors hover:border-cyan-300 dark:border-dark-border dark:bg-dark-card dark:hover:border-cyan-700/60"
         >
-            <div className="relative aspect-[4/3] overflow-hidden bg-slate-100 dark:bg-dark-input">
+            <div className="rr-application-card-media relative aspect-[4/3] overflow-hidden bg-slate-100 dark:bg-dark-input">
                 <img
                     src={getRoomImage(room)}
                     alt={room.title || 'Room'}
-                    className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                    className="h-full w-full object-cover"
                     loading="lazy"
+                    decoding="async"
+                    draggable="false"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-slate-950/55 via-transparent to-transparent" />
                 <span className={`absolute left-2 top-2 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-black text-white shadow-sm backdrop-blur ${
@@ -137,40 +139,40 @@ const StudentApplicationCard = ({ application, onCancel, onEdit }) => {
                 </span>
             </div>
 
-            <div className="p-3">
-                <p className="truncate text-[13px] font-semibold leading-tight text-light-text dark:text-dark-text">{room.title || 'Room listing'}</p>
-                <p className="mt-1 flex items-center gap-1 truncate text-[11px] font-semibold text-light-muted dark:text-dark-muted">
+            <div className="rr-application-card-body p-3">
+                <p className="rr-application-title rr-line-clamp-2 min-w-0 text-[13px] font-semibold leading-tight text-light-text dark:text-dark-text">{room.title || 'Room listing'}</p>
+                <p className="mt-1 flex min-h-[1rem] items-center gap-1 truncate text-[11px] font-semibold text-light-muted dark:text-dark-muted">
                     <MapPin className="h-3 w-3 flex-shrink-0 text-cyan-500" />
                     {city}
                 </p>
-                <p className="mt-2 text-[14px] font-bold text-light-text dark:text-dark-text">
-                    {money(room.rent)}
+                <p className="mt-2 min-h-[1.25rem] text-[14px] font-bold text-light-text dark:text-dark-text">
+                    {formatPrice(room.rent)}
                     <span className="text-[10px] font-normal text-light-muted dark:text-dark-muted"> /mo</span>
                 </p>
-                <p className="mt-1 truncate text-[10px] font-semibold text-light-muted dark:text-dark-muted">
+                <p className="mt-1 min-h-[0.875rem] truncate text-[10px] font-semibold text-light-muted dark:text-dark-muted">
                     {appliedDate ? format(new Date(appliedDate), 'dd MMM yyyy') : 'Recently'} · {application.landlord?.name || 'Host'}
                 </p>
 
-                <div className="mt-2 grid grid-cols-2 gap-1.5" onClick={stop}>
-                    <Link to={conversationPath} className="inline-flex min-h-8 items-center justify-center gap-1 rounded-xl border border-light-border bg-light-card px-2 text-[11px] font-black text-light-muted transition hover:border-cyan-400 hover:text-cyan-600 dark:border-dark-border dark:bg-dark-input dark:text-dark-muted">
+                <div className="mt-2 grid min-h-8 grid-cols-[0.82fr_1.18fr] gap-1" onClick={stop}>
+                    <Link to={conversationPath} className="inline-flex min-h-8 min-w-0 items-center justify-center gap-1 rounded-xl border border-light-border bg-light-card px-1.5 text-[10px] font-black text-light-muted transition hover:border-cyan-400 hover:text-cyan-600 dark:border-dark-border dark:bg-dark-input dark:text-dark-muted sm:px-2 sm:text-[11px]">
                         <MessageCircle className="h-3.5 w-3.5" />
-                        Chat
+                        <span className="whitespace-nowrap">Chat</span>
                     </Link>
                     {status === 'approved' ? (
-                        <button type="button" onClick={() => navigate(`/profile/payment/${application._id}`)} className="min-h-8 rounded-xl bg-cyan-500 px-2 text-[11px] font-black text-white transition hover:bg-cyan-600">
+                        <button type="button" onClick={() => navigate(`/profile/payment/${application._id}`)} className="min-h-8 min-w-0 rounded-xl bg-cyan-500 px-1.5 text-[10px] font-black text-white transition hover:bg-cyan-600 sm:px-2 sm:text-[11px]">
                             Confirm
                         </button>
                     ) : status === 'confirmed' ? (
-                        <button type="button" onClick={() => navigate(`/profile/agreement/${application._id}`)} className="min-h-8 rounded-xl bg-emerald-600 px-2 text-[11px] font-black text-white transition hover:bg-emerald-700">
+                        <button type="button" onClick={() => navigate(`/profile/agreement/${application._id}`)} className="min-h-8 min-w-0 rounded-xl bg-emerald-600 px-1 text-[10px] font-black text-white transition hover:bg-emerald-700 sm:px-2 sm:text-[11px]">
                             Agreement
                         </button>
                     ) : canEdit ? (
-                        <button type="button" onClick={() => onEdit(application)} className="inline-flex min-h-8 items-center justify-center gap-1 rounded-xl bg-cyan-500/10 px-2 text-[11px] font-black text-cyan-700 transition hover:bg-cyan-500 hover:text-white dark:text-cyan-300">
+                        <button type="button" onClick={() => onEdit(application)} className="inline-flex min-h-8 min-w-0 items-center justify-center gap-1 rounded-xl bg-cyan-500/10 px-1.5 text-[10px] font-black text-cyan-700 transition hover:bg-cyan-500 hover:text-white dark:text-cyan-300 sm:px-2 sm:text-[11px]">
                             <Edit3 className="h-3.5 w-3.5" />
-                            Edit
+                            <span className="whitespace-nowrap">Edit</span>
                         </button>
                     ) : (
-                        <span className="inline-flex min-h-8 items-center justify-center rounded-xl bg-light-bg px-2 text-[11px] font-black text-light-muted dark:bg-dark-input dark:text-dark-muted">
+                        <span className="inline-flex min-h-8 min-w-0 items-center justify-center rounded-xl bg-light-bg px-1.5 text-center text-[10px] font-black text-light-muted dark:bg-dark-input dark:text-dark-muted sm:px-2 sm:text-[11px]">
                             {meta.headline}
                         </span>
                     )}
@@ -183,7 +185,7 @@ const StudentApplicationCard = ({ application, onCancel, onEdit }) => {
                     </button>
                 )}
             </div>
-        </motion.article>
+        </article>
     );
 };
 

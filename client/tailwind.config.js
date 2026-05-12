@@ -11,9 +11,9 @@ export default {
         sans: ['Inter', 'system-ui', 'sans-serif'],
       },
       fontSize: {
-        xs: '0.75rem',
-        sm: '0.8125rem',
-        base: '0.9375rem',
+        xs: '0.8125rem',
+        sm: '0.875rem',
+        base: '1rem',
         md: '1.0625rem',
         lg: '1.25rem',
         xl: '1.5rem',

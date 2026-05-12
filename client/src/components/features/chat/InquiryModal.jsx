@@ -69,7 +69,7 @@ const InquiryModal = ({ room, onClose }) => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[9999] flex justify-center items-center"
+            className="fixed inset-0 z-[9999] flex items-end justify-center md:items-center"
             onClick={onClose}
             style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}
         >
@@ -81,15 +81,16 @@ const InquiryModal = ({ room, onClose }) => {
             />
             
             <motion.div 
-                initial={{ opacity: 0, scale: 0.9, y: 30 }}
+                initial={{ opacity: 0, scale: 0.98, y: 48 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.9, y: 30 }}
+                exit={{ opacity: 0, scale: 0.98, y: 48 }}
                 transition={{ duration: 0.4, ease: [0.23, 1, 0.32, 1] }}
-                className="relative bg-slate-50 dark:bg-slate-900 rounded-none md:rounded-2xl shadow-2xl w-full h-[100dvh] md:h-auto md:min-h-[600px] md:max-w-4xl z-[10000] overflow-hidden flex flex-col border-0 md:border md:border-slate-200 md:dark:border-slate-700"
+                className="relative z-[10000] flex h-[88dvh] max-h-[88dvh] w-full flex-col overflow-hidden rounded-t-[2rem] border-0 bg-slate-50 shadow-2xl dark:bg-slate-900 md:h-auto md:min-h-[600px] md:max-w-4xl md:rounded-2xl md:border md:border-slate-200 md:dark:border-slate-700"
                 onClick={(e) => e.stopPropagation()}
             >
                 {/* Compact Header - Premium Blue/Cyan */}
                 <div className="relative bg-gradient-to-r from-blue-600 via-cyan-600 to-cyan-600 dark:from-blue-700 dark:via-cyan-700 dark:to-cyan-700 px-4 md:px-6 py-3 md:py-4 flex-shrink-0 shadow-lg">
+                    <div className="mx-auto mb-2 h-1.5 w-12 rounded-full bg-white/45 md:hidden" />
                     <div className="absolute top-2 right-2 md:top-3 md:right-4 z-10">
                         <motion.button
                             onClick={onClose}
@@ -105,8 +106,8 @@ const InquiryModal = ({ room, onClose }) => {
                         <div className="p-2 bg-white/20 rounded-xl">
                             <MessageCircle className="w-5 h-5 text-white" />
                         </div>
-                        <div>
-                            <h2 className="text-xl font-bold text-white">
+                        <div className="min-w-0">
+                            <h2 className="text-lg font-bold text-white md:text-xl">
                                 Contact Landlord
                             </h2>
                             <p className="text-blue-100 text-sm mt-0.5">Start a conversation</p>
@@ -205,7 +206,7 @@ const InquiryModal = ({ room, onClose }) => {
                                 </p>
 
                                 {/* Action Buttons - Part of form flow */}
-                                <div className="mt-4 flex justify-end gap-3">
+                                <div className="mt-4 grid grid-cols-2 gap-2 md:flex md:justify-end md:gap-3">
                                     <motion.button 
                                         type="button" 
                                         onClick={onClose}
@@ -223,7 +224,7 @@ const InquiryModal = ({ room, onClose }) => {
                                         onMouseLeave={() => setIsHovered(false)}
                                         whileHover={!loading ? { scale: 1.02 } : {}}
                                         whileTap={!loading ? { scale: 0.98 } : {}}
-                                        className="group relative overflow-hidden px-5 py-2.5 bg-gradient-to-r from-blue-600 via-cyan-600 to-cyan-600 hover:from-blue-700 hover:via-cyan-700 hover:to-cyan-700 text-white font-bold rounded-xl shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 transition-all duration-300"
+                                        className="group relative flex items-center justify-center gap-2 overflow-hidden px-5 py-2.5 bg-gradient-to-r from-blue-600 via-cyan-600 to-cyan-600 hover:from-blue-700 hover:via-cyan-700 hover:to-cyan-700 text-white font-bold rounded-xl shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300"
                                     >
                                         {/* Shine Effect */}
                                         <motion.div

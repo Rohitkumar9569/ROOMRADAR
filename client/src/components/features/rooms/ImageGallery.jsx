@@ -1,12 +1,13 @@
 // src/components/ImageGallery.jsx
 
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { XMarkIcon, ChevronLeftIcon, ChevronRightIcon } from '@heroicons/react/24/solid';
 import { motion, AnimatePresence } from 'framer-motion';
 
 // --- Full-Screen Modal Component ---
 const ImageModal = ({ images, initialIndex, onClose }) => {
     const [currentIndex, setCurrentIndex] = useState(initialIndex);
+    const touchStartX = useRef(null);
 
     const handleNext = () => {
         setCurrentIndex((prevIndex) => (prevIndex + 1) % images.length);
@@ -14,6 +15,17 @@ const ImageModal = ({ images, initialIndex, onClose }) => {
 
     const handlePrev = () => {
         setCurrentIndex((prevIndex) => (prevIndex - 1 + images.length) % images.length);
+    };
+
+    const handleTouchEnd = (event) => {
+        if (touchStartX.current === null || images.length < 2) return;
+
+        const deltaX = touchStartX.current - event.changedTouches[0].clientX;
+        if (Math.abs(deltaX) > 45) {
+            if (deltaX > 0) handleNext();
+            else handlePrev();
+        }
+        touchStartX.current = null;
     };
 
     return (
@@ -45,7 +57,12 @@ const ImageModal = ({ images, initialIndex, onClose }) => {
                 </>
             )}
 
-            <div className="max-w-4xl max-h-[80vh]" onClick={(e) => e.stopPropagation()}>
+            <div
+                className="max-w-4xl max-h-[80vh]"
+                onClick={(e) => e.stopPropagation()}
+                onTouchStart={(event) => { touchStartX.current = event.touches[0].clientX; }}
+                onTouchEnd={handleTouchEnd}
+            >
                 <img src={images[currentIndex]} alt={`Room view ${currentIndex + 1}`} className="max-h-[80vh] w-auto object-contain" decoding="async" />
             </div>
         </motion.div>
@@ -57,25 +74,59 @@ const ImageModal = ({ images, initialIndex, onClose }) => {
 const ImageGallery = ({ images }) => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [selectedImageIndex, setSelectedImageIndex] = useState(0);
+    const [currentImageIndex, setCurrentImageIndex] = useState(0);
+    const touchStartX = useRef(null);
+    const didSwipe = useRef(false);
 
     const openModal = (index) => {
         setSelectedImageIndex(index);
         setIsModalOpen(true);
     };
 
+    const showNextImage = () => {
+        setCurrentImageIndex((index) => (index + 1) % images.length);
+    };
+
+    const showPrevImage = () => {
+        setCurrentImageIndex((index) => (index - 1 + images.length) % images.length);
+    };
+
+    const handleTouchEnd = (event) => {
+        if (touchStartX.current === null || images.length < 2) return;
+
+        const deltaX = touchStartX.current - event.changedTouches[0].clientX;
+        if (Math.abs(deltaX) > 42) {
+            didSwipe.current = true;
+            if (deltaX > 0) showNextImage();
+            else showPrevImage();
+            window.setTimeout(() => {
+                didSwipe.current = false;
+            }, 120);
+        }
+
+        touchStartX.current = null;
+    };
+
     if (!images || images.length === 0) {
         return <div className="flex h-96 items-center justify-center rounded-3xl bg-slate-200 dark:bg-secondary-700"><p className="font-bold text-slate-500 dark:text-secondary-300">No Images Available</p></div>;
     }
 
-    const mainImage = images[0];
+    const mainImage = images[currentImageIndex] || images[0];
     const sideImages = images.slice(1, 5);
 
     return (
         <div className="relative">
-            <div className="grid h-[320px] grid-cols-1 gap-2 md:h-[450px] md:grid-cols-4 md:grid-rows-2">
+            <div className="grid h-[260px] grid-cols-1 gap-2 sm:h-[340px] md:h-[450px] md:grid-cols-4 md:grid-rows-2">
                 {/* Main Image */}
-                <div className="md:col-span-2 md:row-span-2 h-full cursor-pointer" onClick={() => openModal(0)}>
-                    <img src={mainImage} alt="Main room view" className="h-full w-full rounded-2xl object-cover transition hover:opacity-90 md:rounded-l-2xl md:rounded-r-none" loading="eager" decoding="async" fetchPriority="high" />
+                <div
+                    className="md:col-span-2 md:row-span-2 h-full cursor-pointer touch-pan-y"
+                    onClick={() => {
+                        if (!didSwipe.current) openModal(currentImageIndex);
+                    }}
+                    onTouchStart={(event) => { touchStartX.current = event.touches[0].clientX; }}
+                    onTouchEnd={handleTouchEnd}
+                >
+                    <img src={mainImage} alt={`Room view ${currentImageIndex + 1}`} className="h-full w-full rounded-2xl object-cover transition hover:opacity-90 md:rounded-l-2xl md:rounded-r-none" loading="eager" decoding="async" fetchpriority="high" />
                 </div>
                 
                 {/* Side Images */}
@@ -94,11 +145,26 @@ const ImageGallery = ({ images }) => {
 
             {/* Show all photos button */}
             <button 
-                onClick={() => openModal(0)}
-                className="absolute bottom-4 right-4 rounded-2xl border border-light-border bg-white px-4 py-2 text-sm font-black text-slate-950 shadow-lg transition hover:bg-slate-100 dark:border-dark-border dark:bg-dark-card dark:text-dark-text dark:hover:bg-dark-input"
+                onClick={() => openModal(currentImageIndex)}
+                className="absolute bottom-3 right-3 rounded-2xl border border-light-border bg-white px-3 py-2 text-xs font-black text-slate-950 shadow-lg transition hover:bg-slate-100 dark:border-dark-border dark:bg-dark-card dark:text-dark-text dark:hover:bg-dark-input sm:bottom-4 sm:right-4 sm:px-4 sm:text-sm"
             >
                 Show all photos
             </button>
+
+            {images.length > 1 && (
+                <div className="absolute bottom-3 left-3 flex items-center gap-1.5 rounded-full bg-slate-950/70 px-2.5 py-1.5 text-[11px] font-black text-white shadow-lg md:hidden">
+                    {images.slice(0, Math.min(images.length, 6)).map((_, index) => (
+                        <button
+                            key={index}
+                            type="button"
+                            onClick={() => setCurrentImageIndex(index)}
+                            className={`h-1.5 rounded-full transition-all ${index === currentImageIndex ? 'w-4 bg-white' : 'w-1.5 bg-white/45'}`}
+                            aria-label={`Show photo ${index + 1}`}
+                        />
+                    ))}
+                    <span className="ml-1">{currentImageIndex + 1}/{images.length}</span>
+                </div>
+            )}
 
             {/* Modal Logic */}
             <AnimatePresence>

@@ -3,6 +3,13 @@
 const mongoose = require('mongoose');
 const { sanitizeDateRange, toOptionalDate, toRequiredDate } = require('../utils/dateUtils');
 
+const optionalIndianMobileValidator = {
+    validator(value) {
+        return !value || /^[6-9]\d{9}$/.test(String(value));
+    },
+    message: 'Emergency contact phone must be a valid 10-digit number.',
+};
+
 const bookingSchema = new mongoose.Schema({
     student: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     checkInDate: { type: Date, set: toOptionalDate },
@@ -208,7 +215,7 @@ const roomSchema = new mongoose.Schema({
         applianceInstructions: { type: String, trim: true },
         localTips: { type: String, trim: true },
         emergencyContactName: { type: String, trim: true },
-        emergencyContactPhone: { type: String, trim: true },
+        emergencyContactPhone: { type: String, trim: true, validate: optionalIndianMobileValidator },
     },
     wifiName: { type: String, trim: true },
     wifiPassword: { type: String, trim: true, select: false },
@@ -216,7 +223,7 @@ const roomSchema = new mongoose.Schema({
     applianceInstructions: { type: String, trim: true },
     localTips: { type: String, trim: true },
     emergencyContactName: { type: String, trim: true },
-    emergencyContactPhone: { type: String, trim: true },
+    emergencyContactPhone: { type: String, trim: true, validate: optionalIndianMobileValidator },
     status: {
         type: String,
         required: true,

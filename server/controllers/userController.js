@@ -1,5 +1,6 @@
 const User = require('../models/User');
 const Application = require('../models/Application');
+const { normalizeOptionalIndianMobile } = require('../utils/phoneUtils');
 const Room = require('../models/Room'); // मकान मालिक के डैशबोर्ड के लिए आवश्यक
 
 const profileFields = [
@@ -61,9 +62,29 @@ const sanitizeProfilePayload = (body) => {
   return payload;
 };
 
+const normalizeProfilePhones = (payload) => {
+  const hasMobileNumber = Object.prototype.hasOwnProperty.call(payload, 'mobileNumber');
+  const hasPhone = Object.prototype.hasOwnProperty.call(payload, 'phone');
+
+  if (hasMobileNumber) {
+    payload.mobileNumber = normalizeOptionalIndianMobile(payload.mobileNumber, 'Mobile number');
+  }
+  if (hasPhone) {
+    payload.phone = normalizeOptionalIndianMobile(payload.phone, 'Phone number');
+  }
+  if (hasMobileNumber && !hasPhone) {
+    payload.phone = payload.mobileNumber;
+  }
+  if (hasPhone && !hasMobileNumber) {
+    payload.mobileNumber = payload.phone;
+  }
+
+  return payload;
+};
+
 exports.updateProfile = async (req, res) => {
   try {
-    const payload = sanitizeProfilePayload(req.body);
+    const payload = normalizeProfilePhones(sanitizeProfilePayload(req.body));
     if (payload.bio && payload.bio.length > 500) {
       return res.status(400).json({ success: false, message: 'Bio must be 500 characters or less.' });
     }
@@ -91,7 +112,7 @@ exports.updateProfile = async (req, res) => {
 
     res.status(200).json({ success: true, user: buildCurrentUserPayload(user) });
   } catch (error) {
-    res.status(500).json({ success: false, message: 'Server Error' });
+    res.status(error.statusCode || 500).json({ success: false, message: error.statusCode ? error.message : 'Server Error' });
   }
 };
 

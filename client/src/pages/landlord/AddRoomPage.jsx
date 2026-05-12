@@ -24,6 +24,7 @@ import api from '../../api';
 import { getRoomFields, roomConfig } from '../../config/roomConfig';
 import LocationPicker from '../../components/features/rooms/LocationPicker';
 import Spinner from '../../components/common/Spinner';
+import { isPhoneFieldKey, isValidIndianMobile, phoneInputProps, sanitizePhoneInput } from '../../utils/phoneUtils';
 
 const iconMap = {
   title: Home,
@@ -246,8 +247,9 @@ function AddRoomPage() {
   }, [formData.city, formData.roomType, formData.state]);
 
   const updateField = (key, value) => {
+    const nextValue = isPhoneFieldKey(key) ? sanitizePhoneInput(value) : value;
     setIsDirty(true);
-    setFormData((prev) => ({ ...prev, [key]: value }));
+    setFormData((prev) => ({ ...prev, [key]: nextValue }));
     if (errors[key]) setErrors((prev) => ({ ...prev, [key]: '' }));
   };
 
@@ -257,6 +259,13 @@ function AddRoomPage() {
       const value = formData[field.key];
       if (value === undefined || value === null || String(value).trim() === '') {
         nextErrors[field.key] = `${field.label} is required.`;
+      }
+    });
+
+    section.fields.forEach((field) => {
+      const value = formData[field.key];
+      if (isPhoneFieldKey(field.key) && value && !isValidIndianMobile(value)) {
+        nextErrors[field.key] = `${field.label} must be a valid 10-digit mobile number.`;
       }
     });
 
@@ -466,6 +475,7 @@ function AddRoomPage() {
   const renderField = (field) => {
     const Icon = iconMap[field.key] || Sparkles;
     const isDenseOptionStep = currentStep.id === 'amenities' || currentStep.id === 'rules';
+    const isPhoneField = isPhoneFieldKey(field.key);
     const commonLabel = (
       <label htmlFor={field.key} className="text-[13px] font-black text-slate-800 dark:text-slate-100 sm:text-sm">
         {field.label}{field.required ? <span className="text-brand"> *</span> : null}
@@ -535,11 +545,13 @@ function AddRoomPage() {
           <Icon className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-cyan-600 dark:text-cyan-300 sm:h-5 sm:w-5" />
           <input
             id={field.key}
-            type={field.type}
+            type={isPhoneField ? 'tel' : field.type}
             value={toFieldInputValue(field, formData[field.key])}
             min={field.type === 'number' ? 0 : undefined}
             onChange={(event) => updateField(field.key, event.target.value)}
             className="input-field h-12 rounded-[1.15rem] pl-11 text-[15px] sm:pl-12"
+            placeholder={isPhoneField ? '9876543210' : undefined}
+            {...(isPhoneField ? phoneInputProps : {})}
           />
         </div>
         {errors[field.key] && <p className="mt-1 text-sm font-semibold text-brand">{errors[field.key]}</p>}

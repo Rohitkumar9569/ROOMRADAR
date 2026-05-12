@@ -12,6 +12,7 @@ import {
     VenetianMask, Mail, X, Home, ArrowRight, CheckCircle,
     Sparkles, Shield
 } from 'lucide-react';
+import { isValidIndianMobile, phoneInputProps, sanitizePhoneInput } from '../../../utils/phoneUtils';
 
 // --- Ultra-Premium Input Styles ---
 const baseInputStyles = "block w-full rounded-xl border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/80 shadow-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 dark:focus:border-indigo-400 dark:focus:ring-indigo-400/30 sm:text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 transition-all duration-300 hover:border-slate-300 dark:hover:border-slate-600";
@@ -106,7 +107,7 @@ function BookingRequestModal({ mode = 'create', applicationData = null, room, on
         if (mode === 'edit' && applicationData) {
             setFormData({
                 fullName: applicationData.fullName || '',
-                mobileNumber: applicationData.mobileNumber || '',
+                mobileNumber: sanitizePhoneInput(applicationData.mobileNumber || ''),
                 profileType: applicationData.profileType || 'Travelling',
                 adults: applicationData.occupants?.adults || 1,
                 children: applicationData.occupants?.children || 0,
@@ -153,7 +154,10 @@ function BookingRequestModal({ mode = 'create', applicationData = null, room, on
 
     const handleChange = (e) => {
         const { name, value } = e.target;
-        setFormData(prevState => ({ ...prevState, [name]: value }));
+        setFormData(prevState => ({
+            ...prevState,
+            [name]: name === 'mobileNumber' ? sanitizePhoneInput(value) : value
+        }));
     };
     const handleDateChange = (field, date) => setFormData(prevState => ({ ...prevState, [field]: date }));
     const handleStepperChange = (name, newValue) => setFormData(prevState => ({ ...prevState, [name]: newValue }));
@@ -163,6 +167,9 @@ function BookingRequestModal({ mode = 'create', applicationData = null, room, on
         if (validationError) return toast.error(validationError);
         if (!formData.fullName || !formData.mobileNumber || !formData.checkInDate || !formData.checkOutDate) {
             return toast.error('Please fill all required fields, including check-in and check-out dates.');
+        }
+        if (!isValidIndianMobile(formData.mobileNumber)) {
+            return toast.error('Please enter a valid 10-digit mobile number.');
         }
         if (formData.checkOutDate <= formData.checkInDate) {
             return toast.error('Check-out date must be after the check-in date.');
@@ -205,7 +212,7 @@ function BookingRequestModal({ mode = 'create', applicationData = null, room, on
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[9999] flex justify-center items-center"
+            className="fixed inset-0 z-[9999] flex items-end justify-center md:items-center"
             onClick={onClose}
             style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}
         >
@@ -213,15 +220,16 @@ function BookingRequestModal({ mode = 'create', applicationData = null, room, on
             <div className="absolute inset-0 bg-slate-900/70 dark:bg-black/80 backdrop-blur-xl" />
             
             <motion.div 
-                initial={{ opacity: 0, scale: 0.9, y: 30 }}
+                initial={{ opacity: 0, scale: 0.98, y: 48 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.9, y: 30 }}
+                exit={{ opacity: 0, scale: 0.98, y: 48 }}
                 transition={{ duration: 0.4, ease: [0.23, 1, 0.32, 1] }}
-                className="relative bg-slate-50 dark:bg-slate-900 rounded-none md:rounded-2xl shadow-2xl w-full h-[100dvh] md:h-[95vh] md:max-w-[1400px] z-[10000] overflow-hidden flex flex-col border-0 md:border md:border-slate-200 md:dark:border-slate-700"
+                className="relative z-[10000] flex h-[92dvh] max-h-[92dvh] w-full flex-col overflow-hidden rounded-t-[2rem] border-0 bg-slate-50 shadow-2xl dark:bg-slate-900 md:h-[95vh] md:max-w-[1400px] md:rounded-2xl md:border md:border-slate-200 md:dark:border-slate-700"
                 onClick={(e) => e.stopPropagation()}
             >
                 {/* Header - Premium Indigo/Violet */}
                 <div className="relative bg-gradient-to-r from-indigo-600 via-violet-600 to-purple-600 dark:from-indigo-700 dark:via-violet-700 dark:to-purple-800 px-4 md:px-6 py-3 md:py-4 flex-shrink-0 shadow-lg">
+                    <div className="mx-auto mb-2 h-1.5 w-12 rounded-full bg-white/45 md:hidden" />
                     <div className="absolute top-2 right-2 md:top-3 md:right-4 z-10">
                         <motion.button
                             onClick={onClose}
@@ -237,8 +245,8 @@ function BookingRequestModal({ mode = 'create', applicationData = null, room, on
                         <div className="p-2 bg-white/20 rounded-xl shadow-md">
                             <Home className="w-5 h-5 text-white" />
                         </div>
-                        <div>
-                            <h2 className="text-xl font-bold text-white">
+                        <div className="min-w-0">
+                            <h2 className="text-lg font-bold text-white md:text-xl">
                                 {mode === 'edit' ? 'Edit Your Request' : 'Request to Book'}
                             </h2>
                             <p className="text-indigo-100 text-sm mt-0.5 truncate max-w-md">{room.title}</p>
@@ -274,7 +282,7 @@ function BookingRequestModal({ mode = 'create', applicationData = null, room, on
                                         <label htmlFor="mobileNumber" className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">Mobile *</label>
                                         <div className="relative">
                                             <Smartphone className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 w-4 h-4" />
-                                            <input id="mobileNumber" name="mobileNumber" type="tel" value={formData.mobileNumber} onChange={handleChange} className={`${baseInputStyles} pl-10 pr-3 py-2.5 text-sm`} placeholder="9876543210" required />
+                                            <input id="mobileNumber" name="mobileNumber" value={formData.mobileNumber} onChange={handleChange} className={`${baseInputStyles} pl-10 pr-3 py-2.5 text-sm`} placeholder="9876543210" required {...phoneInputProps} />
                                         </div>
                                     </div>
                                 </div>
@@ -473,10 +481,10 @@ function BookingRequestModal({ mode = 'create', applicationData = null, room, on
                         </motion.button>
                         
                         {/* Trust Indicators */}
-                        <div className="mt-4 flex items-center justify-center gap-6 text-xs text-slate-500 dark:text-slate-400">
+                        <div className="mt-4 flex flex-wrap items-center justify-center gap-2 text-xs text-slate-500 dark:text-slate-400 md:gap-6">
                             <span className="flex items-center gap-2 bg-emerald-50 dark:bg-emerald-900/20 px-3 py-1.5 rounded-full">
                                 <CheckCircle className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                                <span className="font-semibold">Secure booking</span>
+                                <span className="font-semibold">Platform protection</span>
                             </span>
                             <span className="flex items-center gap-2 bg-indigo-50 dark:bg-indigo-900/20 px-3 py-1.5 rounded-full">
                                 <Shield className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />

@@ -1,4 +1,4 @@
-import React, { createContext, useState, useEffect, useContext } from 'react';
+import React, { createContext, useState, useEffect, useContext, useCallback } from 'react';
 import api from '../api';
 import { clearTabCache } from '../utils/tabDataCache';
 
@@ -48,9 +48,11 @@ export const AuthProvider = ({ children }) => {
     useEffect(() => {
         localStorage.setItem('activeRole', activeRole);
     }, [activeRole]);
-    const switchRole = (newRole) => {
-        setActiveRole(newRole);
-    };
+    const switchRole = useCallback((newRole) => {
+        const nextRole = ['student', 'landlord', 'admin'].includes(newRole) ? newRole : 'student';
+        localStorage.setItem('activeRole', nextRole);
+        setActiveRole((currentRole) => (currentRole === nextRole ? currentRole : nextRole));
+    }, []);
     useEffect(() => {
         try {
             const storedUserInfo = localStorage.getItem('userInfo');

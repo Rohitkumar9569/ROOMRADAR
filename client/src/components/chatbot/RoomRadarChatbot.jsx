@@ -1,15 +1,32 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Bot, ChevronRight, Loader2, MessageCircle, Send, X } from 'lucide-react';
+import {
+    BedDouble,
+    Bot,
+    CheckCircle2,
+    Code2,
+    GraduationCap,
+    Lightbulb,
+    Loader2,
+    MapPin,
+    MessageCircle,
+    Send,
+    ShieldCheck,
+    Sparkles,
+    Star,
+    Target,
+    Users,
+    X
+} from 'lucide-react';
 import api from '../../api';
 import fallbackRoomImage from '../../assets/background_img.jpg';
 
 const suggestions = [
-    'Haridwar mein room chahiye',
-    '5000 ke andar PG batao',
-    '2 logo ke liye flat',
-    'Sabse sasta room'
+    'Show rooms in Haridwar',
+    'PG under 5000',
+    'Flat for 2 people',
+    'Show best rated rooms'
 ];
 
 const money = (value) => `₹${Number(value || 0).toLocaleString('en-IN')}`;
@@ -24,11 +41,38 @@ const getRoomLocation = (room) => {
     return raw;
 };
 
+const getRoomAmenityLabels = (room) => {
+    const facilities = room?.facilities || {};
+    return [
+        facilities.wifi ? 'WiFi' : '',
+        facilities.ac ? 'AC' : '',
+        facilities.parking ? 'Parking' : '',
+        facilities.meals ? 'Meals' : '',
+        facilities.security ? 'Security' : '',
+    ].filter(Boolean).slice(0, 3);
+};
+
+const getRoomCapacityLabel = (room) => {
+    const beds = Number(room?.beds || 0);
+    const occupants = Number(room?.maxOccupants || 0);
+    if (occupants > 0) return `${occupants} guest${occupants > 1 ? 's' : ''}`;
+    if (beds > 0) return `${beds} bed${beds > 1 ? 's' : ''}`;
+    return room?.roomType || 'Room';
+};
+
+const getRoomRating = (room) => {
+    const rating = Number(room?.averageRating || 0);
+    const reviews = Number(room?.numReviews || 0);
+    if (rating > 0) return `${rating.toFixed(1)}${reviews ? ` (${reviews})` : ''}`;
+    return 'New';
+};
+
 const detectLanguage = (text = '') => {
     if (/[\u0900-\u097F]/.test(text)) return 'hindi';
     const hinglishWords = ['kya', 'hai', 'h', 'nahi', 'mujhe', 'chahiye', 'batao', 'kaun', 'sasta', 'andar', 'liye', 'mein', 'bhai', 'yaar'];
     const lowerText = text.toLowerCase();
-    return hinglishWords.some((word) => lowerText.includes(word)) ? 'hinglish' : 'english';
+    const tokens = new Set(lowerText.match(/[a-z0-9]+/g) || []);
+    return hinglishWords.some((word) => (word.includes(' ') ? lowerText.includes(word) : tokens.has(word))) ? 'hinglish' : 'english';
 };
 
 const isHinglish = (text = '') => detectLanguage(text) === 'hinglish';
@@ -84,6 +128,51 @@ const getTeamProfileReply = (profileKey, text = '') => {
     return teamProfiles[profileKey] || teamProfiles.rohit;
 };
 
+const teamProfileVisuals = {
+    rohit: {
+        eyebrow: "SARATHI'S INSIGHT",
+        title: 'Rohit Kumar Sarathi',
+        subtitle: 'Lead creator of RoomRadar',
+        directAnswer: 'Rohit Kumar Sarathi RoomRadar ke lead creator hain. Woh Gurukul Kangri Vishwavidyalaya, Haridwar me B.Tech CSE final-year student hain.',
+        chips: ['RoomRadar creator', 'GATE CSE qualified', 'GATE DA qualified', 'AIR 7275'],
+        sections: [
+            {
+                icon: 'lightbulb',
+                title: 'Core idea',
+                body: 'Technology aur education ko connect karke complex topics ko simple, clear aur motivating banana.'
+            },
+            {
+                icon: 'graduation',
+                title: 'Education',
+                body: 'B.Tech CSE final-year student, 2022-2026 batch, Gurukul Kangri Vishwavidyalaya, Haridwar.'
+            },
+            {
+                icon: 'code',
+                title: 'Tech focus',
+                body: 'MERN Stack, TypeScript, Data Science, Cybersecurity, Cloud Computing, Python, C++, React Three Fiber aur AI/ML.'
+            },
+            {
+                icon: 'sparkles',
+                title: 'Major projects',
+                body: 'RoomRadar, MockPanel, Study Hub, aur 3D Interactive Portfolio.'
+            },
+            {
+                icon: 'target',
+                title: 'Long-term goal',
+                body: 'UPSC/UPPSC ke through SDM banna aur learning ko more accessible banana.'
+            }
+        ],
+        takeaways: [
+            'RoomRadar ke lead developer aur Sarathi ke creator.',
+            'GATE CSE aur GATE DA qualified, including DA AIR 7275.',
+            'AI/ML, MERN, TypeScript, Data Science aur Cybersecurity me strong interest.',
+            'Vision: learning ko simple, accessible aur motivating banana.'
+        ]
+    }
+};
+
+const getTeamProfileVisual = (profileKey) => teamProfileVisuals[profileKey] || null;
+
 const createDeveloperCreditReply = (text = '') => (
     detectLanguage(text) === 'hindi'
         ? `RoomRadar और इस AI assistant को ${developerCredit} ने बनाया है।`
@@ -137,14 +226,21 @@ const extractLocalFilters = (text = '') => {
     const city = (cityBeforeHindi?.[1] || cityAfterEnglish?.[1] || '')
         .replace(/^(mujhe|mujko|hame|hamko|find me|show me|need|ek)\s+/i, '')
         .trim();
-    const priceMatch = lower.match(/(?:under|below|upto|up to|within|budget|andar|kam)\D{0,12}(\d{3,7})/i)
-        || lower.match(/(\d{3,7})\s*(?:ke andar|se kam|tak|budget|under|below)/i);
+    const priceMatch = lower.match(/(?:under|below|upto|up to|within|budget|andar|kam)\D{0,12}(\d{1,7})/i)
+        || lower.match(/(\d{1,7})\s*(?:ke andar|se kam|tak|budget|under|below)/i)
+        || lower.match(/(?:rs\.?|inr|₹)\s*(\d{1,7})/i)
+        || lower.match(/(\d{1,7})\s*(?:rs\.?|rupees?|rupaye|₹)\b/i);
     const occupantsMatch = lower.match(/(\d{1,2})\s*(?:log|logo|people|persons|occupants|students|members)/i)
         || lower.match(/(?:for|ke liye)\s*(\d{1,2})/i);
 
     if (city) filters.city = city;
     if (priceMatch) filters.maxRent = priceMatch[1];
     if (occupantsMatch) filters.beds = occupantsMatch[1];
+    const limitMatch = lower.match(/(?:show|give|list|find|display|dikhao|batao|de do|dedo)?\s*(\d{1,2})\s*(?:room|rooms|pg|flats?|listings?)\b/i)
+        || lower.match(/\b(?:top|best)\s*(\d{1,2})\b/i);
+    if (limitMatch && !/\b(?:bhk|log|logo|people|persons|occupants)\b/i.test(lower.slice(Math.max(0, limitMatch.index - 3), limitMatch.index + limitMatch[0].length + 16))) {
+        filters.limit = Math.min(Math.max(Number(limitMatch[1]) || 5, 1), 12);
+    }
     if (/\b1\s*bhk\b/i.test(text)) filters.roomType = '1BHK';
     else if (/\b2\s*bhk\b/i.test(text)) filters.roomType = '2BHK';
     else if (/\bpg\b/i.test(text)) filters.roomType = 'PG';
@@ -156,13 +252,16 @@ const extractLocalFilters = (text = '') => {
     if (/\bgirls?|female|women|ladki/i.test(text)) filters.gender = 'Female';
     if (/(sabse sasta|sasta|cheapest|lowest|minimum|kam budget)/i.test(lower)) filters.sort = 'price_asc';
     if (/(sabse costly|sabse mehenga|mahanga|expensive|costliest|highest|premium|luxury)/i.test(lower)) filters.sort = 'price_desc';
+    if (/(rating|rated|best rated|top rated|best room|best rooms|top room|top rooms|recommended|good room|good rooms|achha|accha)/i.test(lower)) filters.sort = 'rating';
+    if (/(price\s*(wise|view|order)|price\s*(?:point\s*)?of\s*view|price\s*ke\s*(?:hisab|hisaab)|rent\s*wise|cost\s*wise|budget\s*wise|by price|according to price|low to high|lowest to highest|saste se|kam se)/i.test(lower)) filters.sort = 'price_asc';
+    if (/(high to low|highest to lowest|price high|costly first|expensive first)/i.test(lower)) filters.sort = 'price_desc';
 
     return filters;
 };
 
 const searchRoomsLocally = async (text) => {
     const filters = extractLocalFilters(text);
-    const params = new URLSearchParams({ limit: '5', sort: filters.sort || 'popular' });
+    const params = new URLSearchParams({ limit: String(filters.limit || 5), sort: filters.sort || 'popular' });
     Object.entries(filters).forEach(([key, value]) => {
         if (value) params.set(key, value);
     });
@@ -213,6 +312,7 @@ const RoomRadarChatbot = () => {
         setMessages(outgoing);
         setInput('');
 
+        const directProfileKey = getTeamProfileKey(trimmed);
         const directReply = getDirectFallbackReply(trimmed);
         if (directReply) {
             setMessages([
@@ -220,6 +320,7 @@ const RoomRadarChatbot = () => {
                 {
                     role: 'assistant',
                     content: directReply,
+                    profileVisual: getTeamProfileVisual(directProfileKey),
                     rooms: [],
                     provider: 'browser-knowledge',
                     fallback: false
@@ -285,6 +386,7 @@ const RoomRadarChatbot = () => {
     const isListingFormRoute = /^\/landlord\/(?:add-room|edit-room\/[^/]+)\/?$/.test(location.pathname);
     const isHomeRoute = location.pathname === '/';
     const isExploreRoute = isHomeRoute || location.pathname === '/rooms';
+    const isCompactLauncher = !isHomeRoute || scrollTucked;
 
     useEffect(() => {
         if (!isExploreRoute || open || typeof window === 'undefined') {
@@ -298,7 +400,10 @@ const RoomRadarChatbot = () => {
 
         const syncPosition = () => {
             frameId = null;
-            const nextTucked = mobileQuery.matches && window.scrollY > (isHomeRoute ? 72 : 24);
+            const threshold = mobileQuery.matches
+                ? (isHomeRoute ? 72 : 24)
+                : (isHomeRoute ? 140 : 90);
+            const nextTucked = window.scrollY > threshold;
             if (lastTucked === nextTucked) return;
             lastTucked = nextTucked;
             setScrollTucked(nextTucked);
@@ -336,20 +441,27 @@ const RoomRadarChatbot = () => {
             <motion.button
                 type="button"
                 onClick={() => setOpen(true)}
-                whileHover={{ scale: 1.08 }}
+                whileHover={{ scale: 1.04 }}
                 whileTap={{ scale: 0.95 }}
-                className={`floating-chatbot ${isHomeRoute ? 'is-home-route' : ''} ${scrollTucked ? 'is-scroll-tucked' : ''}`}
+                className={`floating-chatbot ${isHomeRoute ? 'is-home-route' : 'is-compact-route'} ${scrollTucked ? 'is-scroll-tucked' : ''} ${isCompactLauncher ? 'is-compact-launcher' : ''}`}
                 aria-label="Open RoomRadar AI Assistant"
             >
                 <span className="floating-chatbot-halo" />
-                <MessageCircle className="relative" />
+                <span className="floating-chatbot-icon" aria-hidden="true">
+                    <Bot />
+                </span>
+                <span className="floating-chatbot-copy">
+                    <span>RoomRadar AI</span>
+                    <strong>Ask AI</strong>
+                </span>
+                <span className="floating-chatbot-badge" aria-hidden="true">AI</span>
             </motion.button>
 
             <AnimatePresence>
                 {open && (
                     <>
                         <motion.div
-                            className="fixed inset-0 z-[10002] bg-slate-950/25 backdrop-blur-sm"
+                            className="fixed inset-0 z-[10002] hidden bg-slate-950/25 backdrop-blur-sm md:block"
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
                             exit={{ opacity: 0 }}
@@ -360,45 +472,57 @@ const RoomRadarChatbot = () => {
                             animate={{ x: 0, opacity: 1 }}
                             exit={{ x: '100%', opacity: 0 }}
                             transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-                            className="fixed inset-y-0 right-0 z-[10003] flex w-full flex-col overflow-hidden border-l border-light-border bg-light-card text-light-text shadow-2xl dark:border-dark-border dark:bg-dark-sidebar dark:text-dark-text md:right-4 md:top-4 md:h-[calc(100vh-2rem)] md:w-[380px] md:rounded-3xl md:border"
+                            className="rr-chatbot-panel fixed inset-x-0 bottom-[calc(var(--rr-bottom-nav-height)+env(safe-area-inset-bottom,0px))] top-[var(--rr-mobile-header-offset)] z-40 flex w-full flex-col overflow-hidden border-t border-light-border bg-light-card text-light-text shadow-2xl dark:border-dark-border dark:bg-dark-sidebar dark:text-dark-text md:inset-x-auto md:bottom-auto md:right-4 md:top-4 md:z-[10003] md:h-[calc(100vh-2rem)] md:w-[390px] md:rounded-3xl md:border"
                         >
-                            <header className="flex min-h-[76px] items-center justify-between bg-gradient-to-r from-cyan-500 to-cyan-700 px-5 text-white">
-                                <div className="flex items-center gap-3">
-                                    <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white/20 text-white">
-                                        <Bot className="h-6 w-6" />
+                            <header className="rr-chatbot-header">
+                                <div className="rr-chatbot-titlebar">
+                                    <span className="rr-chatbot-brandmark">
+                                        <Bot />
                                     </span>
                                     <div>
-                                        <h2 className="text-base font-semibold">RoomRadar AI</h2>
-                                        <p className="mt-0.5 inline-flex items-center gap-1.5 text-xs font-semibold text-cyan-50">
-                                            <span className="h-2 w-2 rounded-full bg-emerald-400" />
-                                            Online
+                                        <p className="rr-chatbot-eyebrow">RoomRadar AI</p>
+                                        <h2>AI room assistant</h2>
+                                        <p className="rr-chatbot-status">
+                                            <span />
+                                            Real listing search
                                         </p>
                                     </div>
                                 </div>
                                 <button
                                     type="button"
                                     onClick={() => setOpen(false)}
-                                    className="flex h-10 w-10 items-center justify-center rounded-full text-white/80 transition hover:bg-white/15 hover:text-white"
+                                    className="rr-chatbot-close"
                                     aria-label="Close assistant"
                                 >
-                                    <X className="h-5 w-5" />
+                                    <X />
                                 </button>
                             </header>
 
-                            <div className="flex-1 overflow-y-auto px-4 py-5">
+                            <div className="rr-chatbot-scroll flex-1 overflow-y-auto px-4 py-5">
                                 <div className="space-y-4">
                                     {messages.map((message, index) => (
                                         <MessageBubble key={`${message.role}-${index}`} message={message} closeDrawer={() => setOpen(false)} />
                                     ))}
 
                                     {messages.length === 1 && (
-                                        <div className="space-y-2">
+                                        <div className="rr-chatbot-empty">
+                                            <div className="rr-chatbot-empty-card">
+                                                <div className="rr-chatbot-empty-icon">
+                                                    <MessageCircle />
+                                                </div>
+                                                <div>
+                                                    <p>Smart room search</p>
+                                                    <h3>Ask in Hindi, Hinglish, or English.</h3>
+                                                    <span>City, budget, room type, gender, and people count can be understood together.</span>
+                                                </div>
+                                            </div>
+                                            <p className="rr-chatbot-suggestion-title">Try one</p>
                                             {suggestions.map((suggestion) => (
                                                 <button
                                                     key={suggestion}
                                                     type="button"
                                                     onClick={() => sendMessage(suggestion)}
-                                                    className="block w-full rounded-2xl border border-light-border bg-light-bg px-4 py-3 text-left text-sm font-semibold transition hover:border-cyan-400 hover:text-cyan-700 dark:border-dark-border dark:bg-dark-input dark:hover:text-cyan-300"
+                                                    className="rr-chatbot-suggestion"
                                                 >
                                                     {suggestion}
                                                 </button>
@@ -407,11 +531,10 @@ const RoomRadarChatbot = () => {
                                     )}
 
                                     {typing && (
-                                        <div className="flex w-fit items-center gap-1 rounded-2xl rounded-tl-sm bg-light-bg px-4 py-3 shadow-sm dark:bg-dark-input">
+                                        <div className="rr-chatbot-typing">
                                             {[0, 1, 2].map((dot) => (
                                                 <motion.span
                                                     key={dot}
-                                                    className="h-2 w-2 rounded-full bg-cyan-500"
                                                     animate={{ y: [0, -6, 0] }}
                                                     transition={{ duration: 0.6, delay: dot * 0.15, repeat: Infinity }}
                                                 />
@@ -422,21 +545,21 @@ const RoomRadarChatbot = () => {
                                 </div>
                             </div>
 
-                            <form onSubmit={handleSubmit} className="border-t border-light-border p-4 dark:border-dark-border">
-                                <div className="flex items-center gap-2 rounded-2xl border border-light-border bg-light-bg p-2 dark:border-dark-border dark:bg-dark-input">
+                            <form onSubmit={handleSubmit} className="rr-chatbot-composer-wrap">
+                                <div className="rr-chatbot-composer">
                                     <input
                                         value={input}
                                         onChange={(event) => setInput(event.target.value)}
                                         placeholder="Type city, budget, or requirement..."
-                                        className="min-h-[44px] flex-1 bg-transparent px-3 text-sm outline-none placeholder:text-light-muted dark:placeholder:text-dark-muted"
+                                        className="min-h-[44px] flex-1 bg-transparent px-3 text-sm font-semibold outline-none placeholder:text-light-muted dark:placeholder:text-dark-muted"
                                     />
                                     <button
                                         type="submit"
                                         disabled={typing || !input.trim()}
-                                        className="flex h-11 w-11 items-center justify-center rounded-xl bg-cyan-500 text-white transition hover:bg-cyan-600 disabled:cursor-not-allowed disabled:opacity-50"
+                                        className="rr-chatbot-send"
                                         aria-label="Send message"
                                     >
-                                        {typing ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
+                                        {typing ? <Loader2 className="animate-spin" /> : <Send />}
                                     </button>
                                 </div>
                             </form>
@@ -452,47 +575,176 @@ const MessageBubble = ({ message, closeDrawer }) => {
     const isUser = message.role === 'user';
 
     return (
-        <div className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
-            <div className={`max-w-[75%] ${isUser ? 'items-end' : 'items-start'}`}>
-                <div className={`whitespace-pre-wrap break-words rounded-3xl px-4 py-3 text-sm leading-6 [overflow-wrap:anywhere] [word-break:break-word] ${isUser ? 'bg-cyan-600 text-white' : 'bg-light-bg text-light-text dark:bg-dark-input dark:text-dark-text'}`}>
-                    {message.content}
-                </div>
+        <div className={`rr-message-row ${isUser ? 'is-user' : 'is-assistant'}`}>
+            {!isUser && (
+                <span className="rr-message-avatar">
+                    <Bot />
+                </span>
+            )}
+            <div className={`${isUser ? 'max-w-[82%] items-end' : 'min-w-0 flex-1 items-start'}`}>
+                {message.profileVisual ? (
+                    <ProfileInsightCard visual={message.profileVisual} />
+                ) : (
+                    <div className={`rr-message-bubble ${isUser ? 'is-user' : 'is-assistant'}`}>
+                        {message.content}
+                    </div>
+                )}
                 {message.rooms?.length > 0 && (
-                    <div className="mt-3 space-y-2">
+                    <div className="mt-3 grid gap-3">
                         {message.rooms.map((room, index) => (
-                            <Link
+                            <ChatRoomCard
                                 key={room._id}
-                                to={`/room/${room._id}`}
-                                onClick={closeDrawer}
-                                className="block overflow-hidden rounded-xl border border-light-border bg-light-card shadow-sm transition hover:-translate-y-0.5 hover:shadow-md dark:border-dark-border dark:bg-dark-card"
-                            >
-                                <div className="flex gap-3 p-3">
-                                    <div className="h-16 w-20 flex-shrink-0 overflow-hidden rounded-lg bg-light-bg dark:bg-dark-input">
-                                        <img src={getRoomImage(room)} alt={room.title} className="h-full w-full object-cover" loading="lazy" />
-                                    </div>
-
-                                    <div className="min-w-0 flex-1">
-                                        {index === 0 && message.sort === 'price_asc' && (
-                                            <span className="inline-flex rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-black text-green-700 dark:bg-green-900/30 dark:text-green-300">
-                                                Sabse Sasta
-                                            </span>
-                                        )}
-                                        <h3 className="mt-1 truncate text-sm font-black text-light-text dark:text-dark-text">{room.title}</h3>
-                                        <p className="mt-0.5 truncate text-xs font-medium text-light-muted dark:text-dark-muted">{getRoomLocation(room)}</p>
-                                        <p className="mt-1 text-sm font-black text-cyan-600 dark:text-cyan-300">
-                                            {money(room.rent)}
-                                            <span className="text-xs font-medium text-light-muted dark:text-dark-muted"> /mo</span>
-                                        </p>
-                                    </div>
-
-                                    <ChevronRight className="h-4 w-4 flex-shrink-0 self-center text-light-muted dark:text-dark-muted" />
-                                </div>
-                            </Link>
+                                room={room}
+                                index={index}
+                                sort={message.sort}
+                                closeDrawer={closeDrawer}
+                            />
                         ))}
                     </div>
                 )}
             </div>
         </div>
+    );
+};
+
+const insightIcons = {
+    lightbulb: Lightbulb,
+    graduation: GraduationCap,
+    code: Code2,
+    sparkles: Sparkles,
+    target: Target
+};
+
+const ProfileInsightCard = ({ visual }) => (
+    <article className="rr-profile-insight-card">
+        <div className="rr-profile-insight-hero">
+            <span className="rr-profile-ai-mark">
+                <Bot />
+            </span>
+            <div className="min-w-0">
+                <p>{visual.eyebrow}</p>
+                <h3>{visual.title}</h3>
+                <span>{visual.subtitle}</span>
+            </div>
+        </div>
+
+        <p className="rr-profile-direct-answer">{visual.directAnswer}</p>
+
+        <div className="rr-profile-chip-grid">
+            {visual.chips.map((chip) => (
+                <span key={chip}>
+                    <CheckCircle2 />
+                    {chip}
+                </span>
+            ))}
+        </div>
+
+        <div className="rr-profile-section-grid">
+            {visual.sections.map((section) => {
+                const Icon = insightIcons[section.icon] || Sparkles;
+                return (
+                    <section key={section.title} className="rr-profile-section">
+                        <span>
+                            <Icon />
+                        </span>
+                        <div>
+                            <h4>{section.title}</h4>
+                            <p>{section.body}</p>
+                        </div>
+                    </section>
+                );
+            })}
+        </div>
+
+        <section className="rr-profile-takeaways">
+            <h4>Key takeaways</h4>
+            <ul>
+                {visual.takeaways.map((item) => (
+                    <li key={item}>
+                        <CheckCircle2 />
+                        <span>{item}</span>
+                    </li>
+                ))}
+            </ul>
+        </section>
+    </article>
+);
+
+const ChatRoomCard = ({ room, index, sort, closeDrawer }) => {
+    const amenities = getRoomAmenityLabels(room);
+    const isTopPrice = index === 0 && sort === 'price_asc';
+    const isTopRated = index === 0 && sort === 'rating';
+
+    return (
+        <Link
+            to={`/room/${room._id}`}
+            onClick={closeDrawer}
+            className="rr-chat-room-card group block overflow-hidden rounded-[1.1rem] border border-light-border bg-light-card shadow-sm transition-colors hover:border-cyan-300 dark:border-dark-border dark:bg-dark-card dark:hover:border-cyan-700/60"
+        >
+            <div className="rr-chat-room-card-media relative aspect-[4/3] overflow-hidden bg-light-bg dark:bg-dark-input">
+                <img
+                    src={getRoomImage(room)}
+                    alt={room.title || 'Room'}
+                    className="h-full w-full object-cover"
+                    loading="lazy"
+                    decoding="async"
+                    draggable="false"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-950/62 via-slate-950/8 to-transparent" />
+                <span className="absolute left-2 top-2 inline-flex max-w-[70%] items-center gap-1 rounded-full bg-white/92 px-2 py-1 text-[10px] font-black text-slate-900 shadow-sm">
+                    <ShieldCheck className="h-3.5 w-3.5 text-cyan-600" />
+                    Verified
+                </span>
+                <span className="absolute bottom-2 left-2 inline-flex max-w-[75%] items-center gap-1 rounded-full bg-slate-950/68 px-2.5 py-1 text-[10px] font-black uppercase text-white">
+                    <MapPin className="h-3 w-3 text-cyan-200" />
+                    <span className="truncate">{room?.location?.city || 'Location'}</span>
+                </span>
+                <span className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-full bg-white/92 px-2 py-1 text-[10px] font-black text-slate-900 shadow-sm">
+                    <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
+                    {getRoomRating(room)}
+                </span>
+            </div>
+
+            <div className="rr-chat-room-card-body p-3">
+                {(isTopPrice || isTopRated) && (
+                    <span className="mb-2 inline-flex rounded-full bg-cyan-500/10 px-2 py-1 text-[10px] font-black text-cyan-700 dark:text-cyan-300">
+                        {isTopPrice ? 'Lowest price first' : 'Best rated first'}
+                    </span>
+                )}
+                <h3 className="rr-line-clamp-2 min-w-0 text-sm font-black leading-tight text-light-text dark:text-dark-text">
+                    {room.title || 'Room listing'}
+                </h3>
+                <p className="mt-1.5 rr-line-clamp-2 text-[11px] font-semibold leading-snug text-light-muted dark:text-dark-muted">
+                    {getRoomLocation(room)}
+                </p>
+
+                <div className="mt-3 flex items-end justify-between gap-2">
+                    <p className="min-w-0 text-[15px] font-black leading-none text-light-text dark:text-dark-text">
+                        {money(room.rent)}
+                        <span className="ml-1 text-[11px] font-semibold text-light-muted dark:text-dark-muted">/month</span>
+                    </p>
+                    <span className="flex-shrink-0 rounded-full bg-brand px-3 py-1.5 text-[11px] font-black text-white">
+                        View details
+                    </span>
+                </div>
+
+                <div className="mt-3 grid grid-cols-2 gap-1.5">
+                    <span className="inline-flex min-w-0 items-center gap-1 rounded-full border border-light-border bg-light-bg px-2 py-1 text-[10px] font-bold text-light-muted dark:border-dark-border dark:bg-dark-input dark:text-dark-muted">
+                        <BedDouble className="h-3.5 w-3.5 text-cyan-600 dark:text-cyan-300" />
+                        <span className="truncate">{room.roomType || 'Room'}</span>
+                    </span>
+                    <span className="inline-flex min-w-0 items-center gap-1 rounded-full border border-light-border bg-light-bg px-2 py-1 text-[10px] font-bold text-light-muted dark:border-dark-border dark:bg-dark-input dark:text-dark-muted">
+                        <Users className="h-3.5 w-3.5 text-cyan-600 dark:text-cyan-300" />
+                        <span className="truncate">{getRoomCapacityLabel(room)}</span>
+                    </span>
+                    {amenities.map((amenity) => (
+                        <span key={amenity} className="inline-flex min-w-0 items-center rounded-full border border-light-border bg-light-bg px-2 py-1 text-[10px] font-bold text-light-muted dark:border-dark-border dark:bg-dark-input dark:text-dark-muted">
+                            <span className="truncate">{amenity}</span>
+                        </span>
+                    ))}
+                </div>
+            </div>
+        </Link>
     );
 };
 
