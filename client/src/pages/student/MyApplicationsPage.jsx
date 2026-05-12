@@ -19,6 +19,7 @@ import BookingRequestModal from '../../components/features/booking/BookingReques
 import fallbackRoomImage from '../../assets/background_img.jpg';
 import { confirmToast } from '../../utils/confirmToast';
 import { readTabCache, setTabCache } from '../../utils/tabDataCache';
+import { formatListingTitle } from '../../utils/listingDisplay';
 
 const APPLICATIONS_CACHE_KEY = 'student:applications';
 
@@ -103,6 +104,7 @@ const StudentApplicationCard = ({ application, onCancel, onEdit }) => {
     const canEdit = status === 'pending';
     const conversationPath = application.conversation ? `/profile/inbox/${application.conversation}` : '/profile/inbox';
     const city = room.location?.city || 'Location';
+    const displayTitle = formatListingTitle(room.title, 'Room listing');
     const appliedDate = application.checkInDate || application.createdAt;
     const cardTarget = room._id ? `/room/${room._id}` : '/rooms';
     const stop = (event) => event.stopPropagation();
@@ -115,7 +117,7 @@ const StudentApplicationCard = ({ application, onCancel, onEdit }) => {
             <div className="rr-application-card-media relative aspect-[4/3] overflow-hidden bg-slate-100 dark:bg-dark-input">
                 <img
                     src={getRoomImage(room)}
-                    alt={room.title || 'Room'}
+                    alt={displayTitle}
                     className="h-full w-full object-cover"
                     loading="lazy"
                     decoding="async"
@@ -140,7 +142,7 @@ const StudentApplicationCard = ({ application, onCancel, onEdit }) => {
             </div>
 
             <div className="rr-application-card-body p-3">
-                <p className="rr-application-title rr-line-clamp-2 min-w-0 text-[13px] font-semibold leading-tight text-light-text dark:text-dark-text">{room.title || 'Room listing'}</p>
+                <p className="rr-application-title rr-line-clamp-2 min-w-0 text-[13px] font-semibold leading-tight text-light-text dark:text-dark-text">{displayTitle}</p>
                 <p className="mt-1 flex min-h-[1rem] items-center gap-1 truncate text-[11px] font-semibold text-light-muted dark:text-dark-muted">
                     <MapPin className="h-3 w-3 flex-shrink-0 text-cyan-500" />
                     {city}

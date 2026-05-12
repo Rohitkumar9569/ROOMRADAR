@@ -25,6 +25,7 @@ import { getRoomFields, roomConfig } from '../../config/roomConfig';
 import LocationPicker from '../../components/features/rooms/LocationPicker';
 import Spinner from '../../components/common/Spinner';
 import { isPhoneFieldKey, isValidIndianMobile, phoneInputProps, sanitizePhoneInput } from '../../utils/phoneUtils';
+import { formatPreferenceLabel } from '../../utils/listingDisplay';
 
 const iconMap = {
   title: Home,
@@ -140,6 +141,16 @@ function AddRoomPage() {
   const stepProgress = Math.round(((step + 1) / steps.length) * 100);
   const CurrentStepIcon = stepIconMap[currentStep.id] || ShieldCheck;
   const currentStepCopy = stepCopyMap[currentStep.id] || 'Complete this listing section with accurate details.';
+  const selectedMapLocation = useMemo(() => {
+    const lat = Number(formData.latitude);
+    const lng = Number(formData.longitude);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+    return {
+      lat,
+      lng,
+      fullAddress: formData.fullAddress,
+    };
+  }, [formData.fullAddress, formData.latitude, formData.longitude]);
 
   useEffect(() => {
     if (!isEditMode) return;
@@ -531,7 +542,11 @@ function AddRoomPage() {
             className="input-field mt-2 h-12 rounded-[1.15rem] text-[15px]"
           >
             <option value="">Select {field.label}</option>
-            {field.options.map((option) => <option key={option} value={option}>{option}</option>)}
+            {field.options.map((option) => (
+              <option key={option} value={option}>
+                {field.key === 'gender' ? formatPreferenceLabel(option) : option}
+              </option>
+            ))}
           </select>
           {errors[field.key] && <p className="mt-1 text-sm font-semibold text-brand">{errors[field.key]}</p>}
         </div>
@@ -562,9 +577,9 @@ function AddRoomPage() {
   if (loading) return <div className="flex min-h-screen items-center justify-center"><Spinner /></div>;
 
   return (
-    <form onSubmit={handleSubmit} className="min-h-screen overflow-x-hidden bg-[radial-gradient(circle_at_top_left,rgba(6,182,212,0.09),transparent_22rem),linear-gradient(180deg,#f8fafc_0%,#eef4f8_100%)] px-2 pb-32 pt-3 text-slate-900 dark:bg-[radial-gradient(circle_at_top_left,rgba(6,182,212,0.16),transparent_22rem),linear-gradient(180deg,#0f172a_0%,#111827_100%)] dark:text-slate-50 sm:px-6 sm:pb-10 sm:pt-4 lg:px-8">
+    <form onSubmit={handleSubmit} className="rr-add-room-page min-h-screen overflow-x-hidden bg-[radial-gradient(circle_at_top_left,rgba(6,182,212,0.09),transparent_22rem),linear-gradient(180deg,#f8fafc_0%,#eef4f8_100%)] px-2 pb-32 pt-3 text-slate-900 dark:bg-[radial-gradient(circle_at_top_left,rgba(6,182,212,0.16),transparent_22rem),linear-gradient(180deg,#0f172a_0%,#111827_100%)] dark:text-slate-50 sm:px-6 sm:pb-10 sm:pt-4 lg:px-8">
       <div className="mx-auto max-w-6xl">
-        <div className="mb-4 overflow-hidden rounded-[1.65rem] border border-white/75 bg-white/82 shadow-[0_18px_50px_rgba(15,23,42,0.08)] backdrop-blur-xl dark:border-white/10 dark:bg-slate-900/72 dark:shadow-[0_24px_70px_rgba(0,0,0,0.34)] sm:rounded-[2rem]">
+        <div className="rr-add-room-shell mb-4 overflow-hidden rounded-[1.65rem] border border-white/75 bg-white/82 shadow-[0_18px_50px_rgba(15,23,42,0.08)] backdrop-blur-xl dark:border-white/10 dark:bg-slate-900/72 dark:shadow-[0_24px_70px_rgba(0,0,0,0.34)] sm:rounded-[2rem]">
           <div className="h-1.5 bg-slate-100 dark:bg-slate-800">
             <div
               className="h-full rounded-r-full bg-gradient-to-r from-brand via-rose-400 to-cyan-400 transition-all duration-500"
@@ -585,7 +600,7 @@ function AddRoomPage() {
                 Complete only real property details. Edits go for admin approval when required.
               </p>
             </div>
-            <div className="mt-4 grid grid-cols-[auto_1fr] items-center gap-3 rounded-[1.35rem] border border-brand/15 bg-gradient-to-br from-brand/10 via-white/70 to-cyan-400/10 p-3 dark:border-cyan-300/15 dark:from-cyan-300/10 dark:via-slate-950/20 dark:to-brand/10 md:mt-0 md:min-w-[13rem]">
+            <div className="rr-add-room-summary mt-4 grid grid-cols-[auto_1fr] items-center gap-3 rounded-[1.35rem] border border-brand/15 bg-gradient-to-br from-brand/10 via-white/70 to-cyan-400/10 p-3 dark:border-cyan-300/15 dark:from-cyan-300/10 dark:via-slate-950/20 dark:to-brand/10 md:mt-0 md:min-w-[13rem]">
               <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-brand shadow-sm dark:bg-slate-950/55 dark:text-cyan-200">
                 <CurrentStepIcon className="h-5 w-5" />
               </span>
@@ -609,7 +624,7 @@ function AddRoomPage() {
                 key={item.id}
                 type="button"
                 onClick={() => setStep(index)}
-                className={`flex min-h-[3.25rem] w-[8.35rem] flex-shrink-0 items-center gap-2 rounded-[1.15rem] border px-3 py-2 text-left transition active:scale-[0.98] md:w-auto ${
+                className={`rr-add-room-step-tab ${isActive ? 'is-active' : ''} flex min-h-[3.25rem] w-[8.35rem] flex-shrink-0 items-center gap-2 rounded-[1.15rem] border px-3 py-2 text-left transition active:scale-[0.98] md:w-auto ${
                   isActive
                     ? 'border-brand/40 bg-gradient-to-br from-brand to-rose-500 text-white shadow-[0_14px_34px_rgba(255,56,92,0.24)]'
                     : isComplete
@@ -636,9 +651,9 @@ function AddRoomPage() {
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.35 }}
-          className="overflow-hidden rounded-[1.65rem] border border-white/75 bg-white/86 shadow-[0_18px_50px_rgba(15,23,42,0.08)] backdrop-blur-xl dark:border-white/10 dark:bg-slate-900/74 dark:shadow-[0_24px_70px_rgba(0,0,0,0.36)] sm:rounded-[2rem]"
+          className="rr-add-room-step-panel overflow-hidden rounded-[1.65rem] border border-white/75 bg-white/86 shadow-[0_18px_50px_rgba(15,23,42,0.08)] backdrop-blur-xl dark:border-white/10 dark:bg-slate-900/74 dark:shadow-[0_24px_70px_rgba(0,0,0,0.36)] sm:rounded-[2rem]"
         >
-          <div className="border-b border-slate-100/90 bg-gradient-to-br from-white/80 to-slate-50/70 p-4 dark:border-slate-800/80 dark:from-slate-900/70 dark:to-slate-950/35 sm:p-5">
+          <div className="rr-add-room-step-head border-b border-slate-100/90 bg-gradient-to-br from-white/80 to-slate-50/70 p-4 dark:border-slate-800/80 dark:from-slate-900/70 dark:to-slate-950/35 sm:p-5">
             <div className="flex items-start gap-3">
               <span className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-brand/12 to-cyan-400/14 text-brand ring-1 ring-brand/10 dark:text-cyan-200 dark:ring-cyan-300/10">
                 <CurrentStepIcon className="h-5 w-5" />
@@ -673,7 +688,7 @@ function AddRoomPage() {
                     {errors.mapLocation && <p className="text-sm font-semibold text-brand">{errors.mapLocation}</p>}
                   </div>
                   <div className="overflow-hidden rounded-[1.35rem] border border-slate-200 bg-white/70 dark:border-slate-700 dark:bg-slate-950/25">
-                    <LocationPicker onLocationChange={handleLocationChange} />
+                    <LocationPicker onLocationChange={handleLocationChange} selectedLocation={selectedMapLocation} />
                   </div>
                 </div>
               )}
@@ -745,7 +760,7 @@ function AddRoomPage() {
           </div>
         </motion.section>
 
-        <div className="mt-5 mb-28 rounded-[1.5rem] border border-white/80 bg-white/92 p-3 shadow-[0_18px_50px_rgba(15,23,42,0.12)] backdrop-blur-xl dark:border-white/10 dark:bg-slate-900/88 dark:shadow-[0_24px_70px_rgba(0,0,0,0.38)] sm:mb-0 sm:p-5">
+        <div className="rr-add-room-footer mt-5 mb-28 rounded-[1.5rem] border border-white/80 bg-white/92 p-3 shadow-[0_18px_50px_rgba(15,23,42,0.12)] backdrop-blur-xl dark:border-white/10 dark:bg-slate-900/88 dark:shadow-[0_24px_70px_rgba(0,0,0,0.38)] sm:mb-0 sm:p-5">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="min-w-0">
               <p className="text-[10px] font-black uppercase tracking-[0.16em] text-cyan-600 dark:text-cyan-300 sm:text-[11px]">

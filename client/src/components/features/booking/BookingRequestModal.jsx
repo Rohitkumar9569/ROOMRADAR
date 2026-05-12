@@ -13,6 +13,7 @@ import {
     Sparkles, Shield
 } from 'lucide-react';
 import { isValidIndianMobile, phoneInputProps, sanitizePhoneInput } from '../../../utils/phoneUtils';
+import { formatListingTitle } from '../../../utils/listingDisplay';
 
 // --- Ultra-Premium Input Styles ---
 const baseInputStyles = "block w-full rounded-xl border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/80 shadow-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 dark:focus:border-indigo-400 dark:focus:ring-indigo-400/30 sm:text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 transition-all duration-300 hover:border-slate-300 dark:hover:border-slate-600";
@@ -78,6 +79,7 @@ const calculateDuration = (start, end) => {
 
 function BookingRequestModal({ mode = 'create', applicationData = null, room, onClose, onSuccess }) {
     const navigate = useNavigate();
+    const displayTitle = formatListingTitle(room?.title, 'Room listing');
 
     // Prevent body scroll when modal is open
     useEffect(() => {
@@ -138,13 +140,13 @@ function BookingRequestModal({ mode = 'create', applicationData = null, room, on
 
         if (!error && profileType !== 'Family') {
             if (males + females !== adults) {
-                error = `Total males and females must be ${adults}.`;
+                error = `Total men and women must be ${adults}.`;
             }
             else {
                 if (preferences.allowedGender === 'Male' && females > 0) {
-                    error = "Sorry, no females allowed.";
+                    error = "Sorry, this listing is for men only.";
                 } else if (preferences.allowedGender === 'Female' && males > 0) {
-                    error = "Sorry, no males allowed.";
+                    error = "Sorry, this listing is for women only.";
                 }
             }
         }
@@ -249,7 +251,7 @@ function BookingRequestModal({ mode = 'create', applicationData = null, room, on
                             <h2 className="text-lg font-bold text-white md:text-xl">
                                 {mode === 'edit' ? 'Edit Your Request' : 'Request to Book'}
                             </h2>
-                            <p className="text-indigo-100 text-sm mt-0.5 truncate max-w-md">{room.title}</p>
+                            <p className="text-indigo-100 text-sm mt-0.5 truncate max-w-md">{displayTitle}</p>
                         </div>
                     </div>
                 </div>
@@ -329,8 +331,8 @@ function BookingRequestModal({ mode = 'create', applicationData = null, room, on
                                 </div>
                                 {formData.adults > 0 && formData.profileType !== 'Family' && (
                                     <div className="mt-3 grid grid-cols-2 gap-3">
-                                        <NumberStepper label="Males" value={formData.males} onValueChange={(val) => handleStepperChange('males', val)} max={formData.adults - formData.females} />
-                                        <NumberStepper label="Females" value={formData.females} onValueChange={(val) => handleStepperChange('females', val)} max={formData.adults - formData.males} />
+                                        <NumberStepper label="Men" value={formData.males} onValueChange={(val) => handleStepperChange('males', val)} max={formData.adults - formData.females} />
+                                        <NumberStepper label="Women" value={formData.females} onValueChange={(val) => handleStepperChange('females', val)} max={formData.adults - formData.males} />
                                     </div>
                                 )}
                             </div>

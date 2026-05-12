@@ -21,6 +21,7 @@ import { useAuth } from '../../context/AuthContext';
 import Spinner from '../../components/common/Spinner';
 import fallbackRoomImage from '../../assets/background_img.jpg';
 import { isValidIndianMobile, phoneInputProps, sanitizePhoneInput } from '../../utils/phoneUtils';
+import { formatListingTitle } from '../../utils/listingDisplay';
 
 const durations = [
     { label: '1M', months: 1 },
@@ -119,6 +120,7 @@ const BookingPage = () => {
     const total = totalRent + securityDeposit;
     const checkOutDate = addMonths(form.moveInDate, form.durationMonths);
     const customDurationActive = !durations.some((duration) => duration.months === Number(form.durationMonths));
+    const displayTitle = formatListingTitle(room?.title, 'Room listing');
 
     const updateForm = (key, value) => {
         const nextValue = ['mobileNumber', 'emergencyPhone'].includes(key)
@@ -401,9 +403,9 @@ const BookingPage = () => {
                                     <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} className="space-y-5">
                                         <div className="rounded-2xl border border-light-border bg-light-bg p-5 dark:border-dark-border dark:bg-dark-input">
                                             <div className="flex gap-4">
-                                                <img src={getImage(room)} alt={room.title} className="h-24 w-28 rounded-2xl object-cover" />
+                                                <img src={getImage(room)} alt={displayTitle} className="h-24 w-28 rounded-2xl object-cover" />
                                                 <div>
-                                                    <h2 className="text-lg font-semibold">{room.title}</h2>
+                                                    <h2 className="text-lg font-semibold">{displayTitle}</h2>
                                                     <p className="mt-1 text-sm text-light-muted dark:text-dark-muted">{room.location?.fullAddress || room.location?.address || room.location?.city}</p>
                                                     <p className="mt-2 text-sm font-bold text-brand">{money(room.rent)} / month</p>
                                                 </div>
@@ -487,9 +489,9 @@ const BookingPage = () => {
 
                         <aside className="border-t border-light-border bg-light-bg p-5 dark:border-dark-border dark:bg-dark-input lg:border-l lg:border-t-0 lg:p-7">
                             <div className="sticky top-24 space-y-5">
-                                <img src={getImage(room)} alt={room.title} className="h-64 w-full rounded-3xl object-cover shadow-sm" />
+                                <img src={getImage(room)} alt={displayTitle} className="h-64 w-full rounded-3xl object-cover shadow-sm" />
                                 <div>
-                                    <h2 className="text-2xl font-semibold">{room.title}</h2>
+                                    <h2 className="text-2xl font-semibold">{displayTitle}</h2>
                                     <p className="mt-2 text-sm leading-6 text-light-muted dark:text-dark-muted">{room.location?.fullAddress || room.location?.address || room.location?.city}</p>
                                 </div>
                                 <div className="grid grid-cols-2 gap-3">

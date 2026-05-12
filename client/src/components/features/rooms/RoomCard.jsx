@@ -19,6 +19,7 @@ import {
 import PropTypes from 'prop-types';
 import { useAuth } from '../../../context/AuthContext';
 import { formatRoomFieldValue, getVisibleCardFields } from '../../../utils/roomFieldUtils';
+import { formatListingTitle } from '../../../utils/listingDisplay';
 import fallbackRoomImage from '../../../assets/background_img.jpg';
 
 const money = (value) => `\u20B9${Number(value || 0).toLocaleString('en-IN')}`;
@@ -298,7 +299,7 @@ function RoomCard({ room, context = 'default', onRemove, imagePriority = false }
     const city = room.location?.city || room.city || 'India';
     const state = room.location?.state || '';
     const locationLabel = [city, state].filter(Boolean).join(', ');
-    const landlord = room.landlord || {};
+    const landlord = room.landlord && typeof room.landlord === 'object' ? room.landlord : {};
     const landlordProfile = landlord.roleProfiles?.landlord || {};
     const hostName = landlordProfile.name || landlord.name || room.landlordName || 'RoomRadar host';
     const hostAvatar = landlordProfile.avatarUrl || landlordProfile.profilePicture || landlord.avatarUrl || landlord.profilePicture;
@@ -315,6 +316,7 @@ function RoomCard({ room, context = 'default', onRemove, imagePriority = false }
         || landlord.verifications?.identity
         || landlord.verifications?.property
     );
+    const displayTitle = formatListingTitle(room.title, `${city} room`);
 
     return (
         <article
@@ -330,7 +332,7 @@ function RoomCard({ room, context = 'default', onRemove, imagePriority = false }
                     <img
                         key={imageUrls[currentImageIndex]}
                         src={imageUrls[currentImageIndex]}
-                        alt={room.title || 'Room'}
+                        alt={displayTitle}
                         className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.025]"
                         loading={imageLoading}
                         decoding="async"
@@ -375,7 +377,7 @@ function RoomCard({ room, context = 'default', onRemove, imagePriority = false }
                     </div>
 
                     <div className="absolute bottom-2.5 left-2.5 right-2.5 flex items-end justify-between gap-2 sm:bottom-4 sm:left-4 sm:right-4">
-                        <span className="rr-location-badge">
+                        <span className={`rr-location-badge ${rating ? 'has-side-badge' : 'is-wide'}`}>
                             <MapPin />
                             <span>{city}</span>
                         </span>
@@ -428,7 +430,7 @@ function RoomCard({ room, context = 'default', onRemove, imagePriority = false }
                     <div className="min-w-0 flex-1">
                         <div className="rr-card-title-row mb-1.5 min-w-0">
                             <h3 className="rr-room-card-title rr-line-clamp-2 min-w-0 text-[12.5px] font-black leading-[1.18] text-light-text dark:text-dark-text min-[390px]:text-[13.25px] sm:text-[17px] sm:leading-[1.3]">
-                                {room.title || `${city} room`}
+                                {displayTitle}
                             </h3>
                         </div>
                         <div className="rr-card-price-row mb-1.5 flex min-w-0 items-center justify-between gap-1.5 sm:hidden">
@@ -523,25 +525,28 @@ RoomCard.propTypes = {
         attachedWashroom: PropTypes.bool,
         roomType: PropTypes.string,
         landlordName: PropTypes.string,
-        landlord: PropTypes.shape({
-            name: PropTypes.string,
-            avatarUrl: PropTypes.string,
-            profilePicture: PropTypes.string,
-            isVerified: PropTypes.bool,
-            kyc_status: PropTypes.string,
-            verificationLevel: PropTypes.string,
-            roleProfiles: PropTypes.shape({
-                landlord: PropTypes.shape({
-                    name: PropTypes.string,
-                    avatarUrl: PropTypes.string,
-                    profilePicture: PropTypes.string,
+        landlord: PropTypes.oneOfType([
+            PropTypes.string,
+            PropTypes.shape({
+                name: PropTypes.string,
+                avatarUrl: PropTypes.string,
+                profilePicture: PropTypes.string,
+                isVerified: PropTypes.bool,
+                kyc_status: PropTypes.string,
+                verificationLevel: PropTypes.string,
+                roleProfiles: PropTypes.shape({
+                    landlord: PropTypes.shape({
+                        name: PropTypes.string,
+                        avatarUrl: PropTypes.string,
+                        profilePicture: PropTypes.string,
+                    }),
+                }),
+                verifications: PropTypes.shape({
+                    identity: PropTypes.bool,
+                    property: PropTypes.bool,
                 }),
             }),
-            verifications: PropTypes.shape({
-                identity: PropTypes.bool,
-                property: PropTypes.bool,
-            }),
-        }),
+        ]),
         verifications: PropTypes.shape({
             property: PropTypes.bool,
         }),

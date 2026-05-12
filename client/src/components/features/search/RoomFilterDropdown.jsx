@@ -2,6 +2,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { FaChevronDown } from 'react-icons/fa';
+import { formatListingTitle } from '../../../utils/listingDisplay';
 
 const RoomFilterDropdown = ({ rooms, selectedRoomId, onSelectRoom }) => {
     const [isOpen, setIsOpen] = useState(false);
@@ -31,7 +32,7 @@ const RoomFilterDropdown = ({ rooms, selectedRoomId, onSelectRoom }) => {
                 onClick={() => setIsOpen(!isOpen)}
                 className="flex w-full items-center justify-between rounded-2xl border border-light-border bg-light-card px-4 py-3 text-sm font-bold text-light-text shadow-sm transition hover:border-brand/40 dark:border-dark-border dark:bg-dark-card dark:text-dark-text"
             >
-                <span className="truncate">{selectedRoom.title}</span>
+                <span className="truncate">{formatListingTitle(selectedRoom.title, 'Show All Rooms')}</span>
                 <FaChevronDown className={`transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
             </button>
 
@@ -50,7 +51,7 @@ const RoomFilterDropdown = ({ rooms, selectedRoomId, onSelectRoom }) => {
                                 onClick={() => handleSelect(room._id)}
                                 className="cursor-pointer truncate px-4 py-3 text-sm font-bold text-light-muted transition hover:bg-brand/10 hover:text-brand dark:text-dark-muted dark:hover:bg-dark-input"
                             >
-                                {room.title}
+                                {formatListingTitle(room.title)}
                             </li>
                         ))}
                     </ul>

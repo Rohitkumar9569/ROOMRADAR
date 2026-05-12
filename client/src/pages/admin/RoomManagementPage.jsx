@@ -6,6 +6,7 @@ import Spinner from '../../components/common/Spinner';
 import { ArrowRight, Building2, FileClock, Home, Search, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { confirmToast } from '../../utils/confirmToast';
+import { formatListingTitle } from '../../utils/listingDisplay';
 
 const TABS = ['All', 'Published', 'Pending', 'Pending_Review', 'Unpublished', 'Rejected', 'Suspended'];
 
@@ -163,13 +164,13 @@ const RoomManagementPage = () => {
                           <div className="flex items-center gap-3">
                             <div className="h-11 w-11 overflow-hidden rounded-2xl bg-cyan-500/10">
                               {room.images?.[0] || room.imageUrl ? (
-                                <img src={room.images?.[0] || room.imageUrl} alt={room.title} className="h-full w-full object-cover" loading="lazy" />
+                                <img src={room.images?.[0] || room.imageUrl} alt={formatListingTitle(room.title)} className="h-full w-full object-cover" loading="lazy" />
                               ) : (
                                 <div className="flex h-full w-full items-center justify-center text-cyan-500"><Home className="h-5 w-5" /></div>
                               )}
                             </div>
                             <div className="min-w-0">
-                              <p className="break-words text-sm font-black">{room.title}</p>
+                              <p className="break-words text-sm font-black">{formatListingTitle(room.title)}</p>
                               <p className="text-xs font-semibold text-light-muted dark:text-dark-muted">{room.roomType || 'Room type missing'}</p>
                             </div>
                           </div>
@@ -199,14 +200,14 @@ const RoomManagementPage = () => {
                   <div className="flex gap-3">
                     <div className="h-[74px] w-[88px] flex-shrink-0 overflow-hidden rounded-2xl bg-cyan-500/10">
                       {room.images?.[0] || room.imageUrl ? (
-                        <img src={room.images?.[0] || room.imageUrl} alt={room.title} className="h-full w-full object-cover" loading="lazy" />
+                        <img src={room.images?.[0] || room.imageUrl} alt={formatListingTitle(room.title)} className="h-full w-full object-cover" loading="lazy" />
                       ) : (
                         <div className="flex h-full w-full items-center justify-center text-cyan-500"><Building2 className="h-6 w-6" /></div>
                       )}
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="flex items-start justify-between gap-2">
-                        <p className="line-clamp-2 text-[14px] font-black leading-tight">{room.title}</p>
+                        <p className="line-clamp-2 text-[14px] font-black leading-tight">{formatListingTitle(room.title)}</p>
                         <span className={`flex-shrink-0 rounded-full px-2 py-1 text-[9px] font-black uppercase ${statusTone(room.status)}`}>{room.status?.replace('_', ' ')}</span>
                       </div>
                       <p className="mt-1 truncate text-[11px] font-semibold text-light-muted dark:text-dark-muted">{room.landlord?.name || 'N/A'} - {room.location?.city || 'N/A'}</p>

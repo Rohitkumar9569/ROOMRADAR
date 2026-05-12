@@ -1,17 +1,23 @@
 import React from 'react';
 import { Radar } from 'lucide-react';
 
+const routeTiles = Array.from({ length: 3 });
+
 function RouteLoader() {
   return (
     <div className="route-loader-shell" role="status" aria-live="polite" aria-label="Loading RoomRadar">
-      <div className="route-loader-card">
+      <div className="route-loader-progress" aria-hidden="true">
+        <span />
+      </div>
+
+      <div className="route-loader-card" aria-hidden="true">
         <div className="route-loader-mark">
           <span />
-          <Radar className="h-6 w-6" />
+          <Radar className="route-loader-mark-icon" />
         </div>
-        <div className="min-w-0">
-          <p className="route-loader-kicker">RoomRadar</p>
-          <p className="route-loader-title">Preparing your view</p>
+        <div className="route-loader-lines">
+          <span className="route-loader-line route-loader-line--wide" />
+          <span className="route-loader-line" />
         </div>
       </div>
 
@@ -19,9 +25,9 @@ function RouteLoader() {
         <div className="route-loader-line route-loader-line--wide" />
         <div className="route-loader-line" />
         <div className="route-loader-grid">
-          <div />
-          <div />
-          <div />
+          {routeTiles.map((_, index) => (
+            <div key={index} />
+          ))}
         </div>
       </div>
     </div>

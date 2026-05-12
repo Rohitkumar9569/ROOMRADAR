@@ -170,7 +170,7 @@ function LandlordApplicationsPage() {
                       <div className="flex items-end justify-start gap-2 md:justify-end">
                         {application.status === 'pending' ? (
                           <>
-                            <button type="button" onClick={() => updateApplicationStatus(application._id, 'approve')} className="rounded-xl bg-emerald-600 px-3 py-2 text-xs font-black text-white transition hover:bg-emerald-700">Approve</button>
+                            <button type="button" onClick={() => updateApplicationStatus(application._id, 'approve')} className="rr-approve-action rounded-xl bg-emerald-600 px-3 py-2 text-xs font-black text-white transition hover:bg-emerald-700">Approve</button>
                             <button type="button" onClick={() => updateApplicationStatus(application._id, 'reject')} className="rounded-xl bg-brand px-3 py-2 text-xs font-black text-white transition hover:bg-red-600">Reject</button>
                           </>
                         ) : (

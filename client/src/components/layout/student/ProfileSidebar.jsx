@@ -52,14 +52,14 @@ const ProfileSidebar = () => {
                         isSidebarOpen ? 'gap-3' : 'justify-center'
                     } ${
                         isActive
-                            ? 'border-cyan-500 bg-cyan-500/10 text-cyan-600 dark:bg-cyan-400/10 dark:text-cyan-300'
+                            ? 'border-cyan-500 bg-cyan-500/10 text-cyan-600 dark:border-white/20 dark:bg-white/10 dark:text-white'
                             : 'border-transparent text-light-muted hover:bg-black/5 hover:text-light-text dark:text-dark-muted dark:hover:bg-white/5 dark:hover:text-white'
                     }`
                 }
             >
                 {({ isActive }) => (
                     <>
-                        <Icon size={isSidebarOpen ? 20 : 24} strokeWidth={isActive ? 2.8 : 2.2} className={`flex-shrink-0 ${isActive ? 'text-cyan-500 dark:text-cyan-300' : 'text-current'}`} />
+                        <Icon size={isSidebarOpen ? 20 : 24} strokeWidth={isActive ? 2.8 : 2.2} className={`flex-shrink-0 ${isActive ? 'text-cyan-500 dark:text-white' : 'text-current'}`} />
                         {isSidebarOpen && <span className="truncate">{label}</span>}
                         {badge && unreadNotificationCount > 0 && (
                             <span className={`absolute flex h-5 min-w-5 items-center justify-center rounded-full bg-rose-500 px-1.5 text-[11px] font-black text-white ${isSidebarOpen ? 'right-3' : 'right-2 top-2'}`}>
@@ -129,7 +129,7 @@ const ProfileSidebar = () => {
                         onClick={handleSwitchRole}
                         onMouseEnter={() => preloadRoleDestination(user?.roles?.includes('Landlord') ? 'landlord' : 'hostForm')}
                         onFocus={() => preloadRoleDestination(user?.roles?.includes('Landlord') ? 'landlord' : 'hostForm')}
-                        className={`flex w-full items-center rounded-2xl bg-gradient-to-r from-cyan-400 to-cyan-600 px-3 py-3 text-sm font-extrabold text-white shadow-lg shadow-cyan-500/30 transition hover:brightness-105 ${isSidebarOpen ? 'justify-center' : 'justify-center'}`}
+                        className={`rr-role-switch-btn flex w-full items-center rounded-2xl bg-gradient-to-r from-cyan-400 to-cyan-600 px-3 py-3 text-sm font-extrabold text-white shadow-lg shadow-cyan-500/30 transition hover:brightness-105 ${isSidebarOpen ? 'justify-center' : 'justify-center'}`}
                     >
                         {isSidebarOpen ? (user?.roles?.includes('Landlord') ? 'Switch to Hosting' : 'Become a Host') : 'Host'}
                     </button>

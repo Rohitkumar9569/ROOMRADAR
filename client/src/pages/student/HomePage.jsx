@@ -8,6 +8,7 @@ import RoomCard from '../../components/features/rooms/RoomCard';
 import RoomCardSkeleton from '../../components/common/RoomCardSkeleton';
 import { useAuth } from '../../context/AuthContext';
 import { readTabCache, setTabCache } from '../../utils/tabDataCache';
+import { formatListingTitle } from '../../utils/listingDisplay';
 import {
   ArrowRight,
   BadgeCheck,
@@ -35,8 +36,8 @@ const categories = [
   { id: 'PG', label: 'PG', Icon: Building2 },
   { id: 'Flats', label: 'Flats', Icon: Home },
   { id: 'Studio', label: 'Studio', Icon: Hotel },
-  { id: 'Roommates', label: 'Roommates', Icon: Users },
-  { id: 'Shared Room', label: 'Shared', Icon: Handshake },
+  { id: 'Shared Room', label: 'Co-living', Icon: Users },
+  { id: 'Hostel', label: 'Hostels', Icon: Handshake },
 ];
 
 const formatCount = (value) => Number(value || 0).toLocaleString('en-IN');
@@ -44,7 +45,7 @@ const formatCount = (value) => Number(value || 0).toLocaleString('en-IN');
 const SectionHeader = ({ eyebrow, title, action }) => (
   <div className="mb-3 flex items-end justify-between gap-3 sm:mb-5">
     <div>
-      <p className="text-[10px] font-medium uppercase tracking-[0.07em] text-cyan-600 dark:text-cyan-300">{eyebrow}</p>
+      <p className="text-[10px] font-medium uppercase tracking-[0.07em] text-cyan-600 dark:text-neutral-400">{eyebrow}</p>
       <h2 className="mt-1 text-[16px] font-semibold leading-tight tracking-normal text-light-text dark:text-dark-text sm:text-xl">{title}</h2>
     </div>
     {action}
@@ -300,10 +301,11 @@ function HomePage() {
   const heroRoom = popularRooms[0] || categoryRooms[0] || recommendedRooms[0];
   const heroImage = heroRoom?.images?.[0]?.url || heroRoom?.images?.[0] || heroRoom?.imageUrl || backgroundImage;
   const heroRoomCity = heroRoom?.location?.city || heroRoom?.city || cities[0]?.name || 'Verified city';
-  const heroRoomTitle = heroRoom?.title || 'Verified rooms near campus';
+  const heroRoomTitle = formatListingTitle(heroRoom?.title, 'Verified rooms near campus');
   const heroRoomRent = Number(heroRoom?.rent || cities[0]?.avgRent || 0);
   const heroRoomBeds = Number(heroRoom?.beds || 1);
   const heroRoomType = heroRoom?.roomType || heroRoom?.type || `${heroRoomBeds} bed${heroRoomBeds > 1 ? 's' : ''}`;
+  const activeCategoryLabel = categories.find((category) => category.id === activeCategory)?.label || activeCategory;
 
   return (
     <div className="min-h-screen bg-light-bg text-light-text dark:bg-dark-bg dark:text-dark-text">
@@ -428,7 +430,7 @@ function HomePage() {
         <section className="mt-10">
           <SectionHeader
             eyebrow="Browse by category"
-            title={`${activeCategory} available now`}
+            title={`${activeCategoryLabel} available now`}
             action={(
               <button onClick={() => navigate(activeCategory === 'All' ? '/rooms' : `/rooms?type=${encodeURIComponent(activeCategory)}`)} className="inline-flex min-h-9 items-center gap-1.5 rounded-full border border-light-border bg-light-card px-3 text-xs font-semibold text-light-text transition hover:border-cyan-400 hover:text-cyan-600 dark:border-dark-border dark:bg-dark-card dark:text-dark-text">
                 View all

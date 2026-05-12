@@ -7,6 +7,7 @@ import RoomCard from '../../components/features/rooms/RoomCard';
 import RoomCardSkeleton from '../../components/common/RoomCardSkeleton';
 import { getFiltersFromConfig } from '../../utils/roomFieldUtils';
 import { readTabCache, setTabCache } from '../../utils/tabDataCache';
+import { formatPreferenceLabel } from '../../utils/listingDisplay';
 import {
   Check,
   ChevronLeft,
@@ -222,7 +223,11 @@ const FilterPanel = ({ filters, setFilters, priceRange, onApply, onClear, isShee
                   className="input-field mt-2"
                 >
                   <option value="">Any</option>
-                  {field.options.map((option) => <option key={option} value={option}>{option}</option>)}
+                  {field.options.map((option) => (
+                    <option key={option} value={option}>
+                      {field.key === 'gender' ? formatPreferenceLabel(option) : option}
+                    </option>
+                  ))}
                 </select>
               </label>
             ))}
@@ -343,7 +348,7 @@ function SearchPage() {
       if (key === 'gender' && value) {
         chips.push({
           key,
-          label: `Gender: ${value}`,
+          label: `Gender: ${formatPreferenceLabel(value)}`,
           clear: () => setFilters((prev) => ({ ...prev, gender: '' })),
         });
         return;
@@ -694,7 +699,7 @@ function SearchPage() {
                 value={naturalQuery}
                 onChange={(event) => setNaturalQuery(event.target.value)}
                 className="input-field min-h-11 pl-9 text-sm sm:pl-12"
-                placeholder="Try: 2BHK near Haridwar under 10000 for boys"
+                placeholder="Try: 2BHK near Haridwar under 10000 for women"
               />
             </div>
             <button type="submit" disabled={smartLoading || !naturalQuery.trim()} className="btn-primary inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-3 py-2 text-sm disabled:opacity-60 md:px-6">

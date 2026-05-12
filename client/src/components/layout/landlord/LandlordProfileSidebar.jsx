@@ -51,14 +51,14 @@ const LandlordProfileSidebar = () => {
                         isSidebarOpen ? 'w-full gap-3 px-3 py-3' : 'mx-auto h-11 w-11 justify-center px-0 py-0'
                     } ${
                         isActive
-                            ? 'border-cyan-500 bg-cyan-500/10 text-cyan-600 dark:bg-cyan-400/10 dark:text-cyan-300'
+                            ? 'border-cyan-500 bg-cyan-500/10 text-cyan-600 dark:border-white/20 dark:bg-white/10 dark:text-white'
                             : 'border-transparent text-light-muted hover:bg-black/5 hover:text-light-text dark:text-dark-muted dark:hover:bg-white/5 dark:hover:text-white'
                     }`
                 }
             >
                 {({ isActive }) => (
                     <>
-                        <Icon size={isSidebarOpen ? 20 : 19} strokeWidth={isActive ? 2.7 : 2} className={`flex-shrink-0 ${isActive ? 'text-cyan-500 dark:text-cyan-300' : 'text-current'}`} />
+                        <Icon size={isSidebarOpen ? 20 : 19} strokeWidth={isActive ? 2.7 : 2} className={`flex-shrink-0 ${isActive ? 'text-cyan-500 dark:text-white' : 'text-current'}`} />
                         {isSidebarOpen && <span className="truncate">{label}</span>}
                         {badge && inboxCount > 0 && (
                             <span className={`absolute flex items-center justify-center rounded-full bg-rose-500 font-black text-white ${isSidebarOpen ? 'right-3 h-5 min-w-5 px-1.5 text-[11px]' : '-right-1 -top-1 h-5 min-w-5 px-1 text-[11px]'}`}>
@@ -128,7 +128,7 @@ const LandlordProfileSidebar = () => {
                         onClick={handleSwitchRole}
                         onMouseEnter={() => preloadRoleDestination('student')}
                         onFocus={() => preloadRoleDestination('student')}
-                        className={`flex w-full items-center justify-center rounded-2xl bg-gradient-to-r from-cyan-400 to-cyan-600 font-extrabold text-white shadow-lg shadow-cyan-500/30 transition hover:brightness-105 ${isSidebarOpen ? 'px-3 py-3 text-sm' : 'min-h-10 px-2 text-[11px]'}`}
+                        className={`rr-role-switch-btn flex w-full items-center justify-center rounded-2xl bg-gradient-to-r from-cyan-400 to-cyan-600 font-extrabold text-white shadow-lg shadow-cyan-500/30 transition hover:brightness-105 ${isSidebarOpen ? 'px-3 py-3 text-sm' : 'min-h-10 px-2 text-[11px]'}`}
                     >
                         {isSidebarOpen ? 'Switch to Travelling' : 'Travel'}
                     </button>

@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { MapContainer, Marker, Popup, TileLayer } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import { formatListingTitle } from '../../../utils/listingDisplay';
 
 const money = (value) => `\u20B9${Number(value || 0).toLocaleString('en-IN')}`;
 
@@ -31,7 +32,7 @@ const RoomsMap = ({ rooms = [] }) => {
           >
             <Popup>
               <div className="w-48">
-                <p className="font-bold">{room.title}</p>
+                <p className="font-bold">{formatListingTitle(room.title)}</p>
                 <p>{money(room.rent)}/month</p>
               </div>
             </Popup>

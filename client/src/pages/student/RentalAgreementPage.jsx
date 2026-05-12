@@ -7,6 +7,7 @@ import api from '../../api';
 import Spinner from '../../components/common/Spinner';
 import BookingStatusTimeline from '../../components/features/booking/BookingStatusTimeline';
 import { useSettings } from '../../context/SettingsContext';
+import { formatListingTitle } from '../../utils/listingDisplay';
 
 const money = (value) => `\u20B9${Number(value || 0).toLocaleString('en-IN')}`;
 
@@ -130,7 +131,7 @@ const RentalAgreementPage = () => {
                                     <h2 className="text-xl font-black text-slate-950 dark:text-white">Property</h2>
                                 </div>
                                 <div className="mt-4 grid grid-cols-2 gap-3">
-                                    <Detail label="Room" value={room.title} />
+                                    <Detail label="Room" value={formatListingTitle(room.title, 'Room listing')} />
                                     <Detail label="Address" value={room.location?.fullAddress || [room.location?.city, room.location?.state].filter(Boolean).join(', ')} />
                                     <Detail label="Stay dates" value={stayDates || 'Not set'} />
                                     <Detail label="Booking ID" value={application._id} />

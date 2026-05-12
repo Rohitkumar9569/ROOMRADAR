@@ -390,7 +390,7 @@ const PremiumLandlordCalendar = ({ bookings = [], highlightThisWeek = false, onE
                   <div className="space-y-3 border-t border-light-border pt-4 dark:border-dark-border">
                     <button
                       onClick={handleApprove}
-                      className="w-full bg-green-500 text-white py-3 rounded-lg font-medium hover:bg-green-600 transition-colors flex items-center justify-center gap-2"
+                      className="rr-approve-action flex w-full items-center justify-center gap-2 rounded-lg bg-green-500 py-3 font-medium text-white transition-colors hover:bg-green-600"
                     >
                       <CheckSolidIcon className="h-5 w-5" />
                       Approve Booking

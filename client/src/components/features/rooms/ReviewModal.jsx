@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { FaStar } from 'react-icons/fa';
 import { createReview } from '../../../api';
 import toast from 'react-hot-toast';
+import { formatListingTitle } from '../../../utils/listingDisplay';
 
 const StarRating = ({ rating, setRating }) => {
   const [hover, setHover] = useState(0);
@@ -40,6 +41,7 @@ function ReviewModal({ isOpen, onClose, booking, onSuccess }) {
   const [error, setError] = useState('');
 
   if (!isOpen) return null;
+  const displayTitle = formatListingTitle(booking?.room?.title, 'this room');
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -77,7 +79,7 @@ function ReviewModal({ isOpen, onClose, booking, onSuccess }) {
           Leave a Review
         </h2>
         <p className="mb-6 text-center text-sm text-light-muted dark:text-dark-muted">
-          How was your stay at "{booking.room.title}"?
+          How was your stay at "{displayTitle}"?
         </p>
 
         <form onSubmit={handleSubmit}>

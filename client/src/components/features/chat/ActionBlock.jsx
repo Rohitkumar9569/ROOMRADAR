@@ -6,6 +6,7 @@ import { FaUserFriends, FaCalendarCheck, FaUser, FaMobileAlt, FaVenusMars } from
 import api from '../../../api';
 import toast from 'react-hot-toast';
 import BookingStatusTimeline from '../booking/BookingStatusTimeline';
+import { formatListingTitle, formatPreferenceLabel } from '../../../utils/listingDisplay';
 
 const calculateDuration = (start, end) => {
     if (!start || !end || new Date(end) <= new Date(start)) return '';
@@ -31,6 +32,8 @@ const calculateDuration = (start, end) => {
     if (days > 0) parts.push(`${days} Day${days > 1 ? 's' : ''}`);
     return parts.join(', ');
 };
+
+const peopleLabel = (count, singular, plural) => `${count} ${count === 1 ? singular : plural}`;
 
 const statusStyles = {
     pending: 'bg-amber-100 text-amber-800 dark:bg-amber-500/15 dark:text-amber-200',
@@ -104,11 +107,11 @@ const ActionBlock = ({ message, onUpdateRequest }) => {
     let compositionString = '';
 
     if (occupants) {
-        if (occupants.adults === 1 && occupants.gender) compositionString = occupants.gender;
+        if (occupants.adults === 1 && occupants.gender) compositionString = formatPreferenceLabel(occupants.gender);
         else if (occupants.adults === 2 && occupants.occupantComposition) compositionString = occupants.occupantComposition;
         else if (occupants.adults > 2 && (occupants.males > 0 || occupants.females > 0)) {
-            const maleString = `${occupants.males} Male${occupants.males !== 1 ? 's' : ''}`;
-            const femaleString = `${occupants.females} Female${occupants.females !== 1 ? 's' : ''}`;
+            const maleString = peopleLabel(occupants.males, 'Man', 'Men');
+            const femaleString = peopleLabel(occupants.females, 'Woman', 'Women');
             if (occupants.males > 0 && occupants.females > 0) compositionString = `${maleString}, ${femaleString}`;
             else if (occupants.males > 0) compositionString = maleString;
             else compositionString = femaleString;
@@ -119,6 +122,7 @@ const ActionBlock = ({ message, onUpdateRequest }) => {
 
     if (!checkInDate || !checkOutDate || !occupants) return null;
 
+    const displayRoomTitle = formatListingTitle(roomTitle, 'Room request');
     const durationString = calculateDuration(checkInDate, checkOutDate);
     const stayRange = `${format(new Date(checkInDate), 'dd MMM')} - ${format(new Date(checkOutDate), 'dd MMM, yyyy')}`;
     const occupantSummary = [
@@ -134,7 +138,7 @@ const ActionBlock = ({ message, onUpdateRequest }) => {
                         <div className="min-w-0">
                             <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#00a884]">Booking request</p>
                             <h3 className="mt-1 truncate text-[clamp(14px,3.8vw,16px)] font-black leading-tight text-slate-950 dark:text-[#e9edef]">
-                                {roomTitle || 'Room request'}
+                                {displayRoomTitle}
                             </h3>
                             <p className="mt-1 text-[11px] font-semibold text-slate-500 dark:text-[#8696a0]">
                                 Sent {format(new Date(message.createdAt), 'dd MMM, yyyy')}

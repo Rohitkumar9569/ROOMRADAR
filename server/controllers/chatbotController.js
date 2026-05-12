@@ -733,7 +733,7 @@ const createKnowledgeReply = (text = '') => {
     }
     if (language === 'hindi') return 'मैं RoomRadar पर real rooms search कर सकता हूँ। City, budget, room type और boys/girls/family preference भेजिए।';
     return hinglish
-        ? 'Main RoomRadar par real rooms search kar sakta hoon. City, budget, room type aur boys/girls/family preference bhejo.'
+        ? 'Main RoomRadar par real rooms search kar sakta hoon. City, budget, room type aur men/women/family preference bhejo.'
         : 'I can search real RoomRadar listings. Send city, budget, room type, and gender/family preference.';
 };
 

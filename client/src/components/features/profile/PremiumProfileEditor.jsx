@@ -40,7 +40,7 @@ const calculateCompletion = (form, isHost) => {
 };
 
 const ProfileSignal = ({ icon: Icon, label, value }) => (
-  <div className="min-w-0 rounded-2xl border border-white/10 bg-white/[0.07] px-3 py-2.5 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-xl">
+  <div className="rr-profile-signal min-w-0 rounded-2xl border border-white/10 bg-white/[0.07] px-3 py-2.5 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-xl">
     <div className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.1em] text-cyan-100/80">
       <Icon className="h-3.5 w-3.5 flex-shrink-0 text-cyan-200" />
       <span className="truncate">{label}</span>
@@ -174,19 +174,19 @@ function PremiumProfileEditor({ mode = 'student' }) {
   };
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-[radial-gradient(circle_at_18%_0%,rgba(6,182,212,0.12),transparent_28rem),linear-gradient(180deg,#f8fafc_0%,#eef6fb_46%,#f8fafc_100%)] p-2 pb-28 text-light-text dark:bg-[radial-gradient(circle_at_14%_0%,rgba(6,182,212,0.16),transparent_26rem),linear-gradient(180deg,#0f172a_0%,#111827_52%,#0f172a_100%)] dark:text-dark-text sm:p-4 md:p-6">
+    <div className="rr-profile-editor relative min-h-screen overflow-hidden bg-[radial-gradient(circle_at_18%_0%,rgba(6,182,212,0.12),transparent_28rem),linear-gradient(180deg,#f8fafc_0%,#eef6fb_46%,#f8fafc_100%)] p-2 pb-28 text-light-text dark:bg-[radial-gradient(circle_at_14%_0%,rgba(6,182,212,0.16),transparent_26rem),linear-gradient(180deg,#0f172a_0%,#111827_52%,#0f172a_100%)] dark:text-dark-text sm:p-4 md:p-6">
       <div className="pointer-events-none absolute -right-24 top-20 h-56 w-56 rounded-full bg-brand/10 blur-3xl dark:bg-brand/15" />
       <div className="pointer-events-none absolute -left-24 top-72 h-56 w-56 rounded-full bg-cyan-400/10 blur-3xl dark:bg-cyan-400/15" />
 
       <div className="relative mx-auto max-w-5xl">
-        <section className="overflow-hidden rounded-[1.6rem] border border-white/60 bg-white/70 shadow-[0_28px_80px_-54px_rgba(15,23,42,0.85)] backdrop-blur-2xl dark:border-white/10 dark:bg-white/[0.045] dark:shadow-[0_30px_90px_-54px_rgba(0,0,0,0.95)] sm:rounded-[2rem]">
-          <div className={`relative min-h-[15.25rem] overflow-hidden px-4 pb-4 pt-5 text-white md:min-h-[18rem] md:px-8 md:pt-8 ${
+        <section className="rr-profile-shell overflow-hidden rounded-[1.6rem] border border-white/60 bg-white/70 shadow-[0_28px_80px_-54px_rgba(15,23,42,0.85)] backdrop-blur-2xl dark:border-white/10 dark:bg-white/[0.045] dark:shadow-[0_30px_90px_-54px_rgba(0,0,0,0.95)] sm:rounded-[2rem]">
+          <div className={`rr-profile-hero relative min-h-[15.25rem] overflow-hidden px-4 pb-4 pt-5 text-white md:min-h-[18rem] md:px-8 md:pt-8 ${
             isHost
               ? 'bg-[linear-gradient(135deg,rgba(6,182,212,0.95)_0%,rgba(15,23,42,0.98)_45%,rgba(255,56,92,0.92)_100%)]'
               : 'bg-[linear-gradient(135deg,rgba(255,56,92,0.95)_0%,rgba(88,28,135,0.98)_46%,rgba(6,182,212,0.9)_100%)]'
           }`}>
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_8%,rgba(255,255,255,0.28),transparent_18rem),radial-gradient(circle_at_90%_0%,rgba(255,255,255,0.2),transparent_16rem)]" />
-            <div className="absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-slate-950/62 to-transparent" />
+            <div className="rr-profile-hero-glow absolute inset-0 bg-[radial-gradient(circle_at_18%_8%,rgba(255,255,255,0.28),transparent_18rem),radial-gradient(circle_at_90%_0%,rgba(255,255,255,0.2),transparent_16rem)]" />
+            <div className="rr-profile-hero-fade absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-slate-950/62 to-transparent" />
             <div className="relative flex items-start justify-between gap-3">
               {copy.roleBadge ? (
                 <span className="inline-flex items-center gap-2 rounded-full border border-white/22 bg-white/12 px-3 py-1.5 text-[clamp(9px,2.6vw,11px)] font-black uppercase tracking-[0.12em] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.18)] backdrop-blur-xl">
@@ -229,7 +229,7 @@ function PremiumProfileEditor({ mode = 'student' }) {
           </div>
 
           <div className="px-4 py-4 md:px-8">
-            <div className="rounded-[1.25rem] border border-slate-200/80 bg-slate-50/80 p-4 shadow-inner shadow-white/70 dark:border-white/10 dark:bg-slate-950/34 dark:shadow-none">
+            <div className="rr-profile-completion rounded-[1.25rem] border border-slate-200/80 bg-slate-50/80 p-4 shadow-inner shadow-white/70 dark:border-white/10 dark:bg-slate-950/34 dark:shadow-none">
               <div className="flex items-center justify-between">
                 <span className="text-[clamp(12px,3.3vw,14px)] font-black">Profile completion</span>
                 <span className="text-[clamp(18px,5vw,24px)] font-black text-brand">{completion}%</span>
@@ -245,7 +245,7 @@ function PremiumProfileEditor({ mode = 'student' }) {
         </section>
 
         <div className="mt-5 grid gap-5 lg:grid-cols-[1fr_320px]">
-          <form onSubmit={handleSave} className="rounded-[1.6rem] border border-white/60 bg-white/78 p-4 shadow-[0_22px_70px_-54px_rgba(15,23,42,0.9)] backdrop-blur-2xl dark:border-white/10 dark:bg-white/[0.045] dark:shadow-[0_24px_72px_-54px_rgba(0,0,0,0.9)] sm:rounded-[2rem] sm:p-5 md:p-6">
+          <form onSubmit={handleSave} className="rr-profile-card rounded-[1.6rem] border border-white/60 bg-white/78 p-4 shadow-[0_22px_70px_-54px_rgba(15,23,42,0.9)] backdrop-blur-2xl dark:border-white/10 dark:bg-white/[0.045] dark:shadow-[0_24px_72px_-54px_rgba(0,0,0,0.9)] sm:rounded-[2rem] sm:p-5 md:p-6">
             <div className="mb-5 flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <span className="mb-2 inline-flex rounded-full bg-cyan-500/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-cyan-700 dark:text-cyan-200">
@@ -298,7 +298,7 @@ function PremiumProfileEditor({ mode = 'student' }) {
             </label>
 
             {isHost && (
-              <section className="mt-6 rounded-3xl border border-light-border bg-light-bg p-5 dark:border-dark-border dark:bg-dark-sidebar">
+              <section className="rr-profile-card mt-6 rounded-3xl border border-light-border bg-light-bg p-5 dark:border-dark-border dark:bg-dark-sidebar">
                 <div className="mb-4 flex items-start gap-3">
                   <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-cyan-500/10 text-cyan-600 dark:text-cyan-300">
                     <Wallet className="h-5 w-5" />
@@ -392,7 +392,7 @@ function PremiumProfileEditor({ mode = 'student' }) {
           </form>
 
           <aside className="space-y-5">
-            <div className="rounded-[1.6rem] border border-white/60 bg-white/76 p-5 shadow-[0_20px_62px_-52px_rgba(15,23,42,0.8)] backdrop-blur-2xl dark:border-white/10 dark:bg-white/[0.045]">
+            <div className="rr-profile-card rounded-[1.6rem] border border-white/60 bg-white/76 p-5 shadow-[0_20px_62px_-52px_rgba(15,23,42,0.8)] backdrop-blur-2xl dark:border-white/10 dark:bg-white/[0.045]">
               <div className="flex items-center gap-3">
                 <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-brand/10 text-brand">
                   <ShieldCheck className="h-5 w-5" />
@@ -412,7 +412,7 @@ function PremiumProfileEditor({ mode = 'student' }) {
               </div>
             </div>
 
-            <div className="rounded-[1.6rem] border border-white/60 bg-white/76 p-5 shadow-[0_20px_62px_-52px_rgba(15,23,42,0.8)] backdrop-blur-2xl dark:border-white/10 dark:bg-white/[0.045]">
+            <div className="rr-profile-card rounded-[1.6rem] border border-white/60 bg-white/76 p-5 shadow-[0_20px_62px_-52px_rgba(15,23,42,0.8)] backdrop-blur-2xl dark:border-white/10 dark:bg-white/[0.045]">
               <div className="flex items-center gap-3">
                 <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-cyan-500/10 text-cyan-600 dark:text-cyan-200">
                   <BadgeCheck className="h-5 w-5" />

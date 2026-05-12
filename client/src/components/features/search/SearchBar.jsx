@@ -442,18 +442,22 @@ function SearchBar({ criteria, onCriteriaChange, onSearch, onClear, inputId = 'h
                                             </span>
                                         </div>
                                         <div className="mt-2.5 grid grid-cols-3 gap-2">
-                                            {['Any', 'Male', 'Female'].map((option) => (
+                                            {[
+                                                { value: 'Any', label: 'Any' },
+                                                { value: 'Male', label: 'Men' },
+                                                { value: 'Female', label: 'Women' },
+                                            ].map((option) => (
                                                 <button
-                                                    key={option}
+                                                    key={option.value}
                                                     type="button"
-                                                    onClick={() => onCriteriaChange({ gender: option })}
+                                                    onClick={() => onCriteriaChange({ gender: option.value })}
                                                     className={`min-h-9 rounded-full border px-3 text-xs font-black transition ${
-                                                        genderPreference === option
+                                                        genderPreference === option.value
                                                             ? 'border-cyan-600 bg-cyan-600 text-white'
                                                             : 'border-light-border bg-slate-50 text-light-muted dark:border-dark-border dark:bg-dark-card dark:text-dark-muted'
                                                     }`}
                                                 >
-                                                    {option}
+                                                    {option.label}
                                                 </button>
                                             ))}
                                         </div>

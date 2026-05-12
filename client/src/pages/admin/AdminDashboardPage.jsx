@@ -23,6 +23,7 @@ import {
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { formatDistanceToNow } from 'date-fns';
 import { confirmToast } from '../../utils/confirmToast';
+import { formatListingTitle } from '../../utils/listingDisplay';
 
 const money = (value = 0) =>
   new Intl.NumberFormat('en-IN', {
@@ -371,13 +372,13 @@ const AdminDashboardPage = () => {
                 <div key={room._id} className="rounded-3xl border border-light-border bg-light-bg p-4 dark:border-dark-border dark:bg-dark-input">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <p className="break-words text-sm font-black">{room.title}</p>
+                      <p className="break-words text-sm font-black">{formatListingTitle(room.title)}</p>
                       <p className="mt-1 text-xs font-semibold text-light-muted dark:text-dark-muted">{room.landlord?.name || 'Unknown landlord'}</p>
                     </div>
                     <span className="rounded-full bg-amber-500/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-amber-600 dark:text-amber-300">Pending</span>
                   </div>
                   <div className="mt-4 grid grid-cols-3 gap-2">
-                    <button onClick={() => handleApproveRoom(room._id)} className="rounded-2xl bg-emerald-500/10 px-3 py-2 text-xs font-black text-emerald-600 transition hover:bg-emerald-500 hover:text-white">Approve</button>
+                    <button onClick={() => handleApproveRoom(room._id)} className="rr-approve-action rounded-2xl bg-emerald-500/10 px-3 py-2 text-xs font-black text-emerald-600 transition hover:bg-emerald-500 hover:text-white">Approve</button>
                     <button onClick={() => handleRejectRoom(room._id)} className="rounded-2xl bg-red-500/10 px-3 py-2 text-xs font-black text-red-600 transition hover:bg-red-500 hover:text-white">Reject</button>
                     <Link to={`/admin/rooms/${room._id}/review`} className="rounded-2xl bg-cyan-500/10 px-3 py-2 text-center text-xs font-black text-cyan-600 transition hover:bg-cyan-500 hover:text-white">View</Link>
                   </div>

@@ -1,4 +1,5 @@
 import { getCardFields, getDetailFields, getFilterableFields, getSection } from '../config/roomConfig';
+import { formatPreferenceLabel } from './listingDisplay';
 
 const toFiniteNumber = (value) => {
   const rawValue = value && typeof value === 'object' ? value.value : value;
@@ -80,6 +81,7 @@ export const formatRoomFieldValue = (field, value) => {
     if (value === 'Bachelors') return 'Bachelors Only';
     if (value === 'Family') return 'Family Only';
   }
+  if (field.key === 'gender') return formatPreferenceLabel(value);
   return String(value);
 };
 

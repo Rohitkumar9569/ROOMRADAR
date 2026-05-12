@@ -31,6 +31,7 @@ import Spinner from '../../components/common/Spinner';
 import ReviewsSection from '../../components/features/rooms/ReviewsSection';
 import { roomConfig } from '../../config/roomConfig';
 import { formatRoomFieldValue, getRoomFieldValue } from '../../utils/roomFieldUtils';
+import { formatListingTitle } from '../../utils/listingDisplay';
 import fallbackRoomImage from '../../assets/background_img.jpg';
 
 const money = (value) => new Intl.NumberFormat('en-IN', {
@@ -163,7 +164,7 @@ const AdminDecisionPanel = ({ room, onApprove, onReject }) => {
         <button
           onClick={handleApproveClick}
           disabled={isSubmitting}
-          className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 px-4 text-sm font-black text-white shadow-lg shadow-emerald-500/20 transition hover:bg-emerald-600 disabled:opacity-50"
+          className="rr-approve-action flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 px-4 text-sm font-black text-white shadow-lg shadow-emerald-500/20 transition hover:bg-emerald-600 disabled:opacity-50"
         >
           <Check className="h-5 w-5" /> Approve & publish
         </button>
@@ -582,6 +583,7 @@ const AdminRoomReviewPage = () => {
   if (loading) return <div className="flex min-h-screen items-center justify-center"><Spinner /></div>;
   if (error) return <div className="min-h-screen bg-light-bg py-20 text-center text-red-500 dark:bg-dark-bg">{error}</div>;
   if (!room) return <div className="min-h-screen bg-light-bg py-20 text-center text-light-muted dark:bg-dark-bg dark:text-dark-muted">Room not found.</div>;
+  const displayTitle = formatListingTitle(room.title);
 
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,rgba(6,182,212,0.10),transparent_26rem),#f8fafc] text-slate-950 dark:bg-[radial-gradient(circle_at_top_left,rgba(6,182,212,0.15),transparent_26rem),#0f172a] dark:text-white">
@@ -598,7 +600,7 @@ const AdminRoomReviewPage = () => {
             <div className="min-w-0">
               <p className="text-[10px] font-black uppercase tracking-[0.2em] text-cyan-600 dark:text-cyan-300">Listing review</p>
               <h1 className="mt-2 max-w-4xl break-words text-[clamp(24px,3vw,40px)] font-black leading-[1.04] tracking-[-0.03em]">
-                {room.title}
+                {displayTitle}
               </h1>
               <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-slate-500 dark:text-slate-400">
                 Validate real inventory, host trust, pricing, location, amenities, rules, and booking signals before this listing goes live.
@@ -620,7 +622,7 @@ const AdminRoomReviewPage = () => {
 
         <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(20rem,28rem)]">
           <main className="order-2 min-w-0 space-y-5 xl:order-1">
-            <ReviewGallery images={images} title={room.title} />
+            <ReviewGallery images={images} title={displayTitle} />
 
             <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
               <MetricCard label="Room type" value={room.roomType || 'Not set'} Icon={Building2} />

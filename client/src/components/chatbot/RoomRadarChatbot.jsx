@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import api from '../../api';
 import fallbackRoomImage from '../../assets/background_img.jpg';
+import { formatListingTitle } from '../../utils/listingDisplay';
 
 const suggestions = [
     'Show rooms in Haridwar',
@@ -298,10 +299,36 @@ const RoomRadarChatbot = () => {
     ]);
     const [typing, setTyping] = useState(false);
     const endRef = useRef(null);
+    const scrollRef = useRef(null);
+    const wasOpenRef = useRef(false);
 
-    useEffect(() => {
-        if (open) endRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, [messages, typing, open]);
+    useLayoutEffect(() => {
+        if (!open) {
+            wasOpenRef.current = false;
+            return undefined;
+        }
+
+        const node = scrollRef.current;
+        if (!node) return undefined;
+
+        const behavior = wasOpenRef.current ? 'smooth' : 'auto';
+        const scrollToBottom = () => {
+            const top = Math.max(node.scrollHeight - node.clientHeight, 0);
+            if (behavior === 'smooth') {
+                node.scrollTo({ top, behavior: 'smooth' });
+                return;
+            }
+            node.scrollTop = top;
+        };
+
+        scrollToBottom();
+        const frameId = typeof window !== 'undefined' ? window.requestAnimationFrame(scrollToBottom) : null;
+        wasOpenRef.current = true;
+
+        return () => {
+            if (frameId && typeof window !== 'undefined') window.cancelAnimationFrame(frameId);
+        };
+    }, [messages.length, typing, open]);
 
     const sendMessage = async (text = input) => {
         const trimmed = text.trim();
@@ -498,7 +525,7 @@ const RoomRadarChatbot = () => {
                                 </button>
                             </header>
 
-                            <div className="rr-chatbot-scroll flex-1 overflow-y-auto px-4 py-5">
+                            <div ref={scrollRef} className="rr-chatbot-scroll flex-1 overflow-y-auto px-4 py-5">
                                 <div className="space-y-4">
                                     {messages.map((message, index) => (
                                         <MessageBubble key={`${message.role}-${index}`} message={message} closeDrawer={() => setOpen(false)} />
@@ -674,6 +701,7 @@ const ChatRoomCard = ({ room, index, sort, closeDrawer }) => {
     const amenities = getRoomAmenityLabels(room);
     const isTopPrice = index === 0 && sort === 'price_asc';
     const isTopRated = index === 0 && sort === 'rating';
+    const displayTitle = formatListingTitle(room?.title, 'Room listing');
 
     return (
         <Link
@@ -684,7 +712,7 @@ const ChatRoomCard = ({ room, index, sort, closeDrawer }) => {
             <div className="rr-chat-room-card-media relative aspect-[4/3] overflow-hidden bg-light-bg dark:bg-dark-input">
                 <img
                     src={getRoomImage(room)}
-                    alt={room.title || 'Room'}
+                    alt={displayTitle}
                     className="h-full w-full object-cover"
                     loading="lazy"
                     decoding="async"
@@ -712,7 +740,7 @@ const ChatRoomCard = ({ room, index, sort, closeDrawer }) => {
                     </span>
                 )}
                 <h3 className="rr-line-clamp-2 min-w-0 text-sm font-black leading-tight text-light-text dark:text-dark-text">
-                    {room.title || 'Room listing'}
+                    {displayTitle}
                 </h3>
                 <p className="mt-1.5 rr-line-clamp-2 text-[11px] font-semibold leading-snug text-light-muted dark:text-dark-muted">
                     {getRoomLocation(room)}

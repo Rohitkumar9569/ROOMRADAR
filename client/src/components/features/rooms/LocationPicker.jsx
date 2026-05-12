@@ -55,12 +55,50 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-shadow.png',
 });
 
+const DEFAULT_INDIAN_LOCATION = [20.5937, 78.9629];
+const DEFAULT_LOCATION_DETAILS = {
+  fullAddress: 'Search or move the map to choose the exact location.',
+  rawData: null,
+};
+
+const normalizeLocation = (location) => {
+  if (!location) return null;
+  const lat = Number(location.lat ?? location.latitude);
+  const lng = Number(location.lng ?? location.longitude);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+  return {
+    lat,
+    lng,
+    fullAddress: location.fullAddress || location.address || '',
+  };
+};
+
+const getGeolocationPermissionState = async () => {
+  try {
+    if (typeof navigator === 'undefined' || !navigator.permissions?.query) return 'unknown';
+    const status = await navigator.permissions.query({ name: 'geolocation' });
+    return status.state;
+  } catch (error) {
+    return 'unknown';
+  }
+};
+
+const getGeolocationErrorMessage = (error) => {
+  if (error?.code === 1) {
+    return 'Location permission is blocked. Enable it in browser site settings or search manually.';
+  }
+  if (error?.code === 2) {
+    return 'Current location is unavailable. Search or move the map manually.';
+  }
+  return 'Location request timed out. Search or move the map manually.';
+};
+
 // --- HELPER COMPONENTS ---
 
 function ChangeView({ center, zoom }) {
   const map = useMap();
   useEffect(() => {
-    if (Array.isArray(center) && center[0] !== 20 && center[1] !== 0) {
+    if (Array.isArray(center) && Number.isFinite(center[0]) && Number.isFinite(center[1])) {
       map.flyTo(center, zoom, {
         animate: true,
         duration: 0.9,
@@ -70,7 +108,7 @@ function ChangeView({ center, zoom }) {
   return null;
 }
 
-function MapControls({ onSearch, userInitialLocation }) {
+function MapControls({ locating, onSearch, onUseCurrentLocation, userInitialLocation }) {
   const [searchQuery, setSearchQuery] = useState('');
   const map = useMap();
 
@@ -91,7 +129,7 @@ function MapControls({ onSearch, userInitialLocation }) {
       map.flyTo(userInitialLocation, 17, { animate: true, duration: 0.9 });
       toast.success("Recentering to your location!");
     } else {
-      toast.error("Your location is not available.");
+      onUseCurrentLocation?.();
     }
   };
 
@@ -114,16 +152,15 @@ function MapControls({ onSearch, userInitialLocation }) {
           Search
         </button>
       </div>
-      {userInitialLocation && (
-        <button
-          type="button"
-          onClick={handleRecenter}
-          title="Recenter Map"
-          className="flex h-12 w-12 cursor-pointer items-center justify-center rounded-full border-2 border-light-border bg-light-card shadow-lg transition-colors hover:bg-light-bg dark:border-dark-border dark:bg-dark-card dark:hover:bg-dark-input"
-        >
-          <svg className="text-light-text dark:text-dark-text" xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3" /><circle cx="12" cy="12" r="8" /><line x1="12" y1="2" x2="12" y2="6" /><line x1="12" y1="18" x2="12" y2="22" /><line x1="2" y1="12" x2="6" y2="12" /><line x1="18" y1="12" x2="22" y2="12" /></svg>
-        </button>
-      )}
+      <button
+        type="button"
+        onClick={handleRecenter}
+        disabled={locating}
+        title={userInitialLocation ? 'Recenter map' : 'Use current location'}
+        className="flex h-12 w-12 cursor-pointer items-center justify-center rounded-full border-2 border-light-border bg-light-card shadow-lg transition-colors hover:bg-light-bg disabled:cursor-wait disabled:opacity-70 dark:border-dark-border dark:bg-dark-card dark:hover:bg-dark-input"
+      >
+        <svg className={`text-light-text dark:text-dark-text ${locating ? 'animate-spin' : ''}`} xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3" /><circle cx="12" cy="12" r="8" /><line x1="12" y1="2" x2="12" y2="6" /><line x1="12" y1="18" x2="12" y2="22" /><line x1="2" y1="12" x2="6" y2="12" /><line x1="18" y1="12" x2="22" y2="12" /></svg>
+      </button>
     </div>
   );
 }
@@ -145,9 +182,9 @@ function MapInteractionHandler({ onCenterChange }) {
   }, 800), [map, onCenterChange]);
 
   useEffect(() => {
-    map.on('moveend', throttledMoveHandler);
+    map.on('dragend', throttledMoveHandler);
     return () => {
-      map.off('moveend', throttledMoveHandler);
+      map.off('dragend', throttledMoveHandler);
       throttledMoveHandler.cancel?.();
     };
   }, [map, throttledMoveHandler]);
@@ -155,10 +192,21 @@ function MapInteractionHandler({ onCenterChange }) {
 }
 
 // --- MAIN LOCATION PICKER COMPONENT ---
-function LocationPicker({ onLocationChange }) {
-  const [mapCenter, setMapCenter] = useState([20, 0]);
-  const [locationDetails, setLocationDetails] = useState(null);
+function LocationPicker({ onLocationChange, selectedLocation }) {
+  const normalizedSelectedLocation = useMemo(() => normalizeLocation(selectedLocation), [selectedLocation]);
+  const [mapCenter, setMapCenter] = useState(() => (
+    normalizedSelectedLocation
+      ? [normalizedSelectedLocation.lat, normalizedSelectedLocation.lng]
+      : DEFAULT_INDIAN_LOCATION
+  ));
+  const [mapZoom, setMapZoom] = useState(() => (normalizedSelectedLocation ? 17 : 5));
+  const [locationDetails, setLocationDetails] = useState(() => (
+    normalizedSelectedLocation
+      ? { fullAddress: normalizedSelectedLocation.fullAddress || 'Saved map location', rawData: null }
+      : DEFAULT_LOCATION_DETAILS
+  ));
   const [userInitialLocation, setUserInitialLocation] = useState(null);
+  const [locating, setLocating] = useState(false);
   const mountedRef = useRef(true);
 
   const handleCenterChange = useCallback(async (center) => {
@@ -177,33 +225,69 @@ function LocationPicker({ onLocationChange }) {
   }, []);
 
   useEffect(() => {
-    let cancelled = false;
+    if (!normalizedSelectedLocation) return;
+    setMapCenter([normalizedSelectedLocation.lat, normalizedSelectedLocation.lng]);
+    setMapZoom(17);
+    setLocationDetails({
+      fullAddress: normalizedSelectedLocation.fullAddress || 'Saved map location',
+      rawData: null,
+    });
+  }, [normalizedSelectedLocation]);
+
+  const requestCurrentLocation = useCallback(({ silent = false } = {}) => {
+    if (typeof navigator === 'undefined' || !navigator.geolocation) {
+      if (!silent) toast.error('Geolocation is not supported in this browser.');
+      return;
+    }
+
+    setLocating(true);
     navigator.geolocation.getCurrentPosition(
       (position) => {
-        if (cancelled || !mountedRef.current) return;
+        if (!mountedRef.current) return;
         const { latitude, longitude } = position.coords;
         const userPos = [latitude, longitude];
         setUserInitialLocation(userPos);
         setMapCenter(userPos);
+        setMapZoom(17);
         handleCenterChange({ lat: latitude, lng: longitude });
-        toast.success("Location detected!");
+        if (!silent) toast.success('Location detected.');
+        setLocating(false);
       },
-      () => {
-        if (cancelled || !mountedRef.current) return;
-        toast.error("Could not get location. Flying to a default location.");
-        const defaultIndianLocation = [20.5937, 78.9629];
-        setMapCenter(defaultIndianLocation);
-        handleCenterChange({ lat: defaultIndianLocation[0], lng: defaultIndianLocation[1] });
+      (error) => {
+        if (!mountedRef.current) return;
+        setLocationDetails((current) => current || DEFAULT_LOCATION_DETAILS);
+        if (!silent) toast.error(getGeolocationErrorMessage(error), { id: 'room-location-permission' });
+        setLocating(false);
       },
-      { enableHighAccuracy: true, timeout: 6000, maximumAge: 0 }
+      { enableHighAccuracy: true, timeout: 6000, maximumAge: 60000 }
     );
+  }, [handleCenterChange]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const maybeUseGrantedLocation = async () => {
+      if (normalizedSelectedLocation || typeof navigator === 'undefined' || !navigator.geolocation) return;
+      const permissionState = await getGeolocationPermissionState();
+      if (cancelled || !mountedRef.current) return;
+      if (permissionState === 'granted') {
+        requestCurrentLocation({ silent: true });
+      } else {
+        setMapCenter(DEFAULT_INDIAN_LOCATION);
+        setMapZoom(5);
+        setLocationDetails(DEFAULT_LOCATION_DETAILS);
+      }
+    };
+
+    maybeUseGrantedLocation();
     return () => {
       cancelled = true;
     };
-  }, [handleCenterChange]);
+  }, [normalizedSelectedLocation, requestCurrentLocation]);
 
   const handleSearch = useCallback((coords) => {
     setMapCenter([coords.lat, coords.lng]);
+    setMapZoom(17);
     handleCenterChange(coords);
   }, [handleCenterChange]);
 
@@ -211,7 +295,7 @@ function LocationPicker({ onLocationChange }) {
     <div className="relative w-full h-[500px] rounded-2xl overflow-hidden shadow-xl">
       <MapContainer
         center={mapCenter}
-        zoom={2}
+        zoom={mapZoom}
         className="w-full h-full"
         zoomControl={false}
       >
@@ -221,8 +305,13 @@ function LocationPicker({ onLocationChange }) {
         />
         <ZoomControl position="bottomright" />
         <MapInteractionHandler onCenterChange={handleCenterChange} />
-        <MapControls onSearch={handleSearch} userInitialLocation={userInitialLocation} />
-        <ChangeView center={mapCenter} zoom={17} />
+        <MapControls
+          locating={locating}
+          onSearch={handleSearch}
+          onUseCurrentLocation={requestCurrentLocation}
+          userInitialLocation={userInitialLocation}
+        />
+        <ChangeView center={mapCenter} zoom={mapZoom} />
       </MapContainer>
 
       {/* --- Overlays --- */}
@@ -246,7 +335,7 @@ function LocationPicker({ onLocationChange }) {
 
       </div>
       <div className="absolute bottom-5 left-1/2 z-[1000] max-w-[80%] -translate-x-1/2 rounded-full border border-light-border bg-light-card px-5 py-3 text-center text-sm font-semibold text-light-text shadow-2xl dark:border-dark-border dark:bg-dark-card dark:text-dark-text">
-        {locationDetails ? locationDetails.fullAddress : 'Detecting your location...'}
+        {locationDetails ? locationDetails.fullAddress : DEFAULT_LOCATION_DETAILS.fullAddress}
       </div>
     </div>
   );

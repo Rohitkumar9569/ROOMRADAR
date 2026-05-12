@@ -5,10 +5,11 @@ import api from '../../api';
 import { useAuth } from '../../context/AuthContext';
 import toast from 'react-hot-toast';
 import LandlordRoomCard from '../../components/features/rooms/LandlordRoomCard';
+import ListingCardSkeleton from '../../components/common/ListingCardSkeleton';
 
-const LoadingSpinner = () => (
-    <div className="flex items-center justify-center bg-light-bg py-20 dark:bg-dark-bg">
-        <div className="h-16 w-16 animate-spin rounded-full border-b-2 border-t-2 border-brand"></div>
+const LoadingSkeleton = () => (
+    <div className="mobile-room-grid grid gap-3 bg-light-bg py-4 dark:bg-dark-bg md:gap-5 xl:[grid-template-columns:repeat(auto-fill,minmax(280px,1fr))]">
+        {Array.from({ length: 6 }).map((_, index) => <ListingCardSkeleton key={index} />)}
     </div>
 );
 
@@ -113,7 +114,7 @@ function MyRoomsPage() {
 
     const TABS = ['All', 'Published', 'Pending', 'Unpublished', 'Booked'];
 
-    if (loading) return <LoadingSpinner />;
+    if (loading) return <LoadingSkeleton />;
     if (error) return <div className="min-h-full bg-light-bg p-6 text-center dark:bg-dark-bg"><p className="text-red-500">{error}</p></div>;
 
     return (

@@ -82,7 +82,8 @@ const SmartAppHeader = () => {
   const chatName = activeChatMeta?.name || 'Chat';
   const chatSubtitle = activeChatMeta?.subtitle || (activeChatMeta?.isOnline ? 'Active now' : 'Recently active');
   const chatAvatar = activeChatMeta?.avatarUrl;
-  const chatStatus = formatStatusLabel(activeChatMeta?.statusLabel || activeChatMeta?.typeLabel);
+  const rawChatStatus = formatStatusLabel(activeChatMeta?.statusLabel || activeChatMeta?.typeLabel);
+  const chatStatus = rawChatStatus.toLowerCase() === 'admin update' ? 'Admin' : rawChatStatus;
   const showBack = isChat || path.startsWith('/room/') || path.includes('/payment/') || path.includes('/agreement/') || path.includes('/report-damage/') || /\/admin\/(?:users|rooms)\/[^/]+/.test(path);
   const inboxHeaderSearchActive = isInbox && !isChat && inboxListScrolled;
   const compactLogo = inboxHeaderSearchActive || isAdmin || isLandlord || ((isHome || isSearchPage) && headerSearchActive) || (!isHome && !isSearchPage && !showBack);
@@ -231,8 +232,8 @@ const SmartAppHeader = () => {
               <span className={`smart-header-online-dot ${activeChatMeta?.isOnline ? 'is-online' : ''}`} />
             </span>
             <span className="min-w-0 flex-1 text-left">
-              <span className="block truncate text-[clamp(14px,3.9vw,16px)] font-black leading-tight">{chatName}</span>
-              <span className="block truncate text-[clamp(11.2px,3.1vw,12.5px)] font-bold leading-tight text-slate-500 dark:text-slate-400">{chatSubtitle}</span>
+              <span className="block truncate text-[clamp(15.5px,4.35vw,17.5px)] font-black leading-tight">{chatName}</span>
+              <span className="block truncate text-[clamp(12.4px,3.48vw,14px)] font-extrabold leading-tight text-slate-500 dark:text-slate-400">{chatSubtitle}</span>
             </span>
           </button>
           {chatStatus && (
@@ -283,7 +284,7 @@ const SmartAppHeader = () => {
                     onChange={(event) => setNavbarLocationDraft(event.target.value)}
                     onFocus={() => setIsNavbarSearchFocused(true)}
                     onBlur={() => window.setTimeout(() => setIsNavbarSearchFocused(false), 120)}
-                    placeholder="Search address, area, city"
+                    placeholder="Search city or area"
                     aria-label="Search address, area, city, or campus"
                     autoComplete="street-address"
                     enterKeyHint="search"

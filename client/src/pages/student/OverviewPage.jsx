@@ -19,6 +19,7 @@ import Spinner from '../../components/common/Spinner';
 import BookingStatusTimeline from '../../components/features/booking/BookingStatusTimeline';
 import { useAuth } from '../../context/AuthContext';
 import fallbackRoomImage from '../../assets/background_img.jpg';
+import { formatListingTitle } from '../../utils/listingDisplay';
 
 const statusMeta = {
     pending: { label: 'Pending', Icon: Timer, badge: 'bg-amber-50 text-amber-700 ring-amber-200 dark:bg-amber-500/15 dark:text-amber-200 dark:ring-amber-400/20' },
@@ -197,9 +198,9 @@ function OverviewPage() {
                                 ) : (
                                     wishlist.slice(0, 3).map((room) => (
                                         <Link key={room._id} to={`/room/${room._id}`} className="flex gap-3 rounded-2xl border border-light-border p-3 transition hover:border-brand dark:border-dark-border">
-                                            <img src={getRoomImage(room)} alt={room.title} className="h-20 w-24 rounded-xl object-cover" />
+                                            <img src={getRoomImage(room)} alt={formatListingTitle(room.title)} className="h-20 w-24 rounded-xl object-cover" />
                                             <div className="min-w-0">
-                                                <h3 className="truncate text-sm font-semibold">{room.title}</h3>
+                                                <h3 className="truncate text-sm font-semibold">{formatListingTitle(room.title)}</h3>
                                                 <p className="mt-1 truncate text-xs text-light-muted dark:text-dark-muted">{room.location?.city || room.location?.fullAddress || 'Location pending'}</p>
                                                 <p className="mt-2 text-sm font-bold text-brand">{money(room.rent)} / mo</p>
                                             </div>
@@ -247,7 +248,7 @@ const ApplicationRow = ({ application }) => {
     return (
         <div className="rounded-2xl border border-light-border p-4 dark:border-dark-border">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center">
-                <img src={getRoomImage(room)} alt={room.title || 'Room'} className="h-28 w-full rounded-2xl object-cover lg:w-36" />
+                <img src={getRoomImage(room)} alt={formatListingTitle(room.title, 'Room')} className="h-28 w-full rounded-2xl object-cover lg:w-36" />
                 <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                         <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold ring-1 ${meta.badge}`}>
@@ -260,7 +261,7 @@ const ApplicationRow = ({ application }) => {
                         </span>
                     </div>
                     <Link to={room._id ? `/room/${room._id}` : '/rooms'} className="mt-2 block truncate text-lg font-semibold hover:text-brand">
-                        {room.title || 'Room listing'}
+                        {formatListingTitle(room.title, 'Room listing')}
                     </Link>
                     <p className="mt-1 truncate text-sm text-light-muted dark:text-dark-muted">{room.location?.fullAddress || room.location?.city || 'Location pending'}</p>
                 </div>

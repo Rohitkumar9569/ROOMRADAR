@@ -8,6 +8,7 @@ import {
     Shield, Sparkles, ArrowRight, CheckCircle
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { formatListingTitle } from '../../../utils/listingDisplay';
 
 // --- Premium Inquiry Modal Component ---
 const InquiryModal = ({ room, onClose }) => {
@@ -15,6 +16,7 @@ const InquiryModal = ({ room, onClose }) => {
     const [loading, setLoading] = useState(false);
     const [isHovered, setIsHovered] = useState(false);
     const navigate = useNavigate();
+    const displayTitle = formatListingTitle(room?.title, 'Room listing');
 
     // Prevent body scroll when modal is open
     useEffect(() => {
@@ -131,7 +133,7 @@ const InquiryModal = ({ room, onClose }) => {
                                     <Home className="w-8 h-8 text-white" />
                                 </div>
                                 <div className="min-w-0 flex-1 pt-1">
-                                    <p className="font-bold text-slate-900 dark:text-slate-100 text-xl leading-tight mb-2">{room.title}</p>
+                                    <p className="font-bold text-slate-900 dark:text-slate-100 text-xl leading-tight mb-2">{displayTitle}</p>
                                     <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400 mb-1.5">
                                         <div className="p-1 bg-slate-100 dark:bg-slate-700 rounded-md">
                                             <User className="w-3.5 h-3.5" />
@@ -197,7 +199,7 @@ const InquiryModal = ({ room, onClose }) => {
                                         value={message}
                                         onChange={(e) => setMessage(e.target.value)}
                                         className="block w-full h-full min-h-[200px] rounded-xl border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/80 shadow-inner px-4 py-4 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:focus:border-blue-400 dark:focus:ring-blue-400/30 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 resize-none transition-all duration-300 hover:border-slate-300 dark:hover:border-slate-600 leading-relaxed"
-                                        placeholder={`Hi, I'm interested in "${room.title}". Could you please provide more information about availability, amenities, and move-in process?`}
+                                        placeholder={`Hi, I'm interested in "${displayTitle}". Could you please provide more information about availability, amenities, and move-in process?`}
                                         required
                                     />
                                 </div>

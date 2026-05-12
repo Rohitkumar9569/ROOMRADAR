@@ -1,9 +1,19 @@
 import React from 'react';
+import { Radar } from 'lucide-react';
 
-function Spinner() {
+function Spinner({ label = 'Loading' }) {
   return (
-    <div className="flex justify-center items-center py-20">
-      <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-indigo-500"></div>
+    <div className="rr-inline-loader flex items-center justify-center py-16" role="status" aria-live="polite" aria-label={label}>
+      <div className="rr-inline-loader-card" aria-hidden="true">
+        <span className="rr-inline-loader-icon">
+          <Radar className="rr-inline-loader-logo-icon" />
+        </span>
+        <span className="rr-inline-loader-lines">
+          <span />
+          <span />
+        </span>
+        <span className="rr-inline-loader-bar" />
+      </div>
     </div>
   );
 }

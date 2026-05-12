@@ -13,6 +13,7 @@ import InquiryModal from '../../components/features/chat/InquiryModal';
 import RoomCard from '../../components/features/rooms/RoomCard';
 import { useAuth } from '../../context/AuthContext';
 import { formatRoomFieldValue, getRulesSection, getRoomFieldValue, getVisibleDetailFields } from '../../utils/roomFieldUtils';
+import { formatListingTitle } from '../../utils/listingDisplay';
 import {
     ArrowLeft,
     BadgeCheck,
@@ -351,11 +352,12 @@ const RoomDetailsPage = () => {
     const minimumStayText = minimumStayValue
         ? `Minimum ${minimumStayValue} ${minimumStayUnit}${minimumStayValue === 1 || minimumStayUnit.endsWith('s') ? '' : 's'}`
         : 'Flexible stay terms';
+    const displayTitle = formatListingTitle(room.title, 'Room listing');
 
     const handleShare = async () => {
         const url = `${window.location.origin}/room/${room._id}`;
         if (navigator.share) {
-            await navigator.share({ title: room.title, text: `View ${room.title} on RoomRadar`, url });
+            await navigator.share({ title: displayTitle, text: `View ${displayTitle} on RoomRadar`, url });
             return;
         }
         await navigator.clipboard.writeText(url);
@@ -389,7 +391,7 @@ const RoomDetailsPage = () => {
                         <span className="hidden md:inline">Back</span>
                     </button>
 
-                    <p className="hidden max-w-sm truncate text-sm font-black md:block">{room.title}</p>
+                    <p className="hidden max-w-sm truncate text-sm font-black md:block">{displayTitle}</p>
 
                     <div className="flex items-center gap-2">
                         <button
@@ -428,7 +430,7 @@ const RoomDetailsPage = () => {
                         )}
                     </div>
                     <h1 className="max-w-4xl text-[1.7rem] font-black leading-[1.08] tracking-tight text-light-text dark:text-dark-text md:text-3xl lg:text-4xl">
-                        {room.title}
+                        {displayTitle}
                     </h1>
                     <div className="mt-3 flex flex-wrap items-center gap-2 text-sm font-semibold text-light-muted dark:text-dark-muted">
                         {rating > 0 && (
@@ -564,7 +566,7 @@ const RoomDetailsPage = () => {
                                 </p>
                                 <div className="relative z-0 mt-5 isolate overflow-hidden rounded-3xl border border-light-border dark:border-dark-border">
                                     <Suspense fallback={<div className="h-80 w-full bg-light-card dark:bg-dark-card" />}>
-                                        <RoomLocationMap coordinates={mapCoordinates} title={room.title} />
+                                        <RoomLocationMap coordinates={mapCoordinates} title={displayTitle} />
                                     </Suspense>
                                 </div>
                                 <div className="mt-4 rounded-2xl border border-cyan-200 bg-cyan-50 p-4 dark:border-cyan-800/40 dark:bg-cyan-900/20">

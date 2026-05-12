@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo, useLayoutEffect } from 'react';
 import { useParams, useNavigate, useOutletContext, useLocation } from 'react-router-dom';
 import { format, formatDistanceToNow } from 'date-fns';
 import {
@@ -28,6 +28,7 @@ import { connectSocketAfterMount, socketOptions } from '../../config/socketOptio
 import { useUI } from '../../context/UIContext';
 import { readTabCache, setTabCache } from '../../utils/tabDataCache';
 import { readScroll, saveScroll } from '../../utils/scrollStore';
+import { formatListingTitle } from '../../utils/listingDisplay';
 
 const FILTERS_BY_ROLE = {
     landlord: ['All', 'Admin', 'Requests', 'Inquiries', 'Upcoming', 'Archived'],
@@ -99,8 +100,8 @@ const getConversationDisplayMember = (convo, currentUser) => {
 };
 
 const getConversationRoomTitle = (convo) => {
-    if (isAdminConversation(convo)) return convo.room?.title ? `Review update - ${convo.room.title}` : 'Room review update';
-    return convo.room?.title || 'General Inquiry';
+    if (isAdminConversation(convo)) return convo.room?.title ? `Review update - ${formatListingTitle(convo.room.title)}` : 'Room review update';
+    return formatListingTitle(convo.room?.title, 'General Inquiry');
 };
 
 const getConversationStatus = (convo) => {
@@ -132,7 +133,7 @@ const getStatusBadge = (status) => {
     const label = statusKey === 'admin_update' ? 'Admin update' : status.replace(/_/g, ' ');
 
     return (
-        <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-bold capitalize ring-1 ${STATUS_STYLES[statusKey] || STATUS_STYLES.booking}`}>
+        <span className={`inline-flex items-center rounded-full px-3 py-1.5 text-[13px] font-black capitalize leading-none ring-1 ${STATUS_STYLES[statusKey] || STATUS_STYLES.booking}`}>
             {label}
         </span>
     );
@@ -173,21 +174,21 @@ const ConversationCard = ({ convo, onClick, isSelected, currentUser, isOnline })
         <button
             type="button"
             onClick={onClick}
-            className={`group min-h-[72px] w-full border-b border-[#e9edef] px-3 py-2 text-left transition dark:border-[#26343d] sm:px-4 ${
+            className={`rr-inbox-conversation-card group min-h-[96px] w-full border-b border-[#e9edef] px-4 py-3 text-left transition dark:border-[#26343d] sm:min-h-[100px] sm:px-5 ${
                 isSelected
                     ? 'bg-[#e9edef] dark:bg-[#2a3942]'
                     : 'bg-transparent hover:bg-[#f5f6f6] dark:hover:bg-[#202c33]'
             }`}
         >
-            <div className="flex gap-3">
+            <div className="flex gap-3.5">
                 <div className="relative flex-shrink-0">
                     <img
                         src={avatarUrl}
                         alt={displayMember.name}
-                        className="h-11 w-11 rounded-full object-cover sm:h-12 sm:w-12"
+                        className="h-14 w-14 rounded-full object-cover sm:h-[58px] sm:w-[58px]"
                     />
                     <span
-                        className={`absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-[#f0f2f5] dark:border-[#111b21] ${
+                        className={`absolute bottom-0 right-0 h-3.5 w-3.5 rounded-full border-2 border-[#f0f2f5] dark:border-[#111b21] ${
                             isAdmin ? 'bg-violet-400' : isOnline ? 'bg-[#00a884]' : convo.application?.status === 'pending' ? 'bg-amber-400' : 'bg-[#8696a0]'
                         }`}
                     />
@@ -195,28 +196,28 @@ const ConversationCard = ({ convo, onClick, isSelected, currentUser, isOnline })
 
                 <div className="min-w-0 flex-1">
                     <div className="flex items-start justify-between gap-2">
-                        <p className="truncate text-sm font-bold text-[#111b21] dark:text-[#e9edef] sm:text-[15px]">{displayMember.name}</p>
+                        <p className="truncate text-[16.5px] font-black leading-tight text-[#111b21] dark:text-[#e9edef] sm:text-[17px]">{displayMember.name}</p>
                         <div className="flex flex-shrink-0 flex-col items-end gap-1">
                             {lastMessageDate && (
-                                <span className="text-[11px] font-semibold text-[#667781] dark:text-[#8696a0]">
+                                <span className="text-[13px] font-bold leading-none text-[#667781] dark:text-[#8696a0]">
                                     {formatDistanceToNow(lastMessageDate, { addSuffix: true })}
                                 </span>
                             )}
                             {unreadCount > 0 && (
-                                <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-brand px-1.5 text-[10px] font-black text-white shadow-sm">
+                                <span className="flex h-6 min-w-6 items-center justify-center rounded-full bg-brand px-1.5 text-[12px] font-black text-white shadow-sm">
                                     {unreadCount > 99 ? '99+' : unreadCount}
                                 </span>
                             )}
                         </div>
                     </div>
 
-                    <p className="mt-0.5 truncate text-[11px] font-bold text-cyan-700 dark:text-[#00a884] sm:text-xs">{roomTitle}</p>
-                    <p className="mt-0.5 line-clamp-1 text-xs leading-4 text-[#667781] dark:text-[#8696a0] sm:text-[13px]">{getConversationPreview(convo)}</p>
+                    <p className="mt-1 truncate text-[14.5px] font-extrabold leading-tight text-cyan-700 dark:text-[#00a884] sm:text-[15px]">{roomTitle}</p>
+                    <p className="mt-1 line-clamp-1 text-[14px] font-semibold leading-5 text-[#667781] dark:text-[#8696a0] sm:text-[14.5px]">{getConversationPreview(convo)}</p>
 
-                    <div className="mt-1.5 flex max-w-full items-center gap-1.5 overflow-hidden">
+                    <div className="mt-2.5 flex max-w-full items-center gap-2 overflow-hidden">
                         {getStatusBadge(status)}
-                        <span className="inline-flex items-center gap-1 rounded-full bg-[#f0f2f5] px-2 py-0.5 text-[10px] font-bold capitalize text-[#667781] dark:bg-[#202c33] dark:text-[#aebac1]">
-                            {convo.conversationType === 'booking' ? <CalendarDaysIcon className="h-3.5 w-3.5" /> : <ChatBubbleLeftRightIcon className="h-3.5 w-3.5" />}
+                        <span className="inline-flex items-center gap-1.5 rounded-full bg-[#f0f2f5] px-3 py-1.5 text-[13px] font-black capitalize leading-none text-[#667781] dark:bg-[#202c33] dark:text-[#aebac1]">
+                            {convo.conversationType === 'booking' ? <CalendarDaysIcon className="h-4 w-4" /> : <ChatBubbleLeftRightIcon className="h-4 w-4" />}
                             {getConversationTypeLabel(convo)}
                         </span>
                     </div>
@@ -338,7 +339,7 @@ const ContactInfoDrawer = ({ isOpen, onClose, conversation, currentUser, isLandl
 
                         <section className="mt-3 bg-white p-4 dark:bg-[#111b21]">
                             <div className="space-y-3">
-                                <DetailRow icon={HomeModernIcon} label="Room" value={room?.title || 'General inquiry'} />
+                                <DetailRow icon={HomeModernIcon} label="Room" value={formatListingTitle(room?.title, 'General inquiry')} />
                                 <DetailRow icon={DocumentTextIcon} label="Request" value={getConversationRequestLabel(conversation)} />
                                 <DetailRow icon={CalendarDaysIcon} label="Stay Dates" value={applicationDates} />
                                 <DetailRow icon={ClockIcon} label="Last Updated" value={conversation.lastMessage?.createdAt ? formatDistanceToNow(new Date(conversation.lastMessage.createdAt), { addSuffix: true }) : null} />
@@ -407,10 +408,12 @@ const InboxPage = () => {
     const [activeFilter, setActiveFilter] = useState('All');
     const [onlineUserIds, setOnlineUserIds] = useState([]);
     const messagesEndRef = useRef(null);
+    const messagesScrollRef = useRef(null);
     const conversationListRef = useRef(null);
     const socket = useRef();
     const conversationIdRef = useRef(conversationId);
     const currentUserIdRef = useRef(currentUser?._id);
+    const shouldInstantScrollMessagesRef = useRef(true);
     const selectedConversation = useMemo(() => allConversations.find((c) => c._id === conversationId), [allConversations, conversationId]);
 
     useEffect(() => {
@@ -464,6 +467,7 @@ const InboxPage = () => {
 
     useEffect(() => {
         setChatProfileOpen(false);
+        shouldInstantScrollMessagesRef.current = true;
     }, [conversationId, setChatProfileOpen]);
 
     useEffect(() => {
@@ -561,9 +565,38 @@ const InboxPage = () => {
         fetchMessages(conversationId);
     }, [conversationId, fetchMessages]);
 
-    useEffect(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, [messages]);
+    const scrollMessagesToBottom = useCallback((behavior = 'auto') => {
+        const node = messagesScrollRef.current;
+        if (!node) return;
+
+        const top = Math.max(node.scrollHeight - node.clientHeight, 0);
+        if (behavior === 'smooth') {
+            node.scrollTo({ top, behavior: 'smooth' });
+            return;
+        }
+
+        node.scrollTop = top;
+    }, []);
+
+    useLayoutEffect(() => {
+        if (!conversationId || (loadingMessages && shouldInstantScrollMessagesRef.current)) return undefined;
+
+        const behavior = shouldInstantScrollMessagesRef.current ? 'auto' : 'smooth';
+        scrollMessagesToBottom(behavior);
+
+        let frameId = null;
+        if (typeof window !== 'undefined') {
+            frameId = window.requestAnimationFrame(() => scrollMessagesToBottom(behavior));
+        }
+
+        if (shouldInstantScrollMessagesRef.current && !loadingMessages) {
+            shouldInstantScrollMessagesRef.current = false;
+        }
+
+        return () => {
+            if (frameId && typeof window !== 'undefined') window.cancelAnimationFrame(frameId);
+        };
+    }, [conversationId, loadingMessages, messages.length, scrollMessagesToBottom]);
 
     const handleConversationClick = (convoId) => {
         const basePath = isLandlordView ? '/landlord' : '/profile';
@@ -719,14 +752,14 @@ const InboxPage = () => {
                             key={filter}
                             type="button"
                             onClick={() => setActiveFilter(filter)}
-                            className={`rr-filter-chip inline-flex flex-shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1.5 text-xs font-extrabold transition sm:gap-2 sm:px-3 sm:text-sm ${
+                            className={`rr-filter-chip inline-flex flex-shrink-0 items-center gap-2 rounded-full px-3.5 py-2 text-sm font-black transition sm:px-4 ${
                                 activeFilter === filter
                                     ? 'bg-[#00a884] text-white shadow-sm'
                                     : 'bg-white text-[#54656f] ring-1 ring-[#e9edef] hover:text-[#111b21] dark:bg-[#1f2c34] dark:text-[#aebac1] dark:ring-[#2a3942]'
                             }`}
                         >
                             {filter}
-                            <span className={`rr-filter-chip-count rounded-full px-2 py-0.5 text-[11px] ${activeFilter === filter ? 'bg-white/20 text-white' : 'bg-[#f0f2f5] dark:bg-[#202c33]'}`}>
+                            <span className={`rr-filter-chip-count rounded-full px-2 py-0.5 text-[12px] font-black ${activeFilter === filter ? 'bg-white/20 text-white' : 'bg-[#f0f2f5] dark:bg-[#202c33]'}`}>
                                 {filterCounts[filter] || 0}
                             </span>
                         </button>
@@ -770,24 +803,24 @@ const InboxPage = () => {
                             className="flex min-w-0 flex-1 items-center gap-3 rounded-xl p-1.5 text-left transition hover:bg-black/5 dark:hover:bg-white/5"
                             title="Open contact info"
                         >
-                            <span className="relative flex h-10 w-10 flex-shrink-0">
+                            <span className="relative flex h-12 w-12 flex-shrink-0">
                                 <img
                                     src={activeOtherMember?.avatarUrl || activeOtherMember?.profilePicture || `https://api.dicebear.com/8.x/initials/svg?seed=${encodeURIComponent(activeOtherMember?.name || 'RoomRadar Admin')}`}
                                     alt={activeOtherMember?.name}
-                                    className="h-10 w-10 rounded-full object-cover"
+                                    className="h-12 w-12 rounded-full object-cover"
                                 />
                                 <span className={`absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-[#f0f2f5] dark:border-[#202c33] ${activeConversationIsAdmin ? 'bg-violet-400' : activeMemberOnline ? 'bg-[#00a884]' : 'bg-[#8696a0]'}`} />
                             </span>
                             <div className="min-w-0">
-                                <h2 className="truncate text-base font-black text-[#111b21] dark:text-[#e9edef]">{activeOtherMember?.name}</h2>
-                                <p className="truncate text-xs font-semibold text-[#667781] dark:text-[#8696a0]">
-                                    {activeConversationIsAdmin ? getConversationRoomTitle(selectedConversation) : `${activeMemberOnline ? 'Active now' : 'Recently active'} - ${selectedConversation.room?.title || 'General Inquiry'}`}
+                                <h2 className="truncate text-lg font-black leading-tight text-[#111b21] dark:text-[#e9edef]">{activeOtherMember?.name}</h2>
+                                <p className="truncate text-sm font-bold text-[#667781] dark:text-[#8696a0]">
+                                    {activeConversationIsAdmin ? getConversationRoomTitle(selectedConversation) : `${activeMemberOnline ? 'Active now' : 'Recently active'} - ${formatListingTitle(selectedConversation.room?.title, 'General Inquiry')}`}
                                 </p>
                             </div>
                         </button>
 
                         <div className="flex items-center gap-1">
-                            <span className="hidden items-center gap-1 rounded-full bg-[#d9fdd3] px-3 py-1.5 text-xs font-extrabold text-[#008069] dark:bg-[#005c4b] dark:text-[#d9fdd3] sm:inline-flex">
+                            <span className="hidden items-center gap-1 rounded-full bg-[#d9fdd3] px-3 py-1.5 text-sm font-extrabold text-[#008069] dark:bg-[#005c4b] dark:text-[#d9fdd3] sm:inline-flex">
                                 <CheckBadgeIcon className="h-4 w-4" />
                                 Verified
                             </span>
@@ -802,7 +835,7 @@ const InboxPage = () => {
                         </div>
                     </div>
 
-                    <div className="min-h-0 flex-1 overflow-y-auto px-3 py-5 sm:px-6">
+                    <div ref={messagesScrollRef} className="min-h-0 flex-1 overflow-y-auto px-3 py-5 sm:px-6">
                         <div className="mx-auto max-w-4xl space-y-3">
                             {loadingMessages ? (
                                 <div className="flex h-72 items-center justify-center"><Spinner /></div>
@@ -828,7 +861,7 @@ const InboxPage = () => {
                                         key={reply}
                                         type="button"
                                         onClick={() => setNewMessage(reply)}
-                                        className="flex-shrink-0 rounded-full bg-white px-3 py-1.5 text-xs font-bold text-[#54656f] ring-1 ring-[#e9edef] transition hover:text-[#008069] dark:bg-[#111b21] dark:text-[#aebac1] dark:ring-[#2a3942] dark:hover:text-[#00a884]"
+                                        className="flex-shrink-0 rounded-full bg-white px-3.5 py-2 text-sm font-extrabold text-[#54656f] ring-1 ring-[#e9edef] transition hover:text-[#008069] dark:bg-[#111b21] dark:text-[#aebac1] dark:ring-[#2a3942] dark:hover:text-[#00a884]"
                                     >
                                         {reply}
                                     </button>

@@ -5,6 +5,7 @@ import { AlertCircle, BedDouble, Eye, EyeOff, MoreVertical, Pencil, Trash2, MapP
 import Tippy from '@tippyjs/react';
 import 'tippy.js/dist/tippy.css';
 import { useAuth } from '../../../context/AuthContext';
+import { formatListingTitle } from '../../../utils/listingDisplay';
 import fallbackRoomImage from '../../../assets/background_img.jpg';
 
 const statusTone = {
@@ -36,6 +37,7 @@ const LandlordRoomCard = ({ room, onDelete, onStatusToggle }) => {
     const beds = Number(room.beds || 1);
     const views = room.stats?.views || room.views || 0;
     const requests = room.stats?.applications || room.activeApplicationsCount || 0;
+    const displayTitle = formatListingTitle(room.title);
     const isVerifiedHost = Boolean(
         host.isVerified
         || host.kyc_status === 'Verified'
@@ -123,7 +125,7 @@ const LandlordRoomCard = ({ room, onDelete, onStatusToggle }) => {
     return (
         <article className="rr-listing-card-pro group h-full">
             <div className="rr-listing-card-media">
-                <img src={image} alt={room.title} className="h-full w-full object-cover" />
+                <img src={image} alt={displayTitle} className="h-full w-full object-cover" />
                 <div className="absolute inset-0 bg-gradient-to-t from-slate-950/56 via-slate-950/5 to-transparent" />
 
                 <span className={`rr-listing-status-badge ${statusTone[room.status] || statusTone.Unpublished}`}>
@@ -144,7 +146,7 @@ const LandlordRoomCard = ({ room, onDelete, onStatusToggle }) => {
                 </div>
 
                 <div className="absolute bottom-2.5 left-2.5 right-2.5 flex items-end justify-between gap-2 sm:bottom-4 sm:left-4 sm:right-4">
-                    <span className="rr-location-badge rr-listing-city-badge">
+                    <span className="rr-location-badge rr-listing-city-badge has-side-badge">
                         <MapPin />
                         <span>{city}</span>
                     </span>
@@ -157,7 +159,7 @@ const LandlordRoomCard = ({ room, onDelete, onStatusToggle }) => {
 
             <div className="rr-listing-card-body">
                 <div className="rr-listing-info-stack">
-                    <h2 className="rr-listing-card-title">{room.title}</h2>
+                    <h2 className="rr-listing-card-title">{displayTitle}</h2>
                     <div className="rr-listing-card-price-row">
                         <div className="rr-listing-card-price">
                             <IndianRupee />
@@ -174,7 +176,7 @@ const LandlordRoomCard = ({ room, onDelete, onStatusToggle }) => {
 
                 <div className="rr-listing-metrics">
                     <Metric label="Views" value={views} Icon={MousePointerClick} />
-                    <Metric label="Requests" value={requests} Icon={MessageSquare} />
+                    <Metric label="Reqs" value={requests} Icon={MessageSquare} />
                 </div>
 
                 <div className="rr-listing-trust-row">

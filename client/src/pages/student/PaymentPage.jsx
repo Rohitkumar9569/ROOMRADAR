@@ -19,6 +19,7 @@ import Spinner from '../../components/common/Spinner';
 import BookingStatusTimeline from '../../components/features/booking/BookingStatusTimeline';
 import fallbackRoomImage from '../../assets/background_img.jpg';
 import { useSettings } from '../../context/SettingsContext';
+import { formatListingTitle } from '../../utils/listingDisplay';
 
 const money = (value) => `\u20B9${Number(value || 0).toLocaleString('en-IN')}`;
 
@@ -126,6 +127,7 @@ const PaymentPage = () => {
     }
 
     const room = application.room || {};
+    const displayTitle = formatListingTitle(room.title, 'Room listing');
     const heroImage = room.images?.[0]?.url || room.images?.[0] || room.imageUrl || fallbackRoomImage;
     const isApproved = application.status === 'approved';
     const isConfirmed = application.status === 'confirmed';
@@ -153,14 +155,14 @@ const PaymentPage = () => {
                 <div className="mt-6 grid gap-6 lg:grid-cols-[1.08fr_0.92fr]">
                     <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-xl shadow-slate-200/60 dark:border-secondary-700 dark:bg-secondary-800 dark:shadow-black/20">
                         <div className="relative h-72 sm:h-96">
-                            <img src={heroImage} alt={room.title} className="h-full w-full object-cover" />
+                            <img src={heroImage} alt={displayTitle} className="h-full w-full object-cover" />
                             <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-slate-950/15 to-transparent" />
                             <div className="absolute bottom-0 left-0 right-0 p-5 sm:p-7">
                                 <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-white/90 px-3 py-1.5 text-xs font-black text-cyan-700 shadow-sm backdrop-blur">
                                     <BadgeCheck className="h-4 w-4" />
                                     Host approved booking
                                 </div>
-                                <h1 className="max-w-2xl text-3xl font-black text-white sm:text-4xl">{room.title}</h1>
+                                <h1 className="max-w-2xl text-3xl font-black text-white sm:text-4xl">{displayTitle}</h1>
                                 <p className="mt-2 max-w-2xl text-sm font-semibold text-white/85">
                                     {room.location?.fullAddress || [room.location?.city, room.location?.state].filter(Boolean).join(', ')}
                                 </p>

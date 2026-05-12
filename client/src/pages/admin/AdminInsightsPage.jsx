@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { useSettings } from '../../context/SettingsContext';
+import { formatListingTitle } from '../../utils/listingDisplay';
 
 const money = (value = 0) =>
   new Intl.NumberFormat('en-IN', {
@@ -256,7 +257,7 @@ const VerificationPanel = ({ data }) => (
             <div key={room._id} className="rounded-2xl border border-light-border bg-light-bg p-3 dark:border-dark-border dark:bg-dark-input">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <p className="break-words font-bold">{room.title}</p>
+                  <p className="break-words font-bold">{formatListingTitle(room.title)}</p>
                   <p className="text-xs font-semibold text-light-muted dark:text-dark-muted">{room.landlord?.name || 'Unknown landlord'} - {room.location?.city || 'City missing'}</p>
                 </div>
                 <span className={`rounded-full px-2.5 py-1 text-[10px] font-black uppercase ${statusTone(room.status)}`}>{room.status}</span>
@@ -339,7 +340,7 @@ const TicketsPanel = ({ data }) => (
                   <span>{ticket.user?.name || 'Unknown user'}</span>
                   <span>-</span>
                   <span>{dateLabel(ticket.createdAt)}</span>
-                  {ticket.room?.title && <span>- {ticket.room.title}</span>}
+                  {ticket.room?.title && <span>- {formatListingTitle(ticket.room.title)}</span>}
                   {ticket.requestedAmount > 0 && <span>- Claim {money(ticket.requestedAmount)}</span>}
                   {ticket.evidence?.length > 0 && <span>- {ticket.evidence.length} evidence files</span>}
                 </div>

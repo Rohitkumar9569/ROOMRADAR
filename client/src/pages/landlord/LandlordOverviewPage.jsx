@@ -19,6 +19,7 @@ import api from '../../api';
 import { useAuth } from '../../context/AuthContext';
 import Spinner from '../../components/common/Spinner';
 import fallbackRoomImage from '../../assets/background_img.jpg';
+import { formatListingTitle } from '../../utils/listingDisplay';
 
 const COLORS = ['#e84040', '#0f766e', '#f59e0b', '#64748b', '#22c55e'];
 
@@ -285,14 +286,15 @@ const StatCard = ({ title, value, caption, Icon, link }) => (
 const PendingRequestRow = ({ application, onApprove, onReject, disabled }) => {
     const room = application.room || {};
     const student = application.student || {};
+    const displayTitle = formatListingTitle(room.title, 'Room listing');
 
     return (
         <div className="grid gap-4 bg-light-card p-4 dark:bg-dark-card lg:grid-cols-[1fr_auto] lg:items-center">
             <div className="flex min-w-0 gap-4">
-                <img src={getRoomImage(room)} alt={room.title || 'Room'} className="h-20 w-24 rounded-2xl object-cover" />
+                <img src={getRoomImage(room)} alt={displayTitle} className="h-20 w-24 rounded-2xl object-cover" />
                 <div className="min-w-0">
                     <Link to={room._id ? `/room/${room._id}` : '/landlord/my-rooms'} className="block truncate text-base font-semibold hover:text-brand">
-                        {room.title || 'Room listing'}
+                        {displayTitle}
                     </Link>
                     <p className="mt-1 truncate text-sm text-light-muted dark:text-dark-muted">
                         Applicant: {student.name || application.fullName || 'Applicant'}
@@ -307,7 +309,7 @@ const PendingRequestRow = ({ application, onApprove, onReject, disabled }) => {
                     <XCircle className="h-4 w-4" />
                     Reject
                 </button>
-                <button type="button" onClick={onApprove} disabled={disabled} className="inline-flex min-h-[44px] flex-1 items-center justify-center gap-2 rounded-xl bg-brand px-4 text-sm font-semibold text-white transition hover:bg-red-600 disabled:opacity-60 lg:flex-none">
+                <button type="button" onClick={onApprove} disabled={disabled} className="rr-approve-action inline-flex min-h-[44px] flex-1 items-center justify-center gap-2 rounded-xl bg-brand px-4 text-sm font-semibold text-white transition hover:bg-red-600 disabled:opacity-60 lg:flex-none">
                     <CheckCircle2 className="h-4 w-4" />
                     Approve
                 </button>
