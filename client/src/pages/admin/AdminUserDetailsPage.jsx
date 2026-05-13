@@ -12,6 +12,10 @@ const allRoles = ['Student', 'Landlord', 'Admin', 'Super_Admin', 'Moderator', 'S
 
 const displayRole = (role) => (role === 'Student' ? 'Travelling' : role.replace('_', ' '));
 
+const userHasRole = (user, role) => (
+  user?.roles?.includes(role) || (role === 'Student' && user?.roles?.includes('Landlord'))
+);
+
 const roleTone = (role) => {
   if (['Admin', 'Super_Admin'].includes(role)) return 'bg-red-500/10 text-red-600 dark:text-red-300';
   if (role === 'Landlord') return 'bg-cyan-500/10 text-cyan-600 dark:text-cyan-300';
@@ -289,7 +293,7 @@ const AdminUserDetailsPage = () => {
             </div>
 
             <div className="grid gap-3 md:grid-cols-2">
-              {['Student', 'Landlord'].filter((role) => user.roles.includes(role)).map((role) => {
+              {['Student', 'Landlord'].filter((role) => userHasRole(user, role)).map((role) => {
                 const status = getScopeStatus(user, role);
                 const isBanned = status === 'Banned';
                 return (

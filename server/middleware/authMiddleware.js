@@ -53,12 +53,20 @@ const restrictTo = (...requiredRoles) => {
     if (isRoleRestricted(req.user, 'student')) restrictedRoles.add('student');
     if (isRoleRestricted(req.user, 'landlord')) restrictedRoles.add('landlord');
 
-    const effectiveUserRoles = userRoles.filter((role) => !restrictedRoles.has(role));
+    const effectiveRoleSet = new Set(userRoles.filter((role) => !restrictedRoles.has(role)));
+    // Airbnb-style model: a host can also browse/book as a traveller unless
+    // travelling access is specifically restricted.
+    if (effectiveRoleSet.has('landlord') && !restrictedRoles.has('student')) {
+      effectiveRoleSet.add('student');
+    }
 
-    const hasRequiredRole = effectiveUserRoles.some(role => requiredRolesLower.includes(role));
+    const hasRequiredRole = [...effectiveRoleSet].some(role => requiredRolesLower.includes(role));
 
     if (!hasRequiredRole) {
-      const blockedRole = [...restrictedRoles].find((role) => userRoles.includes(role) && requiredRolesLower.includes(role));
+      const blockedRole = [...restrictedRoles].find((role) => (
+        requiredRolesLower.includes(role)
+        && (userRoles.includes(role) || (role === 'student' && userRoles.includes('landlord')))
+      ));
       if (blockedRole) {
         return res.status(403).json({
           message: `${getScopeLabel(blockedRole)} access is restricted by RoomRadar Trust & Safety.`,

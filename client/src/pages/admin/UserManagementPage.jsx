@@ -12,6 +12,10 @@ const allRoles = ['Student', 'Landlord', 'Admin', 'Super_Admin', 'Moderator', 'S
 
 const displayRole = (role) => (role === 'Student' ? 'Travelling' : role.replace('_', ' '));
 
+const userHasRole = (user, role) => (
+  user.roles?.includes(role) || (role === 'Student' && user.roles?.includes('Landlord'))
+);
+
 const roleTone = (role) => {
   switch (role) {
     case 'Admin':
@@ -43,7 +47,7 @@ const getScopeActionLabel = (scope, banned) => {
 
 const RoleAccessChips = ({ user }) => (
   <div className="flex flex-wrap gap-1.5">
-    {['Student', 'Landlord'].filter((role) => user.roles?.includes(role)).map((role) => {
+    {['Student', 'Landlord'].filter((role) => userHasRole(user, role)).map((role) => {
       const status = getScopeStatus(user, role);
       return (
         <span key={role} className={`rounded-full px-2.5 py-1 text-[10px] font-black uppercase ${statusTone(status)}`}>
@@ -135,7 +139,7 @@ const UserManagementPage = () => {
   const filteredUsers = useMemo(() => {
     const q = searchTerm.toLowerCase().trim();
     return users.filter((user) => {
-      const roleMatches = roleFilter === 'All' || user.roles?.includes(roleFilter);
+      const roleMatches = roleFilter === 'All' || userHasRole(user, roleFilter);
       const textMatches =
         !q ||
         user.name?.toLowerCase().includes(q) ||
@@ -146,7 +150,7 @@ const UserManagementPage = () => {
 
   const roleCounts = useMemo(() => {
     return allRoles.reduce((acc, role) => {
-      acc[role] = users.filter((user) => user.roles?.includes(role)).length;
+      acc[role] = users.filter((user) => userHasRole(user, role)).length;
       return acc;
     }, { All: users.length });
   }, [users]);

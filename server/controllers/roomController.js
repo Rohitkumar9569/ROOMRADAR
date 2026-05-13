@@ -285,7 +285,7 @@ exports.createRoom = asyncHandler(async (req, res) => {
 
         const createdRoom = await room.save();
         
-        await User.findByIdAndUpdate(req.user._id, { $addToSet: { roles: 'Landlord' } });
+        await User.findByIdAndUpdate(req.user._id, { $addToSet: { roles: { $each: ['Student', 'Landlord'] } } });
 
         res.status(201).json(createdRoom);
     } catch (error) {

@@ -565,6 +565,10 @@ exports.updateUserStatus = asyncHandler(async (req, res) => {
  */
 exports.updateUserRoles = asyncHandler(async (req, res) => {
     const { roles } = req.body;
+    const normalizedRoles = Array.from(new Set(Array.isArray(roles) ? roles : []));
+    if (normalizedRoles.includes('Landlord') && !normalizedRoles.includes('Student')) {
+        normalizedRoles.unshift('Student');
+    }
     const user = await User.findById(req.params.id);
 
     if (!user) {
@@ -572,15 +576,15 @@ exports.updateUserRoles = asyncHandler(async (req, res) => {
         throw new Error('User not found');
     }
 
-    if (user._id.toString() === req.user._id.toString() && !roles.includes('Admin')) {
+    if (user._id.toString() === req.user._id.toString() && !normalizedRoles.includes('Admin')) {
         res.status(400);
         throw new Error("Cannot remove your own Admin role.");
     }
 
-    user.roles = roles;
+    user.roles = normalizedRoles;
     const updatedUser = await user.save();
     await writeAuditLog(req, 'USER_ROLES_UPDATED', 'User', updatedUser._id, {
-        roles,
+        roles: normalizedRoles,
         email: updatedUser.email,
     });
     emitToUser(req, updatedUser._id, 'user_profile_updated', {
