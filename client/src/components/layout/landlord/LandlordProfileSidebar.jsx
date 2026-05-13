@@ -26,6 +26,7 @@ const LandlordProfileSidebar = () => {
     const hostProfile = user?.roleProfiles?.landlord || {};
     const hostName = hostProfile.name || user?.name || 'Host';
     const hostAvatar = hostProfile.avatarUrl || hostProfile.profilePicture || user?.avatarUrl || user?.profilePicture;
+    const accountEmail = user?.email || '';
 
     const handleLogout = () => {
         logout();
@@ -112,7 +113,8 @@ const LandlordProfileSidebar = () => {
                     {isSidebarOpen && (
                         <div className="min-w-0">
                             <p className="truncate text-sm font-black text-light-text dark:text-white">{hostName}</p>
-                            <p className="text-xs font-bold text-light-muted dark:text-dark-muted">Manage your rooms</p>
+                            <p className="truncate text-xs font-bold text-light-muted dark:text-dark-muted">{accountEmail || 'Manage your rooms'}</p>
+                            <p className="text-[11px] font-bold text-cyan-600 dark:text-cyan-300">Manage your rooms</p>
                         </div>
                     )}
                 </div>

@@ -192,10 +192,49 @@ const createSortOption = (sort) => {
 
 const normalizeGender = (value = '') => {
   const normalized = toSearchText(value);
-  if (/(^|\s)(boy|boys|male|males|men|ladka|ladke|ladko)(\s|$)/.test(normalized)) return 'Male';
   if (/(^|\s)(girl|girls|female|females|women|ladki|ladkiyo|ladkiyon|mahila)(\s|$)/.test(normalized)) return 'Female';
+  if (/(^|\s)(boy|boys|male|males|men|ladka|ladke|ladko)(\s|$)/.test(normalized)) return 'Male';
   if (normalized === 'any') return 'Any';
   return value || undefined;
+};
+
+const getOppositeGender = (gender) => {
+  if (gender === 'Male') return 'Female';
+  if (gender === 'Female') return 'Male';
+  return '';
+};
+
+const getOppositeGenderTitleRegex = (gender) => {
+  if (gender === 'Male') return /\b(female|females|women|girls?)\b/i;
+  if (gender === 'Female') return /\b(male|males|men|boys?)\b/i;
+  return null;
+};
+
+const createGenderPreferenceClause = (value = '') => {
+  const gender = normalizeGender(value);
+  if (!gender || gender === 'Any') return null;
+
+  const opposite = getOppositeGender(gender);
+  const oppositeTitleRegex = getOppositeGenderTitleRegex(gender);
+  const openValues = [gender, 'Any', '', null];
+
+  return {
+    $and: [
+      {
+        $or: [
+          { gender: { $in: openValues } },
+          { preferredGender: { $in: openValues } },
+          { 'tenantPreferences.allowedGender': { $in: openValues } },
+          { 'tenantPreferences.gender': { $in: openValues } },
+        ],
+      },
+      { gender: { $ne: opposite } },
+      { preferredGender: { $ne: opposite } },
+      { 'tenantPreferences.allowedGender': { $ne: opposite } },
+      { 'tenantPreferences.gender': { $ne: opposite } },
+      ...(oppositeTitleRegex ? [{ title: { $not: oppositeTitleRegex } }] : []),
+    ],
+  };
 };
 
 const normalizeFamilyStatus = (value = '') => {
@@ -324,11 +363,18 @@ const distanceKm = (from, to) => {
 
 const genderMatches = (room, wanted) => {
   if (!wanted || wanted === 'Any') return true;
+  const opposite = getOppositeGender(wanted);
+  const oppositeTitleRegex = getOppositeGenderTitleRegex(wanted);
+  if (oppositeTitleRegex?.test(String(room.title || ''))) return false;
+
   const values = [
     room.gender,
+    room.preferredGender,
     room.tenantPreferences?.allowedGender,
     room.tenantPreferences?.gender,
-  ].map((value) => String(value || 'Any'));
+  ].map((value) => normalizeGender(value || 'Any'));
+
+  if (opposite && values.includes(opposite)) return false;
   return values.some((value) => value === wanted || value === 'Any');
 };
 
@@ -518,6 +564,7 @@ const rankRoomsByDiscovery = (rooms = [], rawFilters = {}, { limit } = {}) => {
       match: scoreRoomAgainstFilters(room, filters),
       primaryLocation: getPrimaryLocationRank(room, filters),
     }))
+    .filter(({ room }) => !filters.gender || filters.gender === 'Any' || genderMatches(room, filters.gender))
     .filter(({ match }) => match.score > 0 || match.requestedCount === 0)
     .sort((left, right) => (
       (hasLocationIntent ? left.primaryLocation.bucket - right.primaryLocation.bucket : 0)
@@ -593,6 +640,7 @@ module.exports = {
   appendAndClause,
   buildLocationQuery,
   createSortOption,
+  createGenderPreferenceClause,
   expandLocationAliases,
   findDiscoveryFallbackRooms,
   getRequestedFilterLabels,

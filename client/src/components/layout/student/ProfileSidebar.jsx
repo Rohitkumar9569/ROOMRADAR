@@ -23,6 +23,7 @@ const ProfileSidebar = () => {
     const travelProfile = user?.roleProfiles?.student || {};
     const travelName = travelProfile.name || user?.name || 'Traveller';
     const travelAvatar = travelProfile.avatarUrl || travelProfile.profilePicture || user?.avatarUrl || user?.profilePicture;
+    const accountEmail = user?.email || '';
 
     const handleLogout = () => {
         logout();
@@ -113,7 +114,8 @@ const ProfileSidebar = () => {
                     {isSidebarOpen && (
                         <div className="min-w-0">
                             <p className="truncate text-sm font-black text-light-text dark:text-white">{travelName}</p>
-                            <p className="text-xs font-bold text-light-muted dark:text-dark-muted">Find your next stay</p>
+                            <p className="truncate text-xs font-bold text-light-muted dark:text-dark-muted">{accountEmail || 'Find your next stay'}</p>
+                            <p className="text-[11px] font-bold text-cyan-600 dark:text-cyan-300">Find your next stay</p>
                         </div>
                     )}
                 </div>

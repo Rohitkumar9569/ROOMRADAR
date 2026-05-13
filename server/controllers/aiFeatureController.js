@@ -4,6 +4,7 @@ const Review = require('../models/Review');
 const {
     appendAndClause,
     buildLocationQuery,
+    createGenderPreferenceClause,
     createSortOption,
     findDiscoveryFallbackRooms,
 } = require('../utils/roomDiscoveryUtils');
@@ -38,8 +39,8 @@ const parseJson = (text = '') => {
 
 const normalizeGender = (query = '') => {
     const value = query.toLowerCase();
-    if (/(boys?|male|ladk[ae])/.test(value)) return 'Male';
-    if (/(girls?|female|ladki|ladkiyon)/.test(value)) return 'Female';
+    if (/(^|[^a-z])(girls?|female|females|women|ladki|ladkiyon)([^a-z]|$)/i.test(value)) return 'Female';
+    if (/(^|[^a-z])(boys?|male|males|men|ladka|ladke)([^a-z]|$)/i.test(value)) return 'Male';
     return undefined;
 };
 
@@ -91,12 +92,8 @@ const buildRoomQuery = (filters = {}) => {
     if (filters.minRent) query.rent = { ...(query.rent || {}), $gte: Number(filters.minRent) };
     if (filters.roomType) query.roomType = new RegExp(escapeRegex(filters.roomType), 'i');
     if (filters.gender && filters.gender !== 'Any') {
-        query.$or = [
-            { gender: filters.gender },
-            { gender: 'Any' },
-            { 'tenantPreferences.allowedGender': filters.gender },
-            { 'tenantPreferences.allowedGender': 'Any' }
-        ];
+        const genderClause = createGenderPreferenceClause(filters.gender);
+        if (genderClause) appendAndClause(query, genderClause);
     }
     if (filters.familyStatus && filters.familyStatus !== 'Any') {
         const normalizedFamily = filters.familyStatus === 'Bachelors Only' ? 'Bachelors' : filters.familyStatus === 'Family Only' ? 'Family' : filters.familyStatus;

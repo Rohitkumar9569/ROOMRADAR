@@ -1,4 +1,4 @@
-const CACHE_NAME = 'roomradar-shell-v1';
+const CACHE_NAME = 'roomradar-shell-v2';
 const SHELL_ASSETS = ['/', '/manifest.webmanifest', '/pwa-icon.svg', '/pwa-maskable.svg'];
 
 const isHtmlResponse = (response) => {
@@ -6,10 +6,27 @@ const isHtmlResponse = (response) => {
   return contentType.includes('text/html');
 };
 
+const cacheResponse = (request, response) => {
+  if (!response || !response.ok || response.type === 'opaque') return;
+
+  const copy = response.clone();
+  caches.open(CACHE_NAME)
+    .then((cache) => cache.put(request, copy))
+    .catch(() => {
+      // Cache writes are best-effort; the network response should still win.
+    });
+};
+
+const offlineResponse = (message = 'Resource unavailable offline') => new Response(message, {
+  status: 503,
+  statusText: 'Service Unavailable',
+  headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+});
+
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME)
-      .then((cache) => cache.addAll(SHELL_ASSETS))
+      .then((cache) => Promise.allSettled(SHELL_ASSETS.map((asset) => cache.add(asset))))
       .then(() => self.skipWaiting())
   );
 });
@@ -36,12 +53,14 @@ self.addEventListener('fetch', (event) => {
       fetch(request)
         .then((response) => {
           if (response.ok && isHtmlResponse(response)) {
-            const copy = response.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put('/', copy));
+            cacheResponse('/', response);
           }
           return response;
         })
-        .catch(async () => caches.match('/') || caches.match('/index.html') || Response.redirect('/', 302))
+        .catch(async () => {
+          const cachedShell = await caches.match('/') || await caches.match('/index.html');
+          return cachedShell || offlineResponse('RoomRadar is unavailable offline');
+        })
     );
     return;
   }
@@ -50,15 +69,16 @@ self.addEventListener('fetch', (event) => {
     caches.match(request).then((cached) => {
       const networkFetch = fetch(request)
         .then((response) => {
-          if (response && response.ok) {
-            const copy = response.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
-          }
+          cacheResponse(request, response);
           return response;
-        })
-        .catch(() => cached);
+        });
 
-      return cached || networkFetch;
+      if (cached) {
+        event.waitUntil(networkFetch.catch(() => undefined));
+        return cached;
+      }
+
+      return networkFetch.catch(() => offlineResponse());
     })
   );
 });
@@ -81,4 +101,40 @@ self.addEventListener('notificationclick', (event) => {
       return self.clients.openWindow(normalizedTarget);
     })
   );
+});
+
+self.addEventListener('push', (event) => {
+  let payload = {};
+
+  try {
+    payload = event.data ? event.data.json() : {};
+  } catch (error) {
+    payload = {
+      title: 'RoomRadar',
+      body: event.data?.text() || 'You have a new RoomRadar update.',
+    };
+  }
+
+  const title = payload.title || 'RoomRadar';
+  const targetUrl = payload.url || payload.data?.url || '/profile/inbox';
+  const options = {
+    body: payload.body || 'You have a new RoomRadar update.',
+    icon: payload.icon || '/pwa-icon.svg',
+    badge: payload.badge || '/pwa-maskable.svg',
+    tag: payload.tag || 'roomradar-update',
+    renotify: true,
+    requireInteraction: false,
+    silent: false,
+    timestamp: Date.now(),
+    vibrate: [90, 45, 90],
+    actions: [
+      { action: 'open', title: 'Open inbox' },
+    ],
+    data: {
+      ...(payload.data || {}),
+      url: targetUrl,
+    },
+  };
+
+  event.waitUntil(self.registration.showNotification(title, options));
 });

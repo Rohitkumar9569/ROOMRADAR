@@ -9,6 +9,18 @@ import AdminSidebar from '../components/layout/admin/AdminSidebar';
 import AdminBottomNavBar from '../components/layout/admin/AdminBottomNavBar';
 import { adminNavigation } from '../config/adminNavigation';
 
+const getMobileAdminLabel = (name) => ({
+    'Analytics & Reports': 'Reports',
+    'User Management': 'Users',
+    'Landlord Hub': 'Landlords',
+    'KYC & Verifications': 'KYC',
+    'All Rooms': 'Rooms',
+    'Pending Approvals': 'Pending',
+    'Revenue & Commission': 'Revenue',
+    'Support Tickets': 'Tickets',
+    'System Logs': 'Logs',
+}[name] || name);
+
 const AdminLayout = () => {
     useAuth();
     const location = useLocation();
@@ -26,7 +38,7 @@ const AdminLayout = () => {
             <AdminSidebar />
             <main className="mobile-smooth-scroll flex-1 pt-16 md:ml-72 md:pt-0">
                 <nav className="admin-mobile-rail md:hidden" aria-label="Admin sections">
-                    <div className="flex gap-2 overflow-x-auto px-3 py-2 scrollbar-hide">
+                    <div className="flex items-center gap-2 overflow-x-auto px-3 py-2 scrollbar-hide">
                         {adminLinks.map((item) => {
                             const active = isItemActive(item.path);
                             return (
@@ -34,14 +46,14 @@ const AdminLayout = () => {
                                     key={`${item.name}-${item.path}`}
                                     to={item.path}
                                     preventScrollReset
-                                    className={`rr-filter-chip inline-flex min-h-10 flex-shrink-0 items-center gap-1.5 rounded-full border px-3.5 text-xs font-black transition ${
+                                    className={`admin-mobile-chip inline-flex h-10 min-h-10 flex-shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 text-xs font-black leading-none transition ${
                                         active
                                             ? 'border-cyan-300 bg-cyan-500 text-white shadow-lg shadow-cyan-500/20'
                                             : 'border-light-border bg-light-card text-light-muted dark:border-dark-border dark:bg-dark-card dark:text-dark-muted'
                                     }`}
                                 >
                                     <item.icon className="h-3.5 w-3.5" />
-                                    <span>{item.name.replace(' & ', ' ')}</span>
+                                    <span>{getMobileAdminLabel(item.name)}</span>
                                 </NavLink>
                             );
                         })}

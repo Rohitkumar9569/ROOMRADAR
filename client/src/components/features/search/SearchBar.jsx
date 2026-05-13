@@ -59,7 +59,7 @@ const SuggestionsBox = ({ suggestions, onSelect, query, loading }) => (
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: 12 }}
-        className="w-full overflow-hidden rounded-[1.35rem] border border-light-border bg-white shadow-lg shadow-slate-950/12 dark:border-dark-border dark:bg-dark-card md:rounded-3xl"
+        className="location-suggestions-popover absolute left-0 right-0 top-[calc(100%+0.55rem)] z-[10000] w-full overflow-hidden rounded-[1.35rem] border border-light-border bg-white shadow-lg shadow-slate-950/12 dark:border-dark-border dark:bg-dark-card md:rounded-3xl"
     >
         <div className="border-b border-light-border px-4 py-3 dark:border-dark-border">
             <p className="text-xs font-black uppercase tracking-[0.08em] text-cyan-600 dark:text-cyan-300">Choose location</p>
@@ -284,7 +284,7 @@ function SearchBar({ criteria, onCriteriaChange, onSearch, onClear, inputId = 'h
     }, [inputId]);
 
     return (
-        <div ref={searchBarRef} className="relative z-[9999] flex w-full flex-col gap-2">
+        <div ref={searchBarRef} className="rr-location-search-root relative z-[9999] w-full">
             <form
                 onSubmit={handleSubmitSearch}
                 className="home-location-search-form relative z-[9999] flex min-h-14 w-full flex-grow items-center justify-between rounded-full border-[2px] border-slate-800 bg-white px-4 shadow-none dark:border-white/80 dark:bg-dark-sidebar sm:min-h-16 sm:px-5"
@@ -331,7 +331,7 @@ function SearchBar({ criteria, onCriteriaChange, onSearch, onClear, inputId = 'h
                         initial={{ opacity: 0, y: -6 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: -6 }}
-                        className="search-setup-popover flex max-h-[min(62svh,30rem)] w-full flex-col overflow-hidden rounded-[1.45rem] border border-light-border bg-white shadow-xl shadow-slate-950/12 dark:border-dark-border dark:bg-dark-card sm:ml-auto sm:max-w-[25rem] md:max-w-[24rem]"
+                        className="search-setup-popover absolute right-0 top-[calc(100%+0.55rem)] z-[10000] flex max-h-[min(62svh,30rem)] w-full flex-col overflow-hidden rounded-[1.45rem] border border-light-border bg-white shadow-xl shadow-slate-950/12 dark:border-dark-border dark:bg-dark-card sm:max-w-[25rem] md:max-w-[24rem]"
                     >
                         <div className="search-setup-header flex items-start justify-between gap-3 px-3.5 py-3">
                             <div className="min-w-0 flex-1">

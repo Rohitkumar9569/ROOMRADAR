@@ -5329,6 +5329,19 @@
   background: rgba(15, 23, 42, 0.86);
 }
 
+.admin-mobile-rail .admin-mobile-chip {
+  height: 2.5rem !important;
+  min-height: 2.5rem !important;
+  max-height: 2.5rem !important;
+  align-self: center;
+  line-height: 1;
+}
+
+.admin-mobile-rail .admin-mobile-chip svg {
+  height: 0.875rem;
+  width: 0.875rem;
+}
+
 .pwa-install-shell {
   pointer-events: none;
 }

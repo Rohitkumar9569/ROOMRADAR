@@ -17,3 +17,5 @@ const socketEnvUrl = import.meta.env.VITE_SOCKET_URL;
 const apiOrigin = API_URL.replace(/\/api\/?$/i, '').replace(/\/+$/, '');
 
 export const SOCKET_URL = normalizeSocketUrl(socketEnvUrl || apiOrigin);
+
+export const VAPID_PUBLIC_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY || '';

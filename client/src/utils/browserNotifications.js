@@ -1,6 +1,10 @@
+import api from '../api';
+import { VAPID_PUBLIC_KEY } from '../config/env';
+
 const ICON_URL = '/pwa-icon.svg';
 const BADGE_URL = '/pwa-maskable.svg';
 const PERMISSION_PROMPT_KEY = 'roomradar:notification-permission-prompted';
+let cachedVapidPublicKey = VAPID_PUBLIC_KEY;
 
 const cleanText = (value, fallback = '') => {
   const text = String(value || fallback).replace(/\s+/g, ' ').trim();
@@ -21,6 +25,65 @@ export const canUseBrowserNotifications = () => (
   typeof Notification !== 'undefined'
 );
 
+const canUsePushNotifications = () => (
+  canUseBrowserNotifications() &&
+  'serviceWorker' in navigator &&
+  'PushManager' in window
+);
+
+const urlBase64ToUint8Array = (base64String) => {
+  const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = `${base64String}${padding}`.replace(/-/g, '+').replace(/_/g, '/');
+  const rawData = window.atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+
+  for (let index = 0; index < rawData.length; index += 1) {
+    outputArray[index] = rawData.charCodeAt(index);
+  }
+
+  return outputArray;
+};
+
+const getVapidPublicKey = async () => {
+  if (cachedVapidPublicKey) return cachedVapidPublicKey;
+
+  try {
+    const { data } = await api.get('/notifications/push-public-key');
+    cachedVapidPublicKey = data?.publicKey || '';
+  } catch (error) {
+    cachedVapidPublicKey = '';
+  }
+
+  return cachedVapidPublicKey;
+};
+
+export const syncRoomRadarPushSubscription = async () => {
+  if (!canUsePushNotifications() || Notification.permission !== 'granted') return false;
+
+  const publicKey = await getVapidPublicKey();
+  if (!publicKey) return false;
+
+  try {
+    const registration = await navigator.serviceWorker.ready;
+    let subscription = await registration.pushManager.getSubscription();
+
+    if (!subscription) {
+      subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(publicKey),
+      });
+    }
+
+    await api.post('/notifications/push-subscriptions', {
+      subscription: subscription.toJSON(),
+    });
+
+    return true;
+  } catch (error) {
+    return false;
+  }
+};
+
 export const requestRoomRadarNotificationPermission = async ({ force = false } = {}) => {
   if (!canUseBrowserNotifications()) return 'unsupported';
   if (Notification.permission !== 'default') return Notification.permission;
@@ -31,7 +94,11 @@ export const requestRoomRadarNotificationPermission = async ({ force = false } =
 
   localStorage.setItem(PERMISSION_PROMPT_KEY, '1');
   try {
-    return await Notification.requestPermission();
+    const permission = await Notification.requestPermission();
+    if (permission === 'granted') {
+      syncRoomRadarPushSubscription();
+    }
+    return permission;
   } catch (error) {
     return Notification.permission;
   }

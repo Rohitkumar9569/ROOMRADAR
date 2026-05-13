@@ -70,7 +70,7 @@ const getRoomRating = (room) => {
 
 const detectLanguage = (text = '') => {
     if (/[\u0900-\u097F]/.test(text)) return 'hindi';
-    const hinglishWords = ['kya', 'hai', 'h', 'nahi', 'mujhe', 'chahiye', 'batao', 'kaun', 'sasta', 'andar', 'liye', 'mein', 'bhai', 'yaar'];
+    const hinglishWords = ['kya', 'hai', 'h', 'nahi', 'mujhe', 'chahiye', 'batao', 'kaun', 'sasta', 'andar', 'liye', 'mein', 'me', 'baare', 'bare', 'isake', 'iske', 'details', 'research', 'profile', 'member', 'team', 'bhai', 'yaar', 'khana', 'khaana', 'banata', 'banate', 'banati', 'banane', 'padhna', 'padhta', 'pasand', 'achhe', 'achha', 'kaafi', 'karta', 'karte'];
     const lowerText = text.toLowerCase();
     const tokens = new Set(lowerText.match(/[a-z0-9]+/g) || []);
     return hinglishWords.some((word) => (word.includes(' ') ? lowerText.includes(word) : tokens.has(word))) ? 'hinglish' : 'english';
@@ -90,7 +90,7 @@ Rohit ka focus technology aur education ko connect karna hai, taaki complex topi
 Detailed Profile
 Rohit Kumar 2022-2026 batch ke B.Tech CSE student hain. Woh GATE CSE aur GATE DA qualified hain, including DA AIR 7275. Unka focus MERN Stack, TypeScript, Data Science, Cybersecurity, Cloud Computing, Python, C++, React Three Fiber aur AI/ML par hai.
 
-Major projects: RoomRadar, MockPanel, Study Hub, aur 3D Interactive Portfolio. Long-term goal: UPSC/UPPSC ke through SDM banna. Rohit daily AI/ML discoveries explore karna pasand karte hain.
+Major projects: RoomRadar, MockPanel, Study Hub, aur 3D Interactive Portfolio. Long-term goal: government job ki direction me grow karna. Rohit daily AI/ML discoveries explore karna pasand karte hain.
 
 Key Takeaways
 - Rohit Kumar RoomRadar ke lead developer aur Sarathi ke creator hain.
@@ -122,8 +122,153 @@ const teamProfilesHindi = {
     samrat: 'सम्राट प्रजापति teacher plus software engineer profile वाले RoomRadar team member हैं। वे students को teach करते हैं और free time में software engineering पर काम करते हैं।'
 };
 
+const researchedTeamProfiles = {
+    hinglish: {
+        rohit: `Research Snapshot: Rohit Kumar Sarathi
+
+Direct answer: Rohit Kumar RoomRadar ke lead creator aur Sarathi AI assistant ke core builder hain. Woh Gurukul Kangri Vishwavidyalaya, Haridwar me B.Tech CSE final-year student hain.
+
+Profile research: Rohit GATE CSE aur GATE DA qualified hain, including DA AIR 7275. Unka engineering focus MERN Stack, TypeScript, Data Science, Cybersecurity, Cloud Computing, Python, C++, React Three Fiber aur AI/ML par hai.
+
+RoomRadar contribution: Rohit product vision, architecture, AI assistant behavior, room discovery flow, aur premium user experience ko drive karte hain.
+
+Key takeaways:
+- Lead developer aur creator of RoomRadar.
+- GATE CSE + GATE DA qualified.
+- AI/ML, MERN, TypeScript, Data Science aur Cybersecurity me strong interest.
+- Vision: learning aur technology ko simple, useful aur accessible banana.`,
+        shubhanshu: `Research Snapshot: Shubhanshu
+
+Direct answer: Shubhanshu RoomRadar team ke software engineer hain. Unhone TCS NQT qualify kiya, interview clear kiya, TCS Digital role ke liye select hue, aur currently TCS me kaam karte hain.
+
+Professional signal: TCS NQT se TCS Digital tak ka journey unki preparation, interview clarity, aur industry-ready engineering mindset ko show karta hai.
+
+Engineering personality: Shubhanshu DSA practice karte hain, LinkedIn brain games enjoy karte hain, aur real-world coding problems solve karna pasand karte hain. Unka style practical problem solving, logic building, aur clean thinking par based hai.
+
+RoomRadar contribution: RoomRadar me Shubhanshu platform ko practical, reliable aur premium engineering direction dene me important role play karte hain.
+
+Key takeaways:
+- Software engineer on the RoomRadar team.
+- TCS NQT qualified and selected for TCS Digital.
+- Currently works at TCS.
+- DSA, LinkedIn brain games, and real-world coding problems me strong interest.`,
+        kamal: `Research Snapshot: Kamal Kumar
+
+Direct answer: Kamal Kumar RoomRadar team ke software engineer hain. Woh multi-talented hain, coding unki favorite skill hai, DSA me strong interest rakhte hain, aur cooking me bhi achhe hain.
+
+Engineering personality: Kamal ka profile balanced builder wala hai: problem solving, implementation energy, learning curiosity, aur creative discipline.
+
+Interests: Woh books/novels padhna pasand karte hain aur naye AI/ML inventions explore karte rehte hain.
+
+RoomRadar contribution: Kamal product quality, feature implementation, debugging mindset, aur practical coding energy add karte hain.
+
+Key takeaways:
+- Software engineer on the RoomRadar team.
+- Coding aur DSA me strong interest.
+- Multi-talented: engineering plus cooking.
+- AI/ML discoveries aur books/novels me curiosity.`,
+        samrat: `Research Snapshot: Samrat Prajapati
+
+Direct answer: Samrat Prajapati RoomRadar team ke teacher plus software engineer profile wale member hain. Woh same college se connected hain, students ko teach karte hain, aur free time me software engineering/coding par kaam karte hain.
+
+Professional personality: Samrat teaching mindset aur engineering discipline ka mix le kar aate hain. Isliye unka thinking style explanation, patience, aur structured problem solving par focused hai.
+
+Interests: Samrat cricket dekhna pasand karte hain, DSA practice karte hain, books/novels padhte hain, aur AI/ML ke naye ideas follow karte hain.
+
+RoomRadar contribution: RoomRadar me Samrat learning-oriented perspective, clarity, and disciplined engineering thinking add karte hain.
+
+Key takeaways:
+- Teacher plus software engineer profile.
+- Students ko teach karte hain.
+- DSA, cricket, reading, and AI/ML ideas me interest.
+- Team me teaching mindset aur engineering discipline add karte hain.`
+    },
+    english: {
+        rohit: `Research Snapshot: Rohit Kumar Sarathi
+
+Direct answer: Rohit Kumar is the lead creator of RoomRadar and the core builder behind the Sarathi AI assistant. He is a final-year B.Tech CSE student at Gurukul Kangri Vishwavidyalaya, Haridwar.
+
+Profile research: Rohit is GATE qualified in CSE and DA, including DA AIR 7275. His technical focus includes MERN Stack, TypeScript, Data Science, Cybersecurity, Cloud Computing, Python, C++, React Three Fiber, and AI/ML.
+
+RoomRadar contribution: Rohit drives product vision, architecture, AI assistant behavior, room discovery flow, and the premium user experience.
+
+Key takeaways:
+- Lead developer and creator of RoomRadar.
+- GATE CSE and GATE DA qualified.
+- Strong interest in AI/ML, MERN, TypeScript, Data Science, and Cybersecurity.
+- Vision: make technology and learning simple, useful, and accessible.`,
+        shubhanshu: `Research Snapshot: Shubhanshu
+
+Direct answer: Shubhanshu is a software engineer on the RoomRadar team. He qualified TCS NQT, cleared the interview, was selected for the TCS Digital role, and currently works at TCS.
+
+Professional signal: His path from TCS NQT to TCS Digital shows preparation, interview clarity, and an industry-ready engineering mindset.
+
+Engineering personality: Shubhanshu practices DSA, enjoys LinkedIn brain games, and likes real-world coding problems. His style is practical, logic-driven, and focused on clean problem solving.
+
+RoomRadar contribution: At RoomRadar, Shubhanshu adds practical engineering direction, reliability, and premium problem-solving energy.
+
+Key takeaways:
+- Software engineer on the RoomRadar team.
+- TCS NQT qualified and selected for TCS Digital.
+- Currently works at TCS.
+- Strong interest in DSA, LinkedIn brain games, and real-world coding problems.`,
+        kamal: `Research Snapshot: Kamal Kumar
+
+Direct answer: Kamal Kumar is a software engineer on the RoomRadar team. He is multi-talented, loves coding, has strong interest in DSA, and is also an excellent cook.
+
+Engineering personality: Kamal brings a balanced builder mindset: problem solving, implementation energy, learning curiosity, and creative discipline.
+
+Interests: He reads books and novels and keeps exploring new AI/ML inventions.
+
+RoomRadar contribution: Kamal adds product quality, feature implementation, debugging mindset, and practical coding energy.
+
+Key takeaways:
+- Software engineer on the RoomRadar team.
+- Strong interest in coding and DSA.
+- Multi-talented: engineering plus cooking.
+- Curious about AI/ML discoveries and books/novels.`,
+        samrat: `Research Snapshot: Samrat Prajapati
+
+Direct answer: Samrat Prajapati is a teacher plus software engineer profile on the RoomRadar team. He is connected with the same college, teaches students, and works on software engineering/coding in his free time.
+
+Professional personality: Samrat brings a mix of teaching mindset and engineering discipline, so his thinking style is focused on explanation, patience, and structured problem solving.
+
+Interests: He enjoys cricket, practices DSA, reads books and novels, and follows new AI/ML ideas.
+
+RoomRadar contribution: Samrat adds a learning-oriented perspective, clarity, and disciplined engineering thinking to RoomRadar.
+
+Key takeaways:
+- Teacher plus software engineer profile.
+- Teaches students.
+- Interested in DSA, cricket, reading, and AI/ML ideas.
+- Adds teaching mindset and engineering discipline to the team.`
+    }
+};
+
+const wantsDetailedTeamProfile = (text = '') => (
+    /(detail|details|detailed|research|researched|deep|full|bio|profile|about|journey|background|complete|premium|proper|pura|poora|baare\s+me|bare\s+me|jankari|jaankari|kisi bhi team member)/i.test(text)
+);
+
+const isKamalCookingQuestion = (profileKey, text = '') => (
+    profileKey === 'kamal'
+    && /(food|cook|cooking|khana|khaana|banata|banate|banati|banane|chef|recipe|dish)/i.test(text)
+);
+
+const createKamalCookingReply = (text = '') => (
+    detectLanguage(text) === 'english'
+        ? `Yes. Kamal Kumar is known on the RoomRadar team as a multi-talented software engineer who is also excellent at cooking.
+
+Premium profile note: coding is his favorite skill, he has strong interest in DSA, reads books and novels, and keeps exploring new AI/ML inventions. That mix of engineering focus plus creative cooking energy makes his RoomRadar contribution feel practical, curious, and quality-driven.`
+        : `Haan, Kamal Kumar food/cooking me kaafi achhe hain. RoomRadar team me unka profile sirf software engineer tak limited nahi hai; woh multi-talented builder hain.
+
+Premium profile note: coding unki favorite skill hai, DSA me strong interest rakhte hain, books/novels padhna pasand karte hain, aur naye AI/ML inventions explore karte rehte hain. Team me woh product quality, problem solving aur implementation energy add karte hain.`
+);
+
 const getTeamProfileReply = (profileKey, text = '') => {
     const language = detectLanguage(text);
+    if (isKamalCookingQuestion(profileKey, text)) return createKamalCookingReply(text);
+    const researchedProfiles = language === 'english' ? researchedTeamProfiles.english : researchedTeamProfiles.hinglish;
+    if (researchedProfiles[profileKey]) return researchedProfiles[profileKey];
     if (language === 'english') return teamProfilesEnglish[profileKey] || teamProfilesEnglish.rohit;
     if (language === 'hindi') return teamProfilesHindi[profileKey] || teamProfilesHindi.rohit;
     return teamProfiles[profileKey] || teamProfiles.rohit;
@@ -160,7 +305,7 @@ const teamProfileVisuals = {
             {
                 icon: 'target',
                 title: 'Long-term goal',
-                body: 'UPSC/UPPSC ke through SDM banna aur learning ko more accessible banana.'
+                body: 'Government job ki direction me grow karna aur learning ko more accessible banana.'
             }
         ],
         takeaways: [
@@ -168,6 +313,96 @@ const teamProfileVisuals = {
             'GATE CSE aur GATE DA qualified, including DA AIR 7275.',
             'AI/ML, MERN, TypeScript, Data Science aur Cybersecurity me strong interest.',
             'Vision: learning ko simple, accessible aur motivating banana.'
+        ]
+    },
+    shubhanshu: {
+        eyebrow: 'TEAM RESEARCH BRIEF',
+        title: 'Shubhanshu',
+        subtitle: 'Software engineer at RoomRadar',
+        directAnswer: 'Shubhanshu RoomRadar team ke software engineer hain. Unhone TCS NQT qualify kiya, interview clear kiya, TCS Digital role ke liye select hue, aur currently TCS me kaam karte hain.',
+        chips: ['TCS Digital', 'NQT qualified', 'DSA practice', 'Brain games'],
+        sections: [
+            {
+                icon: 'graduation',
+                title: 'Career signal',
+                body: 'TCS NQT qualify karna, interview clear karna, aur TCS Digital role ke liye select hona unki preparation aur industry readiness show karta hai.'
+            },
+            {
+                icon: 'code',
+                title: 'Engineering style',
+                body: 'DSA practice, LinkedIn brain games, logic building, aur real-world coding problems par strong focus.'
+            },
+            {
+                icon: 'sparkles',
+                title: 'RoomRadar role',
+                body: 'Platform ko practical, reliable aur premium engineering direction dene me important contribution.'
+            }
+        ],
+        takeaways: [
+            'RoomRadar team ke software engineer.',
+            'TCS NQT qualified and selected for TCS Digital.',
+            'Currently TCS me kaam karte hain.',
+            'DSA, LinkedIn brain games aur real-world coding problems pasand hain.'
+        ]
+    },
+    kamal: {
+        eyebrow: 'TEAM RESEARCH BRIEF',
+        title: 'Kamal Kumar',
+        subtitle: 'Software engineer at RoomRadar',
+        directAnswer: 'Kamal Kumar RoomRadar team ke software engineer hain. Woh multi-talented builder hain: coding unki favorite skill hai, DSA me strong interest rakhte hain, aur food/cooking me bhi kaafi achhe hain.',
+        chips: ['Coding lover', 'DSA focused', 'Cooking skill', 'AI/ML curious'],
+        sections: [
+            {
+                icon: 'code',
+                title: 'Engineering style',
+                body: 'Problem solving, feature implementation, debugging mindset, aur practical coding energy.'
+            },
+            {
+                icon: 'lightbulb',
+                title: 'Creative side',
+                body: 'Cooking me achhe hain, books/novels padhna pasand karte hain, aur naye AI/ML inventions explore karte rehte hain.'
+            },
+            {
+                icon: 'sparkles',
+                title: 'RoomRadar role',
+                body: 'Product quality aur implementation energy add karte hain.'
+            }
+        ],
+        takeaways: [
+            'RoomRadar team ke software engineer.',
+            'Coding aur DSA me strong interest.',
+            'AI/ML discoveries aur books/novels me curiosity.',
+            'Engineering ke saath cooking me bhi strong creative side.'
+        ]
+    },
+    samrat: {
+        eyebrow: 'TEAM RESEARCH BRIEF',
+        title: 'Samrat Prajapati',
+        subtitle: 'Teacher plus software engineer profile',
+        directAnswer: 'Samrat Prajapati RoomRadar team ke teacher plus software engineer profile wale member hain. Woh students ko teach karte hain aur free time me software engineering/coding par kaam karte hain.',
+        chips: ['Teacher mindset', 'Software engineering', 'DSA practice', 'Cricket lover'],
+        sections: [
+            {
+                icon: 'graduation',
+                title: 'Teaching side',
+                body: 'Students ko teach karte hain, isliye explanation, patience aur structured thinking unki strength hai.'
+            },
+            {
+                icon: 'code',
+                title: 'Engineering side',
+                body: 'Free time me software engineering, coding aur DSA practice par kaam karte hain.'
+            },
+            {
+                icon: 'sparkles',
+                title: 'RoomRadar role',
+                body: 'Team me teaching clarity, disciplined thinking aur learning-oriented perspective add karte hain.'
+            }
+        ],
+        takeaways: [
+            'Teacher plus software engineer profile.',
+            'Students ko teach karte hain.',
+            'DSA, cricket, reading aur AI/ML ideas me interest.',
+            'RoomRadar me teaching mindset aur engineering discipline add karte hain.'
         ]
     }
 };
@@ -190,6 +425,39 @@ const getTeamProfileKey = (text = '') => {
     return null;
 };
 
+const isTeamOverviewQuestion = (text = '') => {
+    const lower = text.toLowerCase();
+    return /(team|team member|team members|developer team|developers|founders|creators|sabhi member|sare member|roomradar team)/i.test(lower)
+        && /(kaun|who|about|baare|bare|detail|details|research|profile|bio|batao|bataye|members?)/i.test(lower);
+};
+
+const createTeamOverviewReply = (text = '') => {
+    const detailed = wantsDetailedTeamProfile(text);
+    if (detectLanguage(text) === 'english') {
+        return detailed
+            ? `RoomRadar team research brief:
+
+1. Rohit Kumar Sarathi - Lead creator of RoomRadar and Sarathi. GATE CSE and GATE DA qualified, with strong focus on MERN Stack, TypeScript, Data Science, Cybersecurity, Cloud, Python, C++, React Three Fiber, and AI/ML.
+2. Shubhanshu - Software engineer on the RoomRadar team. TCS NQT qualified, cleared the interview, selected for TCS Digital, and currently works at TCS. He practices DSA, enjoys LinkedIn brain games, and likes real-world coding problems.
+3. Kamal Kumar - Software engineer, multi-talented builder, coding lover, DSA-focused, curious about AI/ML inventions, and also excellent at cooking.
+4. Samrat Prajapati - Teacher plus software engineer profile. He teaches students, practices DSA, enjoys cricket, reads books/novels, and follows AI/ML ideas.
+
+Together, they bring product vision, industry engineering, implementation energy, teaching clarity, and AI curiosity to RoomRadar.`
+            : 'RoomRadar was built by Rohit Kumar, Shubhanshu, Kamal Kumar, and Samrat Prajapati. Ask any name for a detailed profile.';
+    }
+
+    return detailed
+        ? `RoomRadar team ka research-style brief:
+
+1. Rohit Kumar Sarathi - RoomRadar aur Sarathi ke lead creator. GATE CSE aur GATE DA qualified, MERN, TypeScript, Data Science, Cybersecurity, Cloud, Python, C++, React Three Fiber aur AI/ML me strong focus.
+2. Shubhanshu - RoomRadar team ke software engineer. TCS NQT qualify kiya, interview clear kiya, TCS Digital role ke liye select hue, aur currently TCS me kaam karte hain. DSA, LinkedIn brain games aur real-world coding problems pasand hain.
+3. Kamal Kumar - Software engineer, multi-talented builder, coding lover, DSA focused, AI/ML inventions explore karte hain, aur cooking me bhi achhe hain.
+4. Samrat Prajapati - Teacher plus software engineer profile. Students ko teach karte hain, DSA practice karte hain, cricket pasand karte hain, books/novels padhte hain, aur AI/ML ideas follow karte hain.
+
+Together, team RoomRadar me product vision, industry engineering, implementation energy, teaching clarity aur AI curiosity add karti hai.`
+        : 'RoomRadar team me Rohit Kumar, Shubhanshu, Kamal Kumar aur Samrat Prajapati hain. Kisi bhi naam ke saath "details me batao" likho, main premium profile brief de dunga.';
+};
+
 const getDirectFallbackReply = (text = '') => {
     const lower = text.toLowerCase();
     if (/^(hi|hii|hello|hey|namaste|namaskar)\b/i.test(text.trim()) || /^\s*[\u0928][\u092e][\u0938]/.test(text)) {
@@ -203,6 +471,9 @@ const getDirectFallbackReply = (text = '') => {
     const profileKey = getTeamProfileKey(text);
     if (profileKey) {
         return getTeamProfileReply(profileKey, text);
+    }
+    if (isTeamOverviewQuestion(text)) {
+        return createTeamOverviewReply(text);
     }
     if (/(kisne|kisane|kaun banaya|developer|developed by|creator|founder|owner)/i.test(lower)
         && /(platform|roomradar|room radar|website|app|project|isako|isaka|iska|ye|yeh|tumko|tumhe|tujhe|aapko|assistant|chatbot|bot|ai)/i.test(lower)) {
@@ -249,8 +520,8 @@ const extractLocalFilters = (text = '') => {
     else if (/\bstudio\b/i.test(text)) filters.roomType = 'Studio';
     else if (/\bshared|sharing\b/i.test(text)) filters.roomType = 'Shared Room';
     else if (/\bsingle\b/i.test(text)) filters.roomType = 'Single Room';
-    if (/\bboys?|male|men|ladk/i.test(text)) filters.gender = 'Male';
-    if (/\bgirls?|female|women|ladki/i.test(text)) filters.gender = 'Female';
+    if (/(^|[^a-z])(girls?|female|females|women|ladki|ladkiyon|mahila)([^a-z]|$)/i.test(text)) filters.gender = 'Female';
+    else if (/(^|[^a-z])(boys?|male|males|men|ladka|ladke|ladko)([^a-z]|$)/i.test(text)) filters.gender = 'Male';
     if (/(sabse sasta|sasta|cheapest|lowest|minimum|kam budget)/i.test(lower)) filters.sort = 'price_asc';
     if (/(sabse costly|sabse mehenga|mahanga|expensive|costliest|highest|premium|luxury)/i.test(lower)) filters.sort = 'price_desc';
     if (/(rating|rated|best rated|top rated|best room|best rooms|top room|top rooms|recommended|good room|good rooms|achha|accha)/i.test(lower)) filters.sort = 'rating';

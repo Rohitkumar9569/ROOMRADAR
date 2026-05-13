@@ -3,6 +3,7 @@ const Message = require('../models/Message');
 const Room = require('../models/Room');
 const asyncHandler = require('express-async-handler');
 const mongoose = require('mongoose');
+const { sendPushToUser } = require('../utils/pushNotifications');
 
 const getUnreadCountForUser = async (userId) => {
     const normalizedUserId = new mongoose.Types.ObjectId(userId);
@@ -29,13 +30,13 @@ const emitUnreadCount = async (userId) => {
     }
 };
 
-const emitMessageToRecipients = async ({ conversationId, message, senderId, receiverIds = [], roomTitle = '' }) => {
+const emitMessageToRecipients = async ({ conversationId, message, senderId, receiverIds = [], roomTitle = '', roomLandlordId = null }) => {
     try {
         const { io } = require('../index');
         if (!io || !message) return;
 
         const sender = message.sender || {};
-        const payload = {
+        const basePayload = {
             _id: message._id,
             senderId: senderId.toString(),
             senderName: sender.name,
@@ -47,9 +48,33 @@ const emitMessageToRecipients = async ({ conversationId, message, senderId, rece
             createdAt: message.createdAt,
         };
 
-        receiverIds.forEach((receiverId) => {
-            if (receiverId) io.to(receiverId.toString()).emit('getMessage', payload);
-        });
+        await Promise.all(receiverIds.map(async (receiverId) => {
+            if (!receiverId) return;
+
+            const receiverKey = receiverId.toString();
+            const isLandlordReceiver = roomLandlordId && receiverKey === roomLandlordId.toString();
+            const linkBase = isLandlordReceiver ? '/landlord/inbox' : '/profile/inbox';
+            const link = `${linkBase}/${conversationId}`;
+            const payload = { ...basePayload, link };
+
+            io.to(receiverKey).emit('getMessage', payload);
+
+            const activeReceiverSockets = io.sockets.adapter.rooms.get(receiverKey);
+            if (activeReceiverSockets?.size > 0) return;
+
+            await sendPushToUser(receiverId, {
+                title: sender.name || 'New RoomRadar message',
+                body: message.text || `New message${roomTitle ? ` for ${roomTitle}` : ''}.`,
+                url: link,
+                tag: `roomradar-chat-${conversationId}`,
+                data: {
+                    type: 'message',
+                    conversationId: conversationId.toString(),
+                    senderId: senderId.toString(),
+                    roomTitle,
+                },
+            });
+        }));
     } catch (error) {
         // Socket fan-out should never block message persistence.
     }
@@ -221,12 +246,15 @@ exports.findOrCreateConversation = asyncHandler(async (req, res) => {
         const savedMessage = await initialMessage.save();
         conversation.lastMessage = savedMessage._id;
         await conversation.save();
+        const notificationRoom = await Room.findById(conversation.roomId).select('title landlord').lean();
         const populatedMessage = await Message.findById(savedMessage._id).populate('sender', 'name avatarUrl profilePicture');
         await emitMessageToRecipients({
             conversationId: conversation._id,
             message: populatedMessage,
             senderId: currentUserId,
             receiverIds: [otherUserId],
+            roomTitle: notificationRoom?.title || '',
+            roomLandlordId: notificationRoom?.landlord,
         });
         await emitUnreadCount(otherUserId);
     }
@@ -281,12 +309,17 @@ exports.createMessage = asyncHandler(async (req, res) => {
     await Conversation.findByIdAndUpdate(conversationId, { lastMessage: savedMessage._id });
     const receiverIds = conversation.members.filter((memberId) => memberId.toString() !== senderId.toString());
     await Promise.all(receiverIds.map((receiverId) => emitUnreadCount(receiverId)));
+    const notificationRoom = conversation.roomId
+        ? await Room.findById(conversation.roomId).select('title landlord').lean()
+        : null;
     const populatedMessage = await Message.findById(savedMessage._id).populate('sender', 'name avatarUrl profilePicture');
     await emitMessageToRecipients({
         conversationId,
         message: populatedMessage,
         senderId,
         receiverIds,
+        roomTitle: notificationRoom?.title || '',
+        roomLandlordId: notificationRoom?.landlord,
     });
     res.status(201).json(populatedMessage);
 });

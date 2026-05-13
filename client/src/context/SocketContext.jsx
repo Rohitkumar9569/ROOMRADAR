@@ -10,7 +10,8 @@ import { connectSocketAfterMount, socketOptions } from '../config/socketOptions'
 import {
     isCurrentPageTarget,
     primeRoomRadarNotifications,
-    showRoomRadarNotification
+    showRoomRadarNotification,
+    syncRoomRadarPushSubscription
 } from '../utils/browserNotifications';
 
 const SocketContext = createContext();
@@ -47,6 +48,7 @@ export const SocketProvider = ({ children }) => {
     useEffect(() => {
         if (user) {
             const cleanupNotificationPrimer = primeRoomRadarNotifications();
+            syncRoomRadarPushSubscription();
             // Establish connection
             const nextSocket = io(SOCKET_URL, socketOptions);
             socket.current = nextSocket;

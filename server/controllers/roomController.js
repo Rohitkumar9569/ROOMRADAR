@@ -11,6 +11,7 @@ const { normalizeOptionalIndianMobile } = require('../utils/phoneUtils');
 const {
     appendAndClause,
     buildLocationQuery,
+    createGenderPreferenceClause,
     findDiscoveryFallbackRooms,
 } = require('../utils/roomDiscoveryUtils');
 
@@ -342,12 +343,8 @@ exports.getAllRooms = asyncHandler(async (req, res) => {
             else query.roomType = { $regex: type, $options: 'i' };
         }
         if (gender && gender !== 'Any') {
-            query.$or = [
-                { gender },
-                { 'tenantPreferences.allowedGender': gender },
-                { gender: 'Any' },
-                { 'tenantPreferences.allowedGender': 'Any' },
-            ];
+            const genderClause = createGenderPreferenceClause(gender);
+            if (genderClause) appendAndClause(query, genderClause);
         }
         if (familyStatus && familyStatus !== 'Any') {
             const normalizedFamily = familyStatus === 'Bachelors Only' ? 'Bachelors' : familyStatus === 'Family Only' ? 'Family' : familyStatus;

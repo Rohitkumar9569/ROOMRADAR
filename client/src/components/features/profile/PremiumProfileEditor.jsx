@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { BadgeCheck, Banknote, Camera, CheckCircle2, Home, Landmark, MapPin, Phone, ShieldCheck, Sparkles, UserRound, Wallet } from 'lucide-react';
+import { BadgeCheck, Banknote, Camera, CheckCircle2, Home, Landmark, Mail, MapPin, Phone, ShieldCheck, Sparkles, UserRound, Wallet } from 'lucide-react';
 import api from '../../../api';
 import { useAuth } from '../../../context/AuthContext';
 import { isValidIndianMobile, phoneInputProps, sanitizePhoneInput } from '../../../utils/phoneUtils';
@@ -81,9 +81,11 @@ function PremiumProfileEditor({ mode = 'student' }) {
   const profileFields = useMemo(() => (isHost ? hostFields : studentFields), [isHost]);
   const completion = useMemo(() => calculateCompletion(form, isHost), [form, isHost]);
   const userInitial = getInitial(form.name || user?.name);
+  const accountEmail = user?.email || '';
   const verifications = user?.verifications || {};
+  const emailVerified = verifications.email || user?.verifiedEmails?.length > 0;
   const verifiedCount = [
-    verifications.email || user?.verifiedEmails?.length > 0,
+    emailVerified,
     verifications.phone || Boolean(user?.verifiedPhone),
     verifications.identity,
     isHost ? verifications.property : verifications.student,
@@ -221,8 +223,9 @@ function PremiumProfileEditor({ mode = 'student' }) {
               </div>
             </div>
 
-            <div className="relative mt-4 grid grid-cols-3 gap-2">
+            <div className="relative mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
               <ProfileSignal icon={Phone} label="Phone" value={form.mobileNumber ? 'Added' : 'Missing'} />
+              <ProfileSignal icon={Mail} label="Email" value={accountEmail || 'Missing'} />
               <ProfileSignal icon={Home} label={isHost ? 'Host' : 'Profile'} value={isHost ? 'Landlord' : normalizeTravellingText(form.occupation, 'Travelling')} />
               <ProfileSignal icon={ShieldCheck} label="Trust" value={`${verifiedCount}/4`} />
             </div>
@@ -261,7 +264,30 @@ function PremiumProfileEditor({ mode = 'student' }) {
               </button>
             </div>
 
-            <div className="grid grid-cols-2 gap-3 sm:gap-4">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
+              <label className="block sm:col-span-2">
+                <span className="mb-2 flex items-center gap-2 text-[clamp(12px,3.1vw,14px)] font-black text-light-text dark:text-dark-text">
+                  <Mail className="h-4 w-4 text-cyan-500" />
+                  Email ID
+                </span>
+                <div className="relative">
+                  <input
+                    value={accountEmail}
+                    type="email"
+                    readOnly
+                    title={accountEmail || 'Email not available'}
+                    className="input-field min-h-12 rounded-2xl bg-white/92 pr-28 text-light-text dark:bg-slate-950/50 dark:text-dark-text"
+                    placeholder="Email not available"
+                  />
+                  <span className={`pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 rounded-full px-2.5 py-1 text-[11px] font-black ${
+                    emailVerified
+                      ? 'bg-emerald-500/12 text-emerald-700 dark:bg-emerald-400/15 dark:text-emerald-200'
+                      : 'bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-200'
+                  }`}>
+                    {emailVerified ? 'Verified' : 'Account'}
+                  </span>
+                </div>
+              </label>
               {profileFields.map((field) => (
                 <label key={field.key} className="block">
                   <span className="mb-2 block text-[clamp(12px,3.1vw,14px)] font-black text-light-text dark:text-dark-text">{field.label}{field.required ? ' *' : ''}</span>
@@ -311,7 +337,7 @@ function PremiumProfileEditor({ mode = 'student' }) {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3 sm:gap-4">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
                   <label className="block">
                     <span className="mb-2 flex items-center gap-2 text-sm font-bold text-light-text dark:text-dark-text">
                       <Wallet className="h-4 w-4 text-cyan-500" />
@@ -375,7 +401,7 @@ function PremiumProfileEditor({ mode = 'student' }) {
                     <input value={form.bankIfsc} onChange={(event) => updateField('bankIfsc', event.target.value.toUpperCase())} type="text" className="input-field uppercase" placeholder="IFSC code" />
                   </label>
 
-                  <label className="col-span-2 block">
+                  <label className="block sm:col-span-2">
                     <span className="mb-2 block text-sm font-bold text-light-text dark:text-dark-text">Payout note</span>
                     <textarea
                       value={form.payoutNotes}
