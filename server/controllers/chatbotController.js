@@ -61,6 +61,7 @@ TEAM PROFILE EXPERIENCE:
 RESPONSE FORMAT:
 - For room results, keep the reply short and useful.
 - For price_asc, mention that the first result is the cheapest.
+- For price negotiation or discount questions, explain that RoomRadar does not automatically reduce rent; the landlord/host confirms the final price, and negotiable listings can be discussed through booking request or chat.
 - Always show real card data only from the database.`;
 
 const JSON_INSTRUCTIONS = `Return only this JSON shape:
@@ -920,6 +921,23 @@ const createRelaxedSearchMessage = ({ rooms, filters, sourceText }) => {
     return `No exact phrase match found, so I found ${count} closest real room${count > 1 ? 's' : ''} based on ${matchedText}.${sortText}`;
 };
 
+const isPriceNegotiationQuestion = (text = '') => {
+    const lower = text.toLowerCase();
+    const hasPriceContext = /\b(room|rooms|pg|flat|listing|rent|price|daam|dam|kiraya|rate|cost|mahanga|mahinga|mehanga|mehenga|expensive|costly)\b/i.test(lower);
+    const hasHighConcern = /(?:daam|dam|price|rent|kiraya|rate|cost)\s+(?:bahut|bohot|jyada|zyada|jada|high|expensive|costly)\b/i.test(lower)
+        || /\b(?:bahut|bohot|jyada|zyada|jada)\s+(?:mahanga|mahinga|mehanga|mehenga|expensive|costly|high)\b/i.test(lower);
+    const hasNegotiationAsk = /(?:kam\s+(?:ho|hoga|hogi|honge|kar|karo|kara|hota|ho\s+jayega|ho\s+sakta)|reduce|reduced|discount|negotia(?:te|ble|tion)|bargain|offer|deal|lower\s+(?:price|rent)|price\s+drop|rent\s+kam|daam\s+kam|dam\s+kam|kiraya\s+kam|rate\s+kam)/i.test(lower);
+    return hasPriceContext && (hasNegotiationAsk || hasHighConcern);
+};
+
+const createPriceNegotiationReply = (text = '') => {
+    if (detectLanguage(text) === 'english') {
+        return 'RoomRadar does not automatically reduce the rent. The final price is confirmed by the landlord/host. If the listing is negotiable, open the room, send a booking request or chat message, and politely ask for a better price. You can also tell me your budget and I will show cheaper verified options.';
+    }
+
+    return 'RoomRadar se rent automatic kam nahi hota. Final price landlord/host confirm karta hai. Agar listing negotiable hai, room open karke booking request ya chat me politely better price/discount ask kar sakte ho. Budget bata doge to main cheaper verified options bhi dikha dunga.';
+};
+
 const createKnowledgeReply = (text = '') => {
     const lower = text.toLowerCase();
     const language = detectLanguage(text);
@@ -946,6 +964,9 @@ const createKnowledgeReply = (text = '') => {
         return hinglish
             ? 'Main RoomRadar AI assistant hoon. Main real rooms dhoondhne, booking steps samjhane, aur landlord/travelling workflow me help karta hoon.'
             : 'I am the RoomRadar AI assistant. I help users find real rooms, understand booking steps, and navigate landlord/travelling workflows.';
+    }
+    if (isPriceNegotiationQuestion(text)) {
+        return createPriceNegotiationReply(text);
     }
     if (/book|booking|request|confirm|kaise/i.test(lower)) {
         if (language === 'hindi') return 'Room book करने के लिए room card open करें, Request to Book दबाएँ, stay details fill करें, फिर landlord approval के बाद final confirmation complete होता है।';
@@ -1101,7 +1122,7 @@ exports.chat = asyncHandler(async (req, res) => {
     const localFilters = extractFiltersLocally(lastUserText);
     const extremeIntent = getExtremeIntent(lastUserText);
 
-    if (isGreeting(lastUserText) || isCreatorQuestion(lastUserText) || isIdentityQuestion(lastUserText) || getTeamProfileKey(lastUserText) || isTeamOverviewQuestion(lastUserText)) {
+    if (isGreeting(lastUserText) || isCreatorQuestion(lastUserText) || isIdentityQuestion(lastUserText) || isPriceNegotiationQuestion(lastUserText) || getTeamProfileKey(lastUserText) || isTeamOverviewQuestion(lastUserText)) {
         return res.json({
             message: createKnowledgeReply(lastUserText),
             rooms: [],

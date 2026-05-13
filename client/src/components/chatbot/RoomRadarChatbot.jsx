@@ -458,6 +458,23 @@ Together, team RoomRadar me product vision, industry engineering, implementation
         : 'RoomRadar team me Rohit Kumar, Shubhanshu, Kamal Kumar aur Samrat Prajapati hain. Kisi bhi naam ke saath "details me batao" likho, main premium profile brief de dunga.';
 };
 
+const isPriceNegotiationQuestion = (text = '') => {
+    const lower = text.toLowerCase();
+    const hasPriceContext = /\b(room|rooms|pg|flat|listing|rent|price|daam|dam|kiraya|rate|cost|mahanga|mahinga|mehanga|mehenga|expensive|costly)\b/i.test(lower);
+    const hasHighConcern = /(?:daam|dam|price|rent|kiraya|rate|cost)\s+(?:bahut|bohot|jyada|zyada|jada|high|expensive|costly)\b/i.test(lower)
+        || /\b(?:bahut|bohot|jyada|zyada|jada)\s+(?:mahanga|mahinga|mehanga|mehenga|expensive|costly|high)\b/i.test(lower);
+    const hasNegotiationAsk = /(?:kam\s+(?:ho|hoga|hogi|honge|kar|karo|kara|hota|ho\s+jayega|ho\s+sakta)|reduce|reduced|discount|negotia(?:te|ble|tion)|bargain|offer|deal|lower\s+(?:price|rent)|price\s+drop|rent\s+kam|daam\s+kam|dam\s+kam|kiraya\s+kam|rate\s+kam)/i.test(lower);
+    return hasPriceContext && (hasNegotiationAsk || hasHighConcern);
+};
+
+const createPriceNegotiationReply = (text = '') => {
+    if (detectLanguage(text) === 'english') {
+        return 'RoomRadar does not automatically reduce the rent. The final price is confirmed by the landlord/host. If the listing is negotiable, open the room, send a booking request or chat message, and politely ask for a better price. You can also tell me your budget and I will show cheaper verified options.';
+    }
+
+    return 'RoomRadar se rent automatic kam nahi hota. Final price landlord/host confirm karta hai. Agar listing negotiable hai, room open karke booking request ya chat me politely better price/discount ask kar sakte ho. Budget bata doge to main cheaper verified options bhi dikha dunga.';
+};
+
 const getDirectFallbackReply = (text = '') => {
     const lower = text.toLowerCase();
     if (/^(hi|hii|hello|hey|namaste|namaskar)\b/i.test(text.trim()) || /^\s*[\u0928][\u092e][\u0938]/.test(text)) {
@@ -486,6 +503,9 @@ const getDirectFallbackReply = (text = '') => {
         return isHinglish(text)
             ? 'Main RoomRadar AI assistant hoon. Main real rooms dhoondhne aur booking flow me help karta hoon.'
             : 'I am the RoomRadar AI assistant. I help you find real rooms and complete the booking flow.';
+    }
+    if (isPriceNegotiationQuestion(text)) {
+        return createPriceNegotiationReply(text);
     }
     return '';
 };
