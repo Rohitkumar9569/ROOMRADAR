@@ -1053,7 +1053,7 @@ const searchRooms = async (input = {}) => {
     const sort = sortMap[input.sort_by] || { views: -1, createdAt: -1 };
 
     return Room.find(query)
-        .select('title rent location roomType gender familyStatus tenantPreferences beds maxOccupants bathrooms washroomType attachedWashroom furnishingStatus facilities securityDeposit maintenanceCharge electricityBilling availableFrom paymentPreference offlinePaymentAllowed rentNegotiable minimumStay imageUrl images averageRating numReviews views _id')
+        .select('title rent location roomType gender familyStatus tenantPreferences beds maxOccupants bathrooms washroomType attachedWashroom furnishingStatus facilities securityDeposit maintenanceCharge electricityBilling availableFrom paymentPreference offlinePaymentAllowed rentNegotiable minimumStay imageUrl images averageRating numReviews views verifications status createdAt _id')
         .sort(sort)
         .limit(limit)
         .lean();

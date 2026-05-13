@@ -24,13 +24,14 @@ import {
     Wifi,
     Wind,
     Zap,
+    ImageOff,
 } from 'lucide-react';
 import PropTypes from 'prop-types';
 import { useAuth } from '../../../context/AuthContext';
 import { formatListingTitle } from '../../../utils/listingDisplay';
-import fallbackRoomImage from '../../../assets/background_img.jpg';
 
 const money = (value) => `\u20B9${Number(value || 0).toLocaleString('en-IN')}`;
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 const compactMoney = (value) => {
     const amount = Number(String(value ?? '').replace(/[^\d.-]/g, ''));
@@ -57,14 +58,14 @@ const normalizeRoomTypeLabel = (type = '') => {
 const normalizeFamilyStatus = (room = {}) => (
     room.tenantPreferences?.familyStatus
     || room.familyStatus
-    || 'Any'
+    || ''
 );
 
 const normalizeAllowedGender = (room = {}) => (
     room.tenantPreferences?.allowedGender
     || room.tenantPreferences?.gender
     || room.gender
-    || 'Any'
+    || ''
 );
 
 const getTenantLabel = (room = {}) => {
@@ -74,7 +75,7 @@ const getTenantLabel = (room = {}) => {
     if (allowedGender === 'Male') return 'Men only';
     if (familyStatus === 'Family' || familyStatus === 'Family Only') return 'Family only';
     if (familyStatus === 'Bachelors' || familyStatus === 'Bachelors Only') return 'Bachelors only';
-    return 'Any tenant';
+    return '';
 };
 
 const getWashroomLabel = (room = {}) => {
@@ -108,6 +109,43 @@ const pushUniqueTag = (tags, tag) => {
     const key = tag.key || tag.text.toLowerCase();
     if (tags.some((item) => (item.key || item.text.toLowerCase()) === key)) return;
     tags.push({ ...tag, key });
+};
+
+const getImageUrl = (image) => {
+    if (!image) return '';
+    if (typeof image === 'string') return image.trim();
+    return String(image.url || image.secure_url || image.imageUrl || '').trim();
+};
+
+const normalizeStatusLabel = (status = '') => {
+    const value = String(status || '').replace(/_/g, ' ').trim();
+    if (!value) return '';
+    return value
+        .split(/\s+/)
+        .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+        .join(' ');
+};
+
+const getRealLocationLabel = (room = {}) => {
+    const location = room.location || {};
+    const parts = [
+        location.locality,
+        location.landmark,
+        location.city || room.city,
+        location.state,
+        location.pincode || location.postalCode,
+    ]
+        .map((item) => String(item || '').trim())
+        .filter(Boolean);
+
+    return [...new Set(parts)].join(', ');
+};
+
+const isRecentListing = (createdAt) => {
+    if (!createdAt) return false;
+    const createdDate = new Date(createdAt);
+    if (Number.isNaN(createdDate.getTime())) return false;
+    return Date.now() - createdDate.getTime() <= 14 * DAY_MS;
 };
 
 const supportsFineHover = () => (
@@ -243,8 +281,8 @@ function RoomCard({ room, context = 'default', onRemove, imagePriority = false }
             ? cardRoom.images
             : Array.isArray(cardRoom.imageUrls) && cardRoom.imageUrls.length > 0
                 ? cardRoom.imageUrls
-                : [cardRoom.imageUrl || fallbackRoomImage])
-            .map((image) => image?.url || image)
+                : [cardRoom.imageUrl])
+            .map(getImageUrl)
             .filter(Boolean)
     ), [cardRoom.imageUrl, cardRoom.imageUrls, cardRoom.images]);
 
@@ -378,22 +416,22 @@ function RoomCard({ room, context = 'default', onRemove, imagePriority = false }
         const electricityLabel = getElectricityLabel(cardRoom.electricityBilling);
         const roomTypeLabel = cardRoom.roomType
             ? normalizeRoomTypeLabel(cardRoom.roomType)
-            : `${cardRoom.beds || 1} bed room`;
+            : '';
 
-        pushUniqueTag(tags, { key: 'room-type', Icon: Home, text: roomTypeLabel, tone: 'accent' });
-        pushUniqueTag(tags, {
+        pushUniqueTag(tags, roomTypeLabel && { key: 'room-type', Icon: Home, text: roomTypeLabel, tone: 'accent' });
+        pushUniqueTag(tags, tenantLabel && {
             key: 'tenant',
             Icon: tenantLabel.includes('Women') || tenantLabel.includes('Men') ? User : Users2,
             text: tenantLabel,
-            tone: tenantLabel === 'Any tenant' ? 'muted' : 'accent',
+            tone: 'accent',
         });
         pushUniqueTag(tags, washroomLabel && { key: 'washroom', Icon: Bath, text: washroomLabel, tone: 'accent' });
         pushUniqueTag(tags, facilities.meals && { key: 'meals', Icon: Utensils, text: 'Meals included', tone: 'accent' });
-        pushUniqueTag(tags, Number.isFinite(depositAmount) && {
+        pushUniqueTag(tags, Number.isFinite(depositAmount) && depositAmount > 0 && {
             key: 'deposit',
             Icon: ReceiptText,
-            text: depositAmount === 0 ? 'No deposit' : `Deposit ${compactMoney(depositAmount)}`,
-            tone: depositAmount === 0 ? 'accent' : 'muted',
+            text: `Deposit ${compactMoney(depositAmount)}`,
+            tone: 'muted',
         });
         pushUniqueTag(tags, electricityLabel && { key: 'electricity', Icon: Zap, text: electricityLabel, tone: /included/i.test(electricityLabel) ? 'accent' : 'muted' });
         pushUniqueTag(tags, cardRoom.furnishingStatus && { key: 'furnishing', Icon: Sofa, text: cardRoom.furnishingStatus.replace('Semi Furnished', 'Semi furnished'), tone: 'muted' });
@@ -431,14 +469,17 @@ function RoomCard({ room, context = 'default', onRemove, imagePriority = false }
         return tags.slice(0, 4);
     }, [cardRoom]);
 
-    if (!roomId) return null;
+    const displayTitle = formatListingTitle(cardRoom.title, '');
+    const rentAmount = Number(cardRoom.rent);
+    const city = String(cardRoom.location?.city || cardRoom.city || '').trim();
+    const locationLabel = getRealLocationLabel(cardRoom);
+    const statusLabel = normalizeStatusLabel(cardRoom.status);
 
-    const city = room.location?.city || room.city || 'India';
-    const state = room.location?.state || '';
-    const locationLabel = [city, state].filter(Boolean).join(', ');
+    if (!roomId || !displayTitle || !Number.isFinite(rentAmount) || rentAmount <= 0 || !city) return null;
+
     const landlord = room.landlord && typeof room.landlord === 'object' ? room.landlord : {};
     const landlordProfile = landlord.roleProfiles?.landlord || {};
-    const hostName = landlordProfile.name || landlord.name || room.landlordName || 'RoomRadar host';
+    const hostName = landlordProfile.name || landlord.name || room.landlordName || '';
     const hostAvatar = landlordProfile.avatarUrl || landlordProfile.profilePicture || landlord.avatarUrl || landlord.profilePicture;
     const hostInitials = hostName
         .split(' ')
@@ -453,7 +494,7 @@ function RoomCard({ room, context = 'default', onRemove, imagePriority = false }
         || landlord.verifications?.identity
         || landlord.verifications?.property
     );
-    const displayTitle = formatListingTitle(room.title, `${city} room`);
+    const showNewBadge = isRecentListing(cardRoom.createdAt);
 
     return (
         <article
@@ -467,18 +508,27 @@ function RoomCard({ room, context = 'default', onRemove, imagePriority = false }
                     onMouseEnter={handleMouseEnter}
                     onMouseLeave={handleMouseLeave}
                 >
-                    <img
-                        key={imageUrls[currentImageIndex]}
-                        src={imageUrls[currentImageIndex]}
-                        alt={displayTitle}
-                        className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.025]"
-                        loading={imageLoading}
-                        decoding="async"
-                        fetchpriority={imageFetchPriority}
-                        sizes="(max-width: 639px) 50vw, (max-width: 1023px) 50vw, 280px"
-                        draggable="false"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-slate-950/52 via-transparent to-black/10 opacity-80" />
+                    {imageUrls.length > 0 ? (
+                        <>
+                            <img
+                                key={imageUrls[currentImageIndex]}
+                                src={imageUrls[currentImageIndex]}
+                                alt={displayTitle}
+                                className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.025]"
+                                loading={imageLoading}
+                                decoding="async"
+                                fetchpriority={imageFetchPriority}
+                                sizes="(max-width: 639px) 50vw, (max-width: 1023px) 50vw, 280px"
+                                draggable="false"
+                            />
+                            <div className="absolute inset-0 bg-gradient-to-t from-slate-950/52 via-transparent to-black/10 opacity-80" />
+                        </>
+                    ) : (
+                        <div className="flex h-full w-full flex-col items-center justify-center bg-zinc-100 text-center text-zinc-500 dark:bg-zinc-900 dark:text-zinc-400">
+                            <ImageOff className="h-8 w-8" />
+                            <span className="mt-2 px-3 text-[11px] font-black uppercase tracking-wide">Photo pending</span>
+                        </div>
+                    )}
 
                     {(isGuestFavourite || isVerifiedHost || room.verifications?.property) && (
                         <span className={`rr-card-badge rr-verify-badge ${isGuestFavourite ? 'is-guest-fav' : ''} absolute left-2.5 top-2.5 sm:left-4 sm:top-4`}>
@@ -490,7 +540,7 @@ function RoomCard({ room, context = 'default', onRemove, imagePriority = false }
                     )}
 
                     <div className="absolute right-2.5 top-2.5 flex flex-col items-end gap-2 sm:right-4 sm:top-4">
-                        {!rating && (
+                        {showNewBadge && (
                             <span className="rr-card-badge rr-new-badge">
                                 <span className="rr-card-badge-icon">
                                     <Star />
@@ -576,50 +626,56 @@ function RoomCard({ room, context = 'default', onRemove, imagePriority = false }
                                 <span className="text-[13.5px] font-black leading-none text-light-text dark:text-dark-text">{money(room.rent)}</span>
                                 <span className="ml-0.5 text-[8.5px] font-bold leading-none text-light-muted dark:text-dark-muted">/mo</span>
                             </p>
-                            <span className="rr-card-mini-status">Live</span>
+                            {statusLabel && <span className="rr-card-mini-status">{statusLabel}</span>}
                         </div>
-                        <p className="rr-room-card-location mb-2 flex min-w-0 items-start gap-1 text-[9.5px] font-semibold leading-[1.16] text-light-muted dark:text-dark-muted sm:text-[12px]">
-                            <MapPin className="h-3.5 w-3.5 flex-shrink-0 text-cyan-500" />
-                            <span className="rr-line-clamp-2 min-w-0">{locationLabel}</span>
-                        </p>
-                    </div>
-
-                    <div className="rr-host-inline rr-room-card-host mb-3 min-w-0 items-center gap-2">
-                        {hostAvatar ? (
-                            <img
-                                src={hostAvatar}
-                                alt={hostName}
-                                className="h-5 w-5 flex-shrink-0 rounded-full object-cover ring-2 ring-white dark:ring-dark-border sm:h-6 sm:w-6"
-                                loading="lazy"
-                                decoding="async"
-                            />
-                        ) : (
-                            <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-cyan-500/15 text-[9px] font-bold text-cyan-700 dark:bg-cyan-500/20 dark:text-cyan-300 sm:h-6 sm:w-6 sm:text-[10px]">
-                                {hostInitials}
-                            </span>
+                        {locationLabel && (
+                            <p className="rr-room-card-location mb-2 flex min-w-0 items-start gap-1 text-[9.5px] font-semibold leading-[1.16] text-light-muted dark:text-dark-muted sm:text-[12px]">
+                                <MapPin className="h-3.5 w-3.5 flex-shrink-0 text-cyan-500" />
+                                <span className="rr-line-clamp-2 min-w-0">{locationLabel}</span>
+                            </p>
                         )}
-                        <span className="min-w-0 truncate text-[11px] font-medium text-light-muted dark:text-dark-muted sm:text-[12px]">
-                            Host <span className="font-bold text-light-text dark:text-dark-text">{hostName}</span>
-                        </span>
-                        <ShieldCheck className={`h-4 w-4 flex-shrink-0 ${isVerifiedHost ? 'text-emerald-600' : 'text-amber-500'}`} />
                     </div>
 
-                    <div className="rr-room-card-tags mb-1.5 grid min-w-0 grid-cols-2 gap-1.5 sm:mb-4 sm:flex sm:flex-wrap sm:gap-2.5">
-                        {detailTags.map(({ Icon, text, tone }, tagIndex) => (
-                            <span
-                                key={`${text}-${tagIndex}`}
-                                title={text}
-                                className={`rr-feature-pill inline-flex min-w-0 items-center gap-1 rounded-lg px-1.5 py-1.5 text-[9.5px] font-bold leading-none sm:px-3 sm:py-2 sm:text-[11px] ${
-                                    tone === 'accent'
-                                        ? 'bg-cyan-50 text-cyan-700 dark:bg-cyan-500/15 dark:text-cyan-200'
-                                        : 'bg-light-bg text-light-muted dark:bg-dark-input dark:text-dark-muted'
-                                } ${tagIndex > 2 ? 'rr-wide-only' : ''}`}
-                            >
-                                <Icon className="h-3.5 w-3.5 flex-shrink-0 sm:h-4 sm:w-4" />
-                                <span className="rr-feature-label min-w-0 whitespace-nowrap">{text}</span>
+                    {hostName && (
+                        <div className="rr-host-inline rr-room-card-host mb-3 min-w-0 items-center gap-2">
+                            {hostAvatar ? (
+                                <img
+                                    src={hostAvatar}
+                                    alt={hostName}
+                                    className="h-5 w-5 flex-shrink-0 rounded-full object-cover ring-2 ring-white dark:ring-dark-border sm:h-6 sm:w-6"
+                                    loading="lazy"
+                                    decoding="async"
+                                />
+                            ) : (
+                                <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-cyan-500/15 text-[9px] font-bold text-cyan-700 dark:bg-cyan-500/20 dark:text-cyan-300 sm:h-6 sm:w-6 sm:text-[10px]">
+                                    {hostInitials}
+                                </span>
+                            )}
+                            <span className="min-w-0 truncate text-[11px] font-medium text-light-muted dark:text-dark-muted sm:text-[12px]">
+                                Host <span className="font-bold text-light-text dark:text-dark-text">{hostName}</span>
                             </span>
-                        ))}
-                    </div>
+                            <ShieldCheck className={`h-4 w-4 flex-shrink-0 ${isVerifiedHost ? 'text-emerald-600' : 'text-amber-500'}`} />
+                        </div>
+                    )}
+
+                    {detailTags.length > 0 && (
+                        <div className="rr-room-card-tags mb-1.5 grid min-w-0 grid-cols-2 gap-1.5 sm:mb-4 sm:flex sm:flex-wrap sm:gap-2.5">
+                            {detailTags.map(({ Icon, text, tone }, tagIndex) => (
+                                <span
+                                    key={`${text}-${tagIndex}`}
+                                    title={text}
+                                    className={`rr-feature-pill inline-flex min-w-0 items-start gap-1 rounded-lg px-1.5 py-1.5 text-[9.5px] font-bold leading-tight sm:px-3 sm:py-2 sm:text-[11px] ${
+                                        tone === 'accent'
+                                            ? 'bg-cyan-50 text-cyan-700 dark:bg-cyan-500/15 dark:text-cyan-200'
+                                            : 'bg-light-bg text-light-muted dark:bg-dark-input dark:text-dark-muted'
+                                    } ${tagIndex > 2 ? 'rr-wide-only' : ''}`}
+                                >
+                                    <Icon className="mt-[1px] h-3.5 w-3.5 flex-shrink-0 sm:h-4 sm:w-4" />
+                                    <span className="rr-feature-label min-w-0">{text}</span>
+                                </span>
+                            ))}
+                        </div>
+                    )}
 
                     <div className="rr-room-card-footer mt-auto hidden items-end justify-between gap-3 border-t border-black/[0.08] pt-3 dark:border-white/[0.08] sm:flex sm:gap-4 sm:pt-4">
                         <p className="min-w-0">
@@ -651,10 +707,16 @@ RoomCard.propTypes = {
             PropTypes.shape({ url: PropTypes.string }),
         ])),
         title: PropTypes.string,
+        status: PropTypes.string,
+        createdAt: PropTypes.oneOfType([PropTypes.string, PropTypes.instanceOf(Date)]),
         city: PropTypes.string,
         location: PropTypes.shape({
+            locality: PropTypes.string,
+            landmark: PropTypes.string,
             city: PropTypes.string,
             state: PropTypes.string,
+            pincode: PropTypes.string,
+            postalCode: PropTypes.string,
         }),
         rent: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
         rating: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),

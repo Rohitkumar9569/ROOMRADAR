@@ -1,12 +1,11 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
-import { AlertCircle, BedDouble, Eye, EyeOff, MoreVertical, Pencil, Trash2, MapPin, IndianRupee, MessageSquare, MousePointerClick, ShieldCheck } from 'lucide-react';
+import { AlertCircle, BedDouble, Eye, EyeOff, MoreVertical, Pencil, Trash2, MapPin, IndianRupee, MessageSquare, MousePointerClick, ShieldCheck, ImageOff } from 'lucide-react';
 import Tippy from '@tippyjs/react';
 import 'tippy.js/dist/tippy.css';
 import { useAuth } from '../../../context/AuthContext';
 import { formatListingTitle } from '../../../utils/listingDisplay';
-import fallbackRoomImage from '../../../assets/background_img.jpg';
 
 const statusTone = {
     Pending: 'is-pending',
@@ -21,20 +20,25 @@ const statusTone = {
 
 const money = (value) => Number(value || 0).toLocaleString('en-IN');
 
+const getImageUrl = (image) => {
+    if (!image) return '';
+    return typeof image === 'string' ? image : image.url || '';
+};
+
 const LandlordRoomCard = ({ room, onDelete, onStatusToggle }) => {
     const { user } = useAuth();
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [menuPosition, setMenuPosition] = useState(null);
     const buttonRef = useRef(null);
     const menuRef = useRef(null);
-    const image = room.images?.[0]?.url || room.images?.[0] || room.imageUrl || fallbackRoomImage;
+    const image = getImageUrl(room.images?.[0]) || getImageUrl(room.imageUrl);
     const isLocked = ['Pending', 'Pending_Review', 'Booked', 'Confirmed', 'Suspended'].includes(room.status);
     const host = room.landlord || user || {};
     const landlordProfile = host.roleProfiles?.landlord || {};
     const hostName = landlordProfile.name || host.name || 'Your host profile';
-    const city = room.location?.city || 'Location';
-    const address = room.location?.fullAddress || room.location?.city || 'Address not set';
-    const beds = Number(room.beds || 1);
+    const city = room.location?.city || '';
+    const address = room.location?.fullAddress || room.location?.locality || room.location?.city || '';
+    const beds = Number(room.beds || 0);
     const views = room.stats?.views || room.views || 0;
     const requests = room.stats?.applications || room.activeApplicationsCount || 0;
     const displayTitle = formatListingTitle(room.title);
@@ -125,7 +129,14 @@ const LandlordRoomCard = ({ room, onDelete, onStatusToggle }) => {
     return (
         <article className="rr-listing-card-pro group h-full">
             <div className="rr-listing-card-media">
-                <img src={image} alt={displayTitle} className="h-full w-full object-cover" />
+                {image ? (
+                    <img src={image} alt={displayTitle} className="h-full w-full object-cover" />
+                ) : (
+                    <div className="flex h-full w-full flex-col items-center justify-center bg-slate-100 text-slate-500 dark:bg-secondary-900 dark:text-secondary-300">
+                        <ImageOff className="h-7 w-7" />
+                        <span className="mt-2 text-[11px] font-black uppercase tracking-wide">Photo pending</span>
+                    </div>
+                )}
                 <div className="absolute inset-0 bg-gradient-to-t from-slate-950/56 via-slate-950/5 to-transparent" />
 
                 <span className={`rr-listing-status-badge ${statusTone[room.status] || statusTone.Unpublished}`}>
@@ -146,14 +157,18 @@ const LandlordRoomCard = ({ room, onDelete, onStatusToggle }) => {
                 </div>
 
                 <div className="absolute bottom-2.5 left-2.5 right-2.5 flex items-end justify-between gap-2 sm:bottom-4 sm:left-4 sm:right-4">
-                    <span className="rr-location-badge rr-listing-city-badge has-side-badge">
-                        <MapPin />
-                        <span>{city}</span>
-                    </span>
-                    <span className="rr-rating-badge rr-listing-beds-badge">
-                        <BedDouble />
-                        {beds}
-                    </span>
+                    {city && (
+                        <span className="rr-location-badge rr-listing-city-badge has-side-badge">
+                            <MapPin />
+                            <span>{city}</span>
+                        </span>
+                    )}
+                    {beds > 0 && (
+                        <span className="rr-rating-badge rr-listing-beds-badge">
+                            <BedDouble />
+                            {beds}
+                        </span>
+                    )}
                 </div>
             </div>
 
@@ -168,10 +183,12 @@ const LandlordRoomCard = ({ room, onDelete, onStatusToggle }) => {
                         </div>
                         <span className="rr-listing-live-pill">{room.status === 'Published' ? 'Live' : room.status || 'Draft'}</span>
                     </div>
-                    <p className="rr-listing-card-location">
-                        <MapPin />
-                        <span>{address}</span>
-                    </p>
+                    {address && (
+                        <p className="rr-listing-card-location">
+                            <MapPin />
+                            <span>{address}</span>
+                        </p>
+                    )}
                 </div>
 
                 <div className="rr-listing-metrics">

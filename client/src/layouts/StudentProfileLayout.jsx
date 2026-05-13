@@ -100,7 +100,7 @@ const StudentProfileLayout = () => {
                 </div>
             )}
 
-            <main ref={mainContentRef} className={`min-h-screen transition-all duration-300 md:pb-0 ${mainTopPadding} ${pageType === 'inbox' ? 'pb-0' : 'pb-24'} ${mainContentMargin}`}>
+            <main ref={mainContentRef} className={`rr-flat-mobile-pages min-h-screen transition-all duration-300 md:pb-0 ${mainTopPadding} ${pageType === 'inbox' ? 'pb-0' : 'pb-24'} ${mainContentMargin}`}>
                 <div className={
                     pageType === 'inbox'
                         ? 'mobile-inbox-page-shell md:pt-0'

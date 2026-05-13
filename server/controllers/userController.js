@@ -106,6 +106,12 @@ exports.updateProfile = async (req, res) => {
       if (payload.avatarUrl && !payload.profilePicture) {
         update[`roleProfiles.${profileRole}.profilePicture`] = payload.avatarUrl;
       }
+      if (payload.avatarUrl) {
+        update.avatarUrl = payload.avatarUrl;
+      }
+      if (payload.profilePicture || payload.avatarUrl) {
+        update.profilePicture = payload.profilePicture || payload.avatarUrl;
+      }
     } else {
       Object.assign(update, payload);
     }

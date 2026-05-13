@@ -1416,25 +1416,26 @@
   }
 
   .smart-app-header--search:not(.is-scrolled) {
-    background: linear-gradient(180deg, var(--rr-nav-bg), var(--rr-nav-bg-soft));
-    border-bottom-color: var(--rr-nav-border);
-    box-shadow: 0 10px 30px -26px rgba(15, 23, 42, 0.42);
-    backdrop-filter: blur(16px) saturate(130%);
-    -webkit-backdrop-filter: blur(16px) saturate(130%);
+    background: transparent;
+    border-bottom-color: transparent;
+    box-shadow: none;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
   }
 
   .smart-app-header--home:not(.is-scrolled) {
-    background: linear-gradient(180deg, var(--rr-nav-bg), var(--rr-nav-bg-soft));
-    border-bottom-color: var(--rr-nav-border);
-    box-shadow: 0 10px 30px -26px rgba(15, 23, 42, 0.42);
-    backdrop-filter: blur(16px) saturate(130%);
-    -webkit-backdrop-filter: blur(16px) saturate(130%);
+    background: transparent;
+    border-bottom-color: transparent;
+    box-shadow: none;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
   }
 
   .dark .smart-app-header--search:not(.is-scrolled),
   .dark .smart-app-header--home:not(.is-scrolled) {
-    background: linear-gradient(180deg, var(--rr-nav-dark-bg), var(--rr-nav-dark-bg-soft));
-    border-bottom-color: var(--rr-nav-dark-border);
+    background: transparent;
+    border-bottom-color: transparent;
+    box-shadow: none;
   }
 
   .smart-app-header--search::after {
@@ -1476,6 +1477,11 @@
 
   .smart-app-header.is-scrolled::after {
     opacity: 1;
+  }
+
+  .smart-app-header--home:not(.is-scrolled)::after,
+  .smart-app-header--search:not(.is-scrolled)::after {
+    opacity: 0;
   }
 
   .dark .smart-app-header.is-scrolled {
@@ -2277,6 +2283,9 @@
     transform: translate3d(0, 0, 0);
     transition: transform 180ms ease, opacity 160ms ease, border-color 160ms ease, background-color 160ms ease;
     will-change: transform, opacity;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
   }
 
   .home-mobile-search-dock.is-collapsed {
@@ -2294,6 +2303,20 @@
   .home-location-search-form {
     contain: layout style;
     overflow: visible;
+  }
+
+  .home-mobile-search-dock .home-location-search-form {
+    border-color: rgba(15, 23, 42, 0.08);
+    background: rgba(255, 255, 255, 0.72);
+    box-shadow: 0 10px 28px -24px rgba(15, 23, 42, 0.34);
+    backdrop-filter: blur(14px) saturate(128%);
+    -webkit-backdrop-filter: blur(14px) saturate(128%);
+  }
+
+  .dark .home-mobile-search-dock .home-location-search-form {
+    border-color: rgba(255, 255, 255, 0.10);
+    background: rgba(18, 18, 18, 0.72);
+    box-shadow: none;
   }
 
   .rooms-search-entry .home-location-search-form {
@@ -3963,6 +3986,7 @@
   .rr-room-card-tags .rr-feature-pill {
     width: 100%;
     justify-content: flex-start;
+    align-items: flex-start;
     max-width: 100%;
     min-height: 1.38rem;
     border-radius: 999px;
@@ -3975,6 +3999,10 @@
 
   .rr-feature-label {
     min-width: 0;
+    max-width: 100%;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    word-break: normal;
   }
 
   .dark .rr-room-card-tags .rr-feature-pill {
@@ -4075,6 +4103,7 @@
       width: auto;
       padding: 4px 8px;
       font-size: 11px;
+      line-height: 1.15;
       border-radius: 999px;
     }
 
@@ -5636,9 +5665,10 @@
 
   .rr-feature-label {
     max-width: 100% !important;
-    overflow: hidden !important;
-    text-overflow: ellipsis !important;
-    white-space: nowrap !important;
+    overflow: visible !important;
+    text-overflow: clip !important;
+    white-space: normal !important;
+    overflow-wrap: anywhere !important;
   }
 
   .rr-room-card-tags .rr-feature-pill {
@@ -5662,10 +5692,11 @@
       min-width: 0;
       min-height: 1.36rem !important;
       justify-content: flex-start;
+      align-items: flex-start;
       gap: 0.16rem !important;
       padding: 0.26rem 0.24rem !important;
       font-size: clamp(9.3px, 2.9vw, 10.4px) !important;
-      line-height: 1 !important;
+      line-height: 1.12 !important;
     }
 
     .rr-room-card-tags .rr-feature-pill svg {
@@ -5892,6 +5923,12 @@
 .dark .inbox-inline-search svg,
 .dark .home-location-search-submit svg {
   color: #f1f1f1 !important;
+}
+
+.dark .home-mobile-search-dock .home-location-search-form {
+  border-color: rgba(255, 255, 255, 0.10) !important;
+  background-color: rgba(18, 18, 18, 0.72) !important;
+  box-shadow: none !important;
 }
 
 .rr-auth-field input:-webkit-autofill,
@@ -6482,6 +6519,265 @@ html:not(.dark) .rr-profile-completion [class*="from-brand"] {
   border-color: rgba(251, 191, 36, 0.24) !important;
   background-color: rgba(251, 191, 36, 0.14) !important;
   color: #fbbf24 !important;
+}
+
+@media (max-width: 767px) {
+  .rr-flat-mobile-pages,
+  .admin-panel-shell .app-route-surface,
+  .rr-profile-editor,
+  .rr-add-room-page {
+    background-color: #f4f4f5 !important;
+    background-image: none !important;
+  }
+
+  .dark :is(.rr-flat-mobile-pages, .admin-panel-shell .app-route-surface, .rr-profile-editor, .rr-add-room-page) {
+    background-color: #09090b !important;
+    background-image: none !important;
+  }
+
+  .rr-flat-mobile-pages {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
+
+  .rr-flat-mobile-pages > :where(div, section, main, article, form):not(.mobile-inbox-page-shell),
+  .rr-profile-editor > .relative,
+  .rr-add-room-page > .mx-auto {
+    width: 100% !important;
+    max-width: none !important;
+  }
+
+  .rr-profile-editor,
+  .rr-add-room-page {
+    overflow: visible !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
+
+  .rr-profile-editor {
+    padding-top: 0 !important;
+    padding-bottom: calc(var(--rr-bottom-nav-height) + 1.25rem) !important;
+  }
+
+  .rr-profile-editor > .pointer-events-none,
+  .rr-add-room-page > .pointer-events-none {
+    display: none !important;
+  }
+
+  .rr-profile-shell,
+  .rr-profile-card,
+  .rr-add-room-shell,
+  .rr-add-room-step-panel,
+  .rr-add-room-footer {
+    border-color: transparent !important;
+    border-radius: 0 !important;
+    background-color: transparent !important;
+    background-image: none !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+
+  .rr-profile-shell {
+    overflow: visible !important;
+  }
+
+  html:not(.dark) .rr-profile-hero,
+  .rr-profile-hero {
+    border-bottom: 1px solid rgba(212, 212, 216, 0.86) !important;
+    border-radius: 0 !important;
+    background-color: #f4f4f5 !important;
+    background-image: none !important;
+    color: #18181b !important;
+  }
+
+  .dark .rr-profile-hero {
+    border-bottom-color: rgba(255, 255, 255, 0.10) !important;
+    background-color: #18181b !important;
+    color: #fafafa !important;
+  }
+
+  html:not(.dark) .rr-profile-hero-glow,
+  html:not(.dark) .rr-profile-hero-fade,
+  .rr-profile-hero-glow,
+  .rr-profile-hero-fade {
+    display: none !important;
+  }
+
+  html:not(.dark) .rr-profile-hero :where(h1, h2, h3, p, span, div),
+  .rr-profile-hero :where(h1, h2, h3, p, span, div) {
+    color: inherit !important;
+    text-shadow: none !important;
+  }
+
+  html:not(.dark) .rr-profile-hero svg,
+  .rr-profile-hero svg {
+    color: #52525b !important;
+    stroke: currentColor !important;
+  }
+
+  .dark .rr-profile-hero svg {
+    color: #d4d4d8 !important;
+  }
+
+  html:not(.dark) .rr-profile-hero :where([class*="bg-black/"], [class*="bg-white/"], .rr-profile-signal),
+  .rr-profile-hero :where([class*="bg-black/"], [class*="bg-white/"], .rr-profile-signal) {
+    border-color: rgba(212, 212, 216, 0.92) !important;
+    background-color: #e4e4e7 !important;
+    background-image: none !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+
+  .dark .rr-profile-hero :where([class*="bg-black/"], [class*="bg-white/"], .rr-profile-signal) {
+    border-color: rgba(255, 255, 255, 0.10) !important;
+    background-color: #27272a !important;
+  }
+
+  .rr-profile-hero button[aria-label*="photo"] {
+    background-color: #e4e4e7 !important;
+    color: #18181b !important;
+    box-shadow: none !important;
+    --tw-ring-color: transparent !important;
+  }
+
+  .dark .rr-profile-hero button[aria-label*="photo"] {
+    background-color: #27272a !important;
+    color: #fafafa !important;
+  }
+
+  .rr-profile-editor .rr-profile-completion [class*="from-brand"],
+  .rr-add-room-shell > .h-1\.5 > div {
+    background-color: #71717a !important;
+    background-image: none !important;
+  }
+
+  .dark .rr-profile-editor .rr-profile-completion [class*="from-brand"],
+  .dark .rr-add-room-shell > .h-1\.5 > div {
+    background-color: #a1a1aa !important;
+  }
+
+  .rr-profile-editor .rr-profile-completion {
+    border-color: transparent !important;
+    border-radius: 0 !important;
+    background-color: transparent !important;
+    background-image: none !important;
+    box-shadow: none !important;
+  }
+
+  .rr-profile-editor form.rr-profile-card,
+  .rr-profile-editor aside,
+  .rr-profile-editor > .relative > .mt-5,
+  .rr-add-room-shell > div:last-child,
+  .rr-add-room-step-head,
+  .rr-add-room-step-panel > div:last-child,
+  .rr-add-room-footer {
+    padding-left: 1rem !important;
+    padding-right: 1rem !important;
+  }
+
+  .rr-profile-editor aside .rr-profile-card {
+    padding: 1rem 0 !important;
+  }
+
+  .rr-profile-editor aside .rr-profile-card + .rr-profile-card {
+    border-top: 1px solid rgba(203, 213, 225, 0.72) !important;
+  }
+
+  .dark .rr-profile-editor aside .rr-profile-card + .rr-profile-card {
+    border-top-color: rgba(255, 255, 255, 0.10) !important;
+  }
+
+  .rr-add-room-shell {
+    margin-bottom: 0.75rem !important;
+  }
+
+  .rr-add-room-footer {
+    margin-bottom: calc(var(--rr-bottom-nav-height) + 1rem) !important;
+  }
+
+  .rr-add-room-step-tab {
+    box-shadow: none !important;
+  }
+
+  .rr-add-room-summary,
+  .rr-add-room-step-head,
+  .rr-add-room-page [class*="from-brand/10"],
+  .rr-add-room-page [class*="from-cyan-50"] {
+    border-color: rgba(212, 212, 216, 0.86) !important;
+    background-color: #f4f4f5 !important;
+    background-image: none !important;
+    color: #18181b !important;
+    box-shadow: none !important;
+  }
+
+  .dark :is(.rr-add-room-summary, .rr-add-room-step-head),
+  .dark .rr-add-room-page [class*="from-brand/10"],
+  .dark .rr-add-room-page [class*="from-cyan-50"] {
+    border-color: rgba(255, 255, 255, 0.10) !important;
+    background-color: #18181b !important;
+    color: #fafafa !important;
+  }
+
+  .admin-panel-shell .app-route-surface :where(div, header)[class*="from-cyan-500"],
+  .admin-panel-shell .app-route-surface :where(div, header)[class*="bg-gradient-to-br"],
+  .admin-panel-shell .app-route-surface :where(div)[class*="bg-gradient-to-r"] {
+    background-color: #f4f4f5 !important;
+    background-image: none !important;
+    color: #18181b !important;
+  }
+
+  .dark .admin-panel-shell .app-route-surface :where(div, header)[class*="from-cyan-500"],
+  .dark .admin-panel-shell .app-route-surface :where(div, header)[class*="bg-gradient-to-br"],
+  .dark .admin-panel-shell .app-route-surface :where(div)[class*="bg-gradient-to-r"] {
+    background-color: #18181b !important;
+    color: #fafafa !important;
+  }
+
+  .admin-panel-shell .app-route-surface :where(div, header)[class*="from-cyan-500"] :where(h1, h2, h3, p, span, svg),
+  .admin-panel-shell .app-route-surface :where(div, header)[class*="bg-gradient-to-br"] :where(h1, h2, h3, p, span, svg) {
+    color: inherit !important;
+  }
+
+  .admin-panel-shell .app-route-surface .absolute[class*="bg-gradient-to-r"] {
+    background-color: #d4d4d8 !important;
+    background-image: none !important;
+  }
+
+  .dark .admin-panel-shell .app-route-surface .absolute[class*="bg-gradient-to-r"] {
+    background-color: #3f3f46 !important;
+  }
+
+  .rr-flat-mobile-pages .pointer-events-none[class*="bg-gradient"] {
+    background-color: transparent !important;
+    background-image: none !important;
+  }
+
+  .rr-flat-mobile-pages :not(.fixed) > :where(section, article, aside, form, div):not(.rr-room-card):not(.rr-listing-card-pro):not(.rr-chat-room-card):not(.rr-chatbot-panel):not(.rr-mobile-preserve-card):not(.smart-app-header):not(.app-mobile-bottom-nav):not(.admin-mobile-rail):not([class*="sticky"]):not([class*="absolute"]):not([class*="overflow-y-auto"])[class*="border"][class*="rounded"][class*="bg-light-card"],
+  .rr-flat-mobile-pages :not(.fixed) > :where(section, article, aside, form, div):not(.rr-room-card):not(.rr-listing-card-pro):not(.rr-chat-room-card):not(.rr-chatbot-panel):not(.rr-mobile-preserve-card):not(.smart-app-header):not(.app-mobile-bottom-nav):not(.admin-mobile-rail):not([class*="sticky"]):not([class*="absolute"]):not([class*="overflow-y-auto"])[class*="border"][class*="rounded"][class*="bg-white"],
+  .rr-flat-mobile-pages :not(.fixed) > :where(section, article, aside, form, div):not(.rr-room-card):not(.rr-listing-card-pro):not(.rr-chat-room-card):not(.rr-chatbot-panel):not(.rr-mobile-preserve-card):not(.smart-app-header):not(.app-mobile-bottom-nav):not(.admin-mobile-rail):not([class*="sticky"]):not([class*="absolute"]):not([class*="overflow-y-auto"])[class*="border"][class*="rounded"][class*="bg-light-bg"],
+  .rr-flat-mobile-pages :not(.fixed) > :where(section, article, aside, form, div):not(.rr-room-card):not(.rr-listing-card-pro):not(.rr-chat-room-card):not(.rr-chatbot-panel):not(.rr-mobile-preserve-card):not(.smart-app-header):not(.app-mobile-bottom-nav):not(.admin-mobile-rail):not([class*="sticky"]):not([class*="absolute"]):not([class*="overflow-y-auto"])[class*="border"][class*="rounded"][class*="dark:bg-dark-card"],
+  .rr-flat-mobile-pages :not(.fixed) > :where(section, article, aside, form, div):not(.rr-room-card):not(.rr-listing-card-pro):not(.rr-chat-room-card):not(.rr-chatbot-panel):not(.rr-mobile-preserve-card):not(.smart-app-header):not(.app-mobile-bottom-nav):not(.admin-mobile-rail):not([class*="sticky"]):not([class*="absolute"]):not([class*="overflow-y-auto"])[class*="border"][class*="rounded"][class*="dark:bg-dark-input"] {
+    border-color: transparent !important;
+    border-radius: 0 !important;
+    background-color: transparent !important;
+    background-image: none !important;
+    box-shadow: none !important;
+  }
+
+  .rr-flat-mobile-pages :where(.input-field, input:not([type="checkbox"]):not([type="radio"]), select, textarea),
+  .rr-profile-editor :where(.input-field, input:not([type="checkbox"]):not([type="radio"]), select, textarea),
+  .rr-add-room-page :where(.input-field, input:not([type="checkbox"]):not([type="radio"]), select, textarea) {
+    border-color: rgba(203, 213, 225, 0.92) !important;
+    background-color: #ffffff !important;
+    box-shadow: none !important;
+  }
+
+  .dark :is(.rr-flat-mobile-pages, .rr-profile-editor, .rr-add-room-page) :where(.input-field, input:not([type="checkbox"]):not([type="radio"]), select, textarea) {
+    border-color: rgba(255, 255, 255, 0.13) !important;
+    background-color: #181818 !important;
+  }
 }
 
 @supports (content-visibility: auto) {

@@ -83,8 +83,8 @@ const LandlordProfileLayout = () => {
                     isInboxPage
                         ? 'mobile-inbox-page-shell md:pt-0'
                         : isOverviewPage
-                            ? 'md:p-6 lg:p-8'
-                            : 'app-route-surface px-2 pb-4 sm:p-6 lg:p-8'
+                            ? 'rr-flat-mobile-pages md:p-6 lg:p-8'
+                            : 'app-route-surface rr-flat-mobile-pages px-2 pb-4 sm:p-6 lg:p-8'
                 }>
                     <Outlet context={outletContext} />
                 </div>

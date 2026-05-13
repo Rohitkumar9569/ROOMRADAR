@@ -7,6 +7,7 @@ import {
     CheckCircle2,
     Code2,
     GraduationCap,
+    ImageOff,
     Lightbulb,
     Loader2,
     MapPin,
@@ -20,7 +21,6 @@ import {
     X
 } from 'lucide-react';
 import api from '../../api';
-import fallbackRoomImage from '../../assets/background_img.jpg';
 import { formatListingTitle } from '../../utils/listingDisplay';
 
 const suggestions = [
@@ -32,12 +32,16 @@ const suggestions = [
 
 const money = (value) => `₹${Number(value || 0).toLocaleString('en-IN')}`;
 
-const getRoomImage = (room) => room?.images?.[0]?.url || room?.images?.[0] || room?.imageUrl || fallbackRoomImage;
+const getRoomImage = (room) => {
+    const firstImage = room?.images?.[0];
+    if (typeof firstImage === 'string') return firstImage;
+    return firstImage?.url || firstImage?.secure_url || firstImage?.imageUrl || room?.imageUrl || '';
+};
 
 const getRoomLocation = (room) => {
-    const raw = room?.location?.fullAddress || [room?.location?.city, room?.location?.state].filter(Boolean).join(', ') || 'Location available on details page';
+    const raw = room?.location?.fullAddress || [room?.location?.locality, room?.location?.city, room?.location?.state].filter(Boolean).join(', ');
     if (raw && room?.title && raw.trim().toLowerCase() === room.title.trim().toLowerCase()) {
-        return [room?.location?.city, room?.location?.state].filter(Boolean).join(', ') || 'Location available on details page';
+        return [room?.location?.city, room?.location?.state].filter(Boolean).join(', ');
     }
     return raw;
 };
@@ -58,14 +62,14 @@ const getRoomCapacityLabel = (room) => {
     const occupants = Number(room?.maxOccupants || 0);
     if (occupants > 0) return `${occupants} guest${occupants > 1 ? 's' : ''}`;
     if (beds > 0) return `${beds} bed${beds > 1 ? 's' : ''}`;
-    return room?.roomType || 'Room';
+    return room?.roomType || '';
 };
 
 const getRoomRating = (room) => {
     const rating = Number(room?.averageRating || 0);
     const reviews = Number(room?.numReviews || 0);
     if (rating > 0) return `${rating.toFixed(1)}${reviews ? ` (${reviews})` : ''}`;
-    return 'New';
+    return '';
 };
 
 const detectLanguage = (text = '') => {
@@ -1033,7 +1037,14 @@ const ChatRoomCard = ({ room, index, sort, closeDrawer }) => {
     const isTopPrice = index === 0 && sort === 'price_asc';
     const isHighestPrice = index === 0 && sort === 'price_desc';
     const isTopRated = index === 0 && sort === 'rating';
-    const displayTitle = formatListingTitle(room?.title, 'Room listing');
+    const displayTitle = formatListingTitle(room?.title, '');
+    const roomImage = getRoomImage(room);
+    const roomLocation = getRoomLocation(room);
+    const ratingLabel = getRoomRating(room);
+    const capacityLabel = getRoomCapacityLabel(room);
+    const isVerifiedRoom = Boolean(room?.verifications?.property || room?.verifications?.photos || room?.verifications?.amenities);
+
+    if (!room?._id || !displayTitle || Number(room?.rent || 0) <= 0) return null;
 
     return (
         <Link
@@ -1042,27 +1053,42 @@ const ChatRoomCard = ({ room, index, sort, closeDrawer }) => {
             className="rr-chat-room-card group block overflow-hidden rounded-[1.1rem] border border-light-border bg-light-card shadow-sm transition-colors hover:border-cyan-300 dark:border-dark-border dark:bg-dark-card dark:hover:border-cyan-700/60"
         >
             <div className="rr-chat-room-card-media relative aspect-[4/3] overflow-hidden bg-light-bg dark:bg-dark-input">
-                <img
-                    src={getRoomImage(room)}
-                    alt={displayTitle}
-                    className="h-full w-full object-cover"
-                    loading="lazy"
-                    decoding="async"
-                    draggable="false"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-slate-950/62 via-slate-950/8 to-transparent" />
-                <span className="absolute left-2 top-2 inline-flex max-w-[70%] items-center gap-1 rounded-full bg-white/92 px-2 py-1 text-[10px] font-black text-slate-900 shadow-sm">
-                    <ShieldCheck className="h-3.5 w-3.5 text-cyan-600" />
-                    Verified
-                </span>
-                <span className="absolute bottom-2 left-2 inline-flex max-w-[75%] items-center gap-1 rounded-full bg-slate-950/68 px-2.5 py-1 text-[10px] font-black uppercase text-white">
-                    <MapPin className="h-3 w-3 text-cyan-200" />
-                    <span className="truncate">{room?.location?.city || 'Location'}</span>
-                </span>
-                <span className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-full bg-white/92 px-2 py-1 text-[10px] font-black text-slate-900 shadow-sm">
-                    <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
-                    {getRoomRating(room)}
-                </span>
+                {roomImage ? (
+                    <>
+                        <img
+                            src={roomImage}
+                            alt={displayTitle}
+                            className="h-full w-full object-cover"
+                            loading="lazy"
+                            decoding="async"
+                            draggable="false"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-slate-950/62 via-slate-950/8 to-transparent" />
+                    </>
+                ) : (
+                    <div className="flex h-full w-full flex-col items-center justify-center bg-zinc-100 text-center text-zinc-500 dark:bg-zinc-900 dark:text-zinc-400">
+                        <ImageOff className="h-7 w-7" />
+                        <span className="mt-2 px-3 text-[10px] font-black uppercase tracking-wide">Photo pending</span>
+                    </div>
+                )}
+                {isVerifiedRoom && (
+                    <span className="absolute left-2 top-2 inline-flex max-w-[70%] items-center gap-1 rounded-full bg-white/92 px-2 py-1 text-[10px] font-black text-slate-900 shadow-sm">
+                        <ShieldCheck className="h-3.5 w-3.5 text-cyan-600" />
+                        Verified
+                    </span>
+                )}
+                {room?.location?.city && (
+                    <span className="absolute bottom-2 left-2 inline-flex max-w-[75%] items-center gap-1 rounded-full bg-slate-950/68 px-2.5 py-1 text-[10px] font-black uppercase text-white">
+                        <MapPin className="h-3 w-3 text-cyan-200" />
+                        <span className="truncate">{room.location.city}</span>
+                    </span>
+                )}
+                {ratingLabel && (
+                    <span className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-full bg-white/92 px-2 py-1 text-[10px] font-black text-slate-900 shadow-sm">
+                        <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
+                        {ratingLabel}
+                    </span>
+                )}
             </div>
 
             <div className="rr-chat-room-card-body p-3">
@@ -1074,9 +1100,11 @@ const ChatRoomCard = ({ room, index, sort, closeDrawer }) => {
                 <h3 className="rr-line-clamp-2 min-w-0 text-sm font-black leading-tight text-light-text dark:text-dark-text">
                     {displayTitle}
                 </h3>
-                <p className="mt-1.5 rr-line-clamp-2 text-[11px] font-semibold leading-snug text-light-muted dark:text-dark-muted">
-                    {getRoomLocation(room)}
-                </p>
+                {roomLocation && (
+                    <p className="mt-1.5 rr-line-clamp-2 text-[11px] font-semibold leading-snug text-light-muted dark:text-dark-muted">
+                        {roomLocation}
+                    </p>
+                )}
 
                 <div className="mt-3 flex items-end justify-between gap-2">
                     <p className="min-w-0 text-[15px] font-black leading-none text-light-text dark:text-dark-text">
@@ -1089,17 +1117,21 @@ const ChatRoomCard = ({ room, index, sort, closeDrawer }) => {
                 </div>
 
                 <div className="mt-3 grid grid-cols-2 gap-1.5">
-                    <span className="inline-flex min-w-0 items-center gap-1 rounded-full border border-light-border bg-light-bg px-2 py-1 text-[10px] font-bold text-light-muted dark:border-dark-border dark:bg-dark-input dark:text-dark-muted">
-                        <BedDouble className="h-3.5 w-3.5 text-cyan-600 dark:text-cyan-300" />
-                        <span className="truncate">{room.roomType || 'Room'}</span>
-                    </span>
-                    <span className="inline-flex min-w-0 items-center gap-1 rounded-full border border-light-border bg-light-bg px-2 py-1 text-[10px] font-bold text-light-muted dark:border-dark-border dark:bg-dark-input dark:text-dark-muted">
-                        <Users className="h-3.5 w-3.5 text-cyan-600 dark:text-cyan-300" />
-                        <span className="truncate">{getRoomCapacityLabel(room)}</span>
-                    </span>
+                    {room.roomType && (
+                        <span className="inline-flex min-w-0 items-start gap-1 rounded-full border border-light-border bg-light-bg px-2 py-1 text-[10px] font-bold leading-tight text-light-muted dark:border-dark-border dark:bg-dark-input dark:text-dark-muted">
+                            <BedDouble className="mt-[1px] h-3.5 w-3.5 flex-shrink-0 text-cyan-600 dark:text-cyan-300" />
+                            <span className="min-w-0 break-words [overflow-wrap:anywhere]">{room.roomType}</span>
+                        </span>
+                    )}
+                    {capacityLabel && (
+                        <span className="inline-flex min-w-0 items-start gap-1 rounded-full border border-light-border bg-light-bg px-2 py-1 text-[10px] font-bold leading-tight text-light-muted dark:border-dark-border dark:bg-dark-input dark:text-dark-muted">
+                            <Users className="mt-[1px] h-3.5 w-3.5 flex-shrink-0 text-cyan-600 dark:text-cyan-300" />
+                            <span className="min-w-0 break-words [overflow-wrap:anywhere]">{capacityLabel}</span>
+                        </span>
+                    )}
                     {amenities.map((amenity) => (
-                        <span key={amenity} className="inline-flex min-w-0 items-center rounded-full border border-light-border bg-light-bg px-2 py-1 text-[10px] font-bold text-light-muted dark:border-dark-border dark:bg-dark-input dark:text-dark-muted">
-                            <span className="truncate">{amenity}</span>
+                        <span key={amenity} className="inline-flex min-w-0 items-start rounded-full border border-light-border bg-light-bg px-2 py-1 text-[10px] font-bold leading-tight text-light-muted dark:border-dark-border dark:bg-dark-input dark:text-dark-muted">
+                            <span className="min-w-0 break-words [overflow-wrap:anywhere]">{amenity}</span>
                         </span>
                     ))}
                 </div>

@@ -3,6 +3,23 @@ const jwt = require('jsonwebtoken');
 const asyncHandler = require('express-async-handler');
 const axios = require('axios'); //  Added axios import
 
+const normalizeEmail = (email = '') => String(email || '').trim().toLowerCase();
+
+const getJwtSecret = () => {
+    const secret = process.env.JWT_SECRET;
+    if (secret) return secret;
+
+    const error = new Error('Authentication service is temporarily unavailable.');
+    error.statusCode = 503;
+    throw error;
+};
+
+const createAuthToken = (user) => jwt.sign(
+    { id: user._id, roles: user.roles },
+    getJwtSecret(),
+    { expiresIn: '30d' }
+);
+
 const buildAuthUserPayload = (user) => ({
     _id: user._id,
     name: user.name,
@@ -32,33 +49,57 @@ const buildAuthUserPayload = (user) => ({
 
 const ensureAccountEmailVerified = async (user, { isGoogleUser = false, picture = '' } = {}) => {
     if (!user) return user;
-    let changed = false;
+    const setUpdate = {};
+    const addToSetUpdate = {};
+    const currentVerifiedEmails = user.verifiedEmails || [];
+    const verificationState = user.verifications?.toObject?.() || user.verifications || {};
 
-    if (!user.verifications) user.verifications = {};
-    if (user.email && !user.verifications.email) {
-        user.verifications.email = true;
-        changed = true;
+    if (user.email && !verificationState.email) {
+        setUpdate['verifications.email'] = true;
+        user.verifications = { ...verificationState, email: true };
     }
-    if (user.email && !user.verifiedEmails?.includes(user.email)) {
-        user.verifiedEmails = [...(user.verifiedEmails || []), user.email];
-        changed = true;
+    if (user.email && !currentVerifiedEmails.includes(user.email)) {
+        addToSetUpdate.verifiedEmails = user.email;
+        user.verifiedEmails = [...currentVerifiedEmails, user.email];
     }
     if (isGoogleUser && !user.isGoogleUser) {
+        setUpdate.isGoogleUser = true;
         user.isGoogleUser = true;
-        changed = true;
     }
     if (picture && !user.profilePicture && !user.avatarUrl) {
+        setUpdate.profilePicture = picture;
+        setUpdate.avatarUrl = picture;
         user.profilePicture = picture;
         user.avatarUrl = picture;
-        changed = true;
     }
 
-    return changed ? user.save() : user;
+    const updateOperation = {};
+    if (Object.keys(setUpdate).length) updateOperation.$set = setUpdate;
+    if (Object.keys(addToSetUpdate).length) updateOperation.$addToSet = addToSetUpdate;
+
+    if (Object.keys(updateOperation).length) {
+        await User.updateOne({ _id: user._id }, updateOperation);
+    }
+
+    return user;
 };
 
 // --- Register User (No changes) ---
 exports.registerUser = asyncHandler(async (req, res) => {
-    const { name, email, password } = req.body;
+    const name = String(req.body.name || '').trim();
+    const email = normalizeEmail(req.body.email);
+    const password = String(req.body.password || '');
+
+    if (!name || !email || !password) {
+        res.status(400);
+        throw new Error('Name, email, and password are required.');
+    }
+
+    if (password.length < 6) {
+        res.status(400);
+        throw new Error('Password must be at least 6 characters.');
+    }
+
     const userExists = await User.findOne({ email });
 
     if (userExists) {
@@ -86,16 +127,21 @@ exports.registerUser = asyncHandler(async (req, res) => {
 
 // --- Login User (No changes) ---
 exports.loginUser = asyncHandler(async (req, res) => {
-    const { email, password } = req.body;
+    const email = normalizeEmail(req.body.email);
+    const password = String(req.body.password || '');
+
+    if (!email || !password) {
+        res.status(400);
+        throw new Error('Email and password are required.');
+    }
+
     const user = await User.findOne({ email });
 
     if (user && (await user.matchPassword(password))) {
         await ensureAccountEmailVerified(user);
         res.json({
             ...buildAuthUserPayload(user),
-            token: jwt.sign({ id: user._id, roles: user.roles }, process.env.JWT_SECRET, {
-                expiresIn: '30d',
-            }),
+            token: createAuthToken(user),
         });
     } else {
         res.status(401);
@@ -106,6 +152,10 @@ exports.loginUser = asyncHandler(async (req, res) => {
 // ---  New: Google Auth Function ---
 exports.googleAuth = asyncHandler(async (req, res) => {
     const { token } = req.body;
+    if (!token) {
+        res.status(400);
+        throw new Error('Google token is required.');
+    }
 
     // 1. Verify Google Token
     const googleRes = await axios.get(
@@ -115,7 +165,13 @@ exports.googleAuth = asyncHandler(async (req, res) => {
         }
     );
 
-    const { email, name, picture, sub } = googleRes.data;
+    const { name, picture, sub } = googleRes.data;
+    const email = normalizeEmail(googleRes.data.email);
+
+    if (!email || !sub) {
+        res.status(400);
+        throw new Error('Google account details could not be verified.');
+    }
 
     // 2. Check if user exists
     let user = await User.findOne({ email });
@@ -126,7 +182,7 @@ exports.googleAuth = asyncHandler(async (req, res) => {
             name,
             email,
             // Google users authenticate externally, so store a secure generated value.
-            password: sub + process.env.JWT_SECRET, 
+            password: `${sub}:${getJwtSecret()}`,
             profilePicture: picture,
             avatarUrl: picture,
             roles: ['Student'], // Default role
@@ -142,9 +198,7 @@ exports.googleAuth = asyncHandler(async (req, res) => {
     if (user) {
         res.status(200).json({
             ...buildAuthUserPayload(user),
-            token: jwt.sign({ id: user._id, roles: user.roles }, process.env.JWT_SECRET, {
-                expiresIn: '30d',
-            }),
+            token: createAuthToken(user),
         });
     } else {
         res.status(400);

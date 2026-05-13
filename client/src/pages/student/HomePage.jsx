@@ -43,6 +43,15 @@ const categories = [
 
 const formatCount = (value) => Number(value || 0).toLocaleString('en-IN');
 
+const isRenderableRoomCard = (room = {}) => (
+  Boolean(room?._id)
+  && Boolean(String(room.title || '').trim())
+  && Number(room.rent || 0) > 0
+  && Boolean(String(room.location?.city || room.city || '').trim())
+);
+
+const realRoomList = (rooms) => (Array.isArray(rooms) ? rooms.filter(isRenderableRoomCard) : []);
+
 const SectionHeader = ({ eyebrow, title, action }) => (
   <div className="mb-3 flex items-end justify-between gap-3 sm:mb-5">
     <div>
@@ -54,6 +63,8 @@ const SectionHeader = ({ eyebrow, title, action }) => (
 );
 
 const RoomsGrid = React.memo(function RoomsGrid({ rooms, loading, priorityCount = 0 }) {
+  const visibleRooms = realRoomList(rooms);
+
   if (loading) {
     return (
       <div className="mobile-room-grid grid gap-3 sm:gap-5 lg:[grid-template-columns:repeat(auto-fill,minmax(280px,1fr))]">
@@ -62,7 +73,7 @@ const RoomsGrid = React.memo(function RoomsGrid({ rooms, loading, priorityCount 
     );
   }
 
-  if (!rooms.length) {
+  if (!visibleRooms.length) {
     return (
       <div className="rounded-3xl border border-dashed border-light-border bg-light-card p-10 text-center dark:border-dark-border dark:bg-dark-card">
         <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-cyan-500/10 text-cyan-600 dark:text-cyan-300">
@@ -78,7 +89,7 @@ const RoomsGrid = React.memo(function RoomsGrid({ rooms, loading, priorityCount 
 
   return (
     <div className="mobile-room-grid grid gap-3 sm:gap-5 lg:[grid-template-columns:repeat(auto-fill,minmax(280px,1fr))]">
-      {rooms.map((room, index) => <RoomCard key={room._id} room={room} imagePriority={index < priorityCount} />)}
+      {visibleRooms.map((room, index) => <RoomCard key={room._id} room={room} imagePriority={index < priorityCount} />)}
     </div>
   );
 });
@@ -89,9 +100,9 @@ function HomePage() {
   const cachedLandingData = readTabCache(HOME_LANDING_CACHE_KEY)?.value;
   const [stats, setStats] = useState(() => cachedLandingData?.stats || { totalRooms: 0, totalCities: 0, totalUsers: 0, verifiedRooms: 0 });
   const [cities, setCities] = useState(() => cachedLandingData?.cities || []);
-  const [popularRooms, setPopularRooms] = useState(() => cachedLandingData?.popularRooms || []);
-  const [recommendedRooms, setRecommendedRooms] = useState(() => cachedLandingData?.recommendedRooms || []);
-  const [categoryRooms, setCategoryRooms] = useState(() => readTabCache(`${HOME_CATEGORY_CACHE_PREFIX}:All`)?.value?.rooms || []);
+  const [popularRooms, setPopularRooms] = useState(() => realRoomList(cachedLandingData?.popularRooms || []));
+  const [recommendedRooms, setRecommendedRooms] = useState(() => realRoomList(cachedLandingData?.recommendedRooms || []));
+  const [categoryRooms, setCategoryRooms] = useState(() => realRoomList(readTabCache(`${HOME_CATEGORY_CACHE_PREFIX}:All`)?.value?.rooms || []));
   const [activeCategory, setActiveCategory] = useState('All');
   const [loading, setLoading] = useState(() => !cachedLandingData);
   const [categoryLoading, setCategoryLoading] = useState(false);
@@ -199,8 +210,8 @@ function HomePage() {
       if (cached) {
         setStats(cached.stats || {});
         setCities(cached.cities || []);
-        setPopularRooms(cached.popularRooms || []);
-        setRecommendedRooms(cached.recommendedRooms || []);
+        setPopularRooms(realRoomList(cached.popularRooms || []));
+        setRecommendedRooms(realRoomList(cached.recommendedRooms || []));
         setLoading(false);
       } else {
         setLoading(true);
@@ -217,8 +228,8 @@ function HomePage() {
         const nextLandingData = {
           stats: statsRes.data || {},
           cities: Array.isArray(citiesRes.data) ? citiesRes.data : [],
-          popularRooms: popularRes.data.data || popularRes.data || [],
-          recommendedRooms: recommendedRes.data.data || recommendedRes.data || [],
+          popularRooms: realRoomList(popularRes.data.data || popularRes.data || []),
+          recommendedRooms: realRoomList(recommendedRes.data.data || recommendedRes.data || []),
         };
 
         setTabCache(HOME_LANDING_CACHE_KEY, nextLandingData);
@@ -251,7 +262,7 @@ function HomePage() {
       const cacheKey = `${HOME_CATEGORY_CACHE_PREFIX}:${activeCategory}`;
       const cached = readTabCache(cacheKey)?.value;
       if (cached) {
-        setCategoryRooms(cached.rooms || []);
+        setCategoryRooms(realRoomList(cached.rooms || []));
         setCategoryLoading(false);
       } else {
         setCategoryLoading(true);
@@ -260,7 +271,7 @@ function HomePage() {
       try {
         const typeParam = activeCategory === 'All' ? '' : `&type=${encodeURIComponent(activeCategory)}`;
         const { data } = await api.get(`/rooms?sort=views&limit=8${typeParam}`);
-        const rooms = data.data || data || [];
+        const rooms = realRoomList(data.data || data || []);
         setTabCache(cacheKey, { rooms });
         if (active) setCategoryRooms(rooms);
       } catch (error) {
@@ -327,9 +338,9 @@ function HomePage() {
 
   const heroRoom = popularRooms[0] || categoryRooms[0] || recommendedRooms[0];
   const heroImage = heroRoom?.images?.[0]?.url || heroRoom?.images?.[0] || heroRoom?.imageUrl || backgroundImage;
-  const heroRoomCity = heroRoom?.location?.city || heroRoom?.city || cities[0]?.name || 'Verified city';
-  const heroRoomTitle = formatListingTitle(heroRoom?.title, 'Verified rooms near campus');
-  const heroRoomRent = Number(heroRoom?.rent || cities[0]?.avgRent || 0);
+  const heroRoomCity = heroRoom?.location?.city || heroRoom?.city || '';
+  const heroRoomTitle = heroRoom ? formatListingTitle(heroRoom.title, '') : '';
+  const heroRoomRent = heroRoom ? Number(heroRoom.rent || 0) : 0;
   const heroRoomBeds = Number(heroRoom?.beds || 1);
   const heroRoomType = heroRoom?.roomType || heroRoom?.type || `${heroRoomBeds} bed${heroRoomBeds > 1 ? 's' : ''}`;
   const activeCategoryLabel = categories.find((category) => category.id === activeCategory)?.label || activeCategory;
@@ -340,7 +351,7 @@ function HomePage() {
       <div
         id="home-mobile-search-dock"
         data-home-search-dock
-        className={`home-mobile-search-dock fixed inset-x-0 top-[var(--rr-mobile-header-offset)] z-40 border-b border-light-border bg-light-bg/95 px-3 pb-2 pt-2 shadow-sm dark:border-dark-border dark:bg-dark-bg/95 sm:hidden ${isMobileSearchCollapsed ? 'is-collapsed' : ''} ${isMobileSearchPinned ? 'is-forced-open' : ''}`}
+        className={`home-mobile-search-dock fixed inset-x-0 top-[var(--rr-mobile-header-offset)] z-40 px-3 pb-2 pt-2 sm:hidden ${isMobileSearchCollapsed ? 'is-collapsed' : ''} ${isMobileSearchPinned ? 'is-forced-open' : ''}`}
       >
         <div className="mx-auto max-w-md">
           <SearchBar
@@ -406,11 +417,12 @@ function HomePage() {
             </div>
           </div>
 
+          {heroRoom && (
           <div className="hidden mt-5 w-full max-w-md sm:hidden">
             <div className="rounded-[1.45rem] border border-white/16 bg-slate-950/30 p-3 text-white shadow-2xl shadow-black/24 backdrop-blur-2xl">
               <button
                 type="button"
-                onClick={() => navigate(heroRoom?._id ? `/rooms/${heroRoom._id}` : '/rooms')}
+                onClick={() => navigate(`/room/${heroRoom._id}`)}
                 className="flex w-full items-center justify-between gap-3 text-left transition active:scale-[0.985]"
               >
                 <div className="min-w-0">
@@ -430,6 +442,7 @@ function HomePage() {
               </button>
             </div>
           </div>
+          )}
         </div>
       </section>
 

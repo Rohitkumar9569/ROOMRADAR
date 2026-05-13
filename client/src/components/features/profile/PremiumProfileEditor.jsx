@@ -1,7 +1,7 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { BadgeCheck, Banknote, Camera, CheckCircle2, Home, Landmark, Mail, MapPin, Phone, ShieldCheck, Sparkles, UserRound, Wallet } from 'lucide-react';
+import { BadgeCheck, Banknote, Camera, CheckCircle2, Home, Landmark, Loader2, Mail, MapPin, Phone, ShieldCheck, Sparkles, UserRound, Wallet, X } from 'lucide-react';
 import api from '../../../api';
 import { useAuth } from '../../../context/AuthContext';
 import { isValidIndianMobile, phoneInputProps, sanitizePhoneInput } from '../../../utils/phoneUtils';
@@ -13,7 +13,6 @@ const studentFields = [
   { key: 'city', label: 'Current city', type: 'text' },
   { key: 'gender', label: 'Gender', type: 'select', options: ['', 'Male', 'Female', 'Other', 'Prefer not to say'] },
   { key: 'occupation', label: 'Travelling type', type: 'text' },
-  { key: 'avatarUrl', label: 'Profile photo URL', type: 'url' },
 ];
 
 const hostFields = [
@@ -21,7 +20,6 @@ const hostFields = [
   { key: 'mobileNumber', label: 'Host contact number', type: 'tel' },
   { key: 'city', label: 'Hosting city', type: 'text' },
   { key: 'occupation', label: 'Hosting title', type: 'text' },
-  { key: 'avatarUrl', label: 'Host photo URL', type: 'url' },
 ];
 
 const getInitial = (name) => (name || 'R').charAt(0).toUpperCase();
@@ -43,15 +41,16 @@ const ProfileSignal = ({ icon: Icon, label, value }) => (
   <div className="rr-profile-signal min-w-0 rounded-2xl border border-white/10 bg-white/[0.07] px-3 py-2.5 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-xl">
     <div className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.1em] text-cyan-100/80">
       <Icon className="h-3.5 w-3.5 flex-shrink-0 text-cyan-200" />
-      <span className="truncate">{label}</span>
+      <span className="break-words [overflow-wrap:anywhere]">{label}</span>
     </div>
-    <p className="mt-1 truncate text-[clamp(12px,3.2vw,14px)] font-black leading-tight">{value}</p>
+    <p className="mt-1 text-[clamp(11px,3vw,14px)] font-black leading-tight break-words [overflow-wrap:anywhere]">{value}</p>
   </div>
 );
 
 function PremiumProfileEditor({ mode = 'student' }) {
   const { user, updateUser, logout, switchRole } = useAuth();
   const navigate = useNavigate();
+  const photoInputRef = useRef(null);
   const isHost = mode === 'landlord';
   const roleKey = isHost ? 'landlord' : 'student';
   const roleProfile = user?.roleProfiles?.[roleKey] || {};
@@ -77,10 +76,13 @@ function PremiumProfileEditor({ mode = 'student' }) {
     payoutNotes: roleProfile.payoutNotes || '',
   });
   const [saving, setSaving] = useState(false);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [photoPreviewOpen, setPhotoPreviewOpen] = useState(false);
 
   const profileFields = useMemo(() => (isHost ? hostFields : studentFields), [isHost]);
   const completion = useMemo(() => calculateCompletion(form, isHost), [form, isHost]);
   const userInitial = getInitial(form.name || user?.name);
+  const currentProfilePhoto = form.avatarUrl || form.profilePicture || '';
   const accountEmail = user?.email || '';
   const verifications = user?.verifications || {};
   const emailVerified = Boolean(
@@ -111,6 +113,66 @@ function PremiumProfileEditor({ mode = 'student' }) {
       ...(key === 'mobileNumber' ? { phone: nextValue } : {}),
       ...(key === 'avatarUrl' ? { profilePicture: nextValue } : {}),
     }));
+  };
+
+  const openPhotoPicker = () => {
+    if (!uploadingPhoto) photoInputRef.current?.click();
+  };
+
+  const handleAvatarPhotoClick = () => {
+    if (uploadingPhoto) return;
+    if (currentProfilePhoto) {
+      setPhotoPreviewOpen(true);
+      return;
+    }
+    openPhotoPicker();
+  };
+
+  const handleProfilePhotoChange = async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+
+    if (!file.type?.startsWith('image/')) {
+      toast.error('Please choose an image file.');
+      return;
+    }
+    if (file.size > 8 * 1024 * 1024) {
+      toast.error('Photo must be under 8 MB.');
+      return;
+    }
+
+    const previousPhoto = form.avatarUrl || form.profilePicture || '';
+    const previewUrl = URL.createObjectURL(file);
+    const payload = new FormData();
+    payload.append('image', file);
+
+    const toastId = toast.loading('Uploading profile photo...');
+    setUploadingPhoto(true);
+    setForm((prev) => ({ ...prev, avatarUrl: previewUrl, profilePicture: previewUrl }));
+
+    try {
+      const uploadResponse = await api.post('/upload', payload, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      const uploadedUrl = uploadResponse.data?.imageUrl || uploadResponse.data?.url || uploadResponse.data?.secure_url;
+      if (!uploadedUrl) throw new Error('Upload did not return a photo URL.');
+
+      setForm((prev) => ({ ...prev, avatarUrl: uploadedUrl, profilePicture: uploadedUrl }));
+      const { data } = await api.put('/users/profile', {
+        avatarUrl: uploadedUrl,
+        profilePicture: uploadedUrl,
+        profileRole: roleKey,
+      });
+      updateUser(data.user);
+      toast.success('Profile photo updated.', { id: toastId });
+    } catch (error) {
+      setForm((prev) => ({ ...prev, avatarUrl: previousPhoto, profilePicture: previousPhoto }));
+      toast.error(error.response?.data?.message || 'Could not upload photo.', { id: toastId });
+    } finally {
+      URL.revokeObjectURL(previewUrl);
+      setUploadingPhoto(false);
+    }
   };
 
   const handleSave = async (event) => {
@@ -212,18 +274,25 @@ function PremiumProfileEditor({ mode = 'student' }) {
             </div>
 
             <div className="relative mt-9 flex items-end gap-3 md:mt-12 md:gap-5">
-              <div className="relative flex h-[clamp(74px,22vw,112px)] w-[clamp(74px,22vw,112px)] flex-shrink-0 items-center justify-center overflow-hidden rounded-[1.35rem] bg-white/16 text-3xl font-black text-white ring-4 ring-white/24 shadow-[0_22px_52px_-28px_rgba(0,0,0,0.9)] backdrop-blur-xl md:rounded-[1.8rem] md:text-4xl">
-                {form.avatarUrl ? <img src={form.avatarUrl} alt={form.name || 'Profile'} className="h-full w-full object-cover" /> : userInitial}
+              <input ref={photoInputRef} type="file" accept="image/png,image/jpeg,image/webp,image/*" className="sr-only" onChange={handleProfilePhotoChange} />
+              <button
+                type="button"
+                onClick={handleAvatarPhotoClick}
+                disabled={uploadingPhoto}
+                aria-label={currentProfilePhoto ? 'Open profile photo' : 'Add profile photo'}
+                className="relative flex h-[clamp(74px,22vw,112px)] w-[clamp(74px,22vw,112px)] flex-shrink-0 items-center justify-center overflow-hidden rounded-[1.35rem] bg-white/16 text-3xl font-black text-white ring-4 ring-white/24 shadow-[0_22px_52px_-28px_rgba(0,0,0,0.9)] backdrop-blur-xl transition hover:ring-white/40 active:scale-[0.98] disabled:cursor-wait disabled:opacity-80 md:rounded-[1.8rem] md:text-4xl"
+              >
+                {currentProfilePhoto ? <img src={currentProfilePhoto} alt={form.name || 'Profile'} className="h-full w-full object-cover" /> : userInitial}
                 <span className="absolute bottom-1.5 right-1.5 flex h-7 w-7 items-center justify-center rounded-full bg-white text-brand shadow-lg md:bottom-2 md:right-2 md:h-8 md:w-8">
-                  <Camera className="h-3.5 w-3.5 md:h-4 md:w-4" />
+                  {uploadingPhoto ? <Loader2 className="h-3.5 w-3.5 animate-spin md:h-4 md:w-4" /> : <Camera className="h-3.5 w-3.5 md:h-4 md:w-4" />}
                 </span>
-              </div>
+              </button>
               <div className="min-w-0 flex-1 pb-1">
-                <h1 className="max-w-full truncate text-[clamp(22px,6.2vw,34px)] font-black leading-[0.98] tracking-[-0.03em] text-white">{form.name || 'Complete your profile'}</h1>
+                <h1 className="max-w-full text-[clamp(22px,6.2vw,34px)] font-black leading-[0.98] tracking-[-0.03em] text-white break-words [overflow-wrap:anywhere]">{form.name || 'Complete your profile'}</h1>
                 <div className="mt-2 flex min-w-0 flex-wrap items-center gap-2 text-[clamp(11px,3vw,13px)] font-bold text-white/78">
-                  <span className="inline-flex min-w-0 items-center gap-1.5 rounded-full bg-black/18 px-2.5 py-1 backdrop-blur-lg">
+                  <span className="inline-flex min-w-0 max-w-full items-start gap-1.5 rounded-full bg-black/18 px-2.5 py-1 backdrop-blur-lg">
                     <MapPin className="h-3.5 w-3.5 flex-shrink-0 text-cyan-200" />
-                    <span className="truncate">{form.city || 'Add your city'}</span>
+                    <span className="min-w-0 break-words [overflow-wrap:anywhere]">{form.city || 'Add your city'}</span>
                   </span>
                   <span className="inline-flex items-center gap-1.5 rounded-full bg-black/18 px-2.5 py-1 backdrop-blur-lg">
                     <BadgeCheck className="h-3.5 w-3.5 text-emerald-200" />
@@ -280,16 +349,11 @@ function PremiumProfileEditor({ mode = 'student' }) {
                   <Mail className="h-4 w-4 text-cyan-500" />
                   Email ID
                 </span>
-                <div className="relative">
-                  <input
-                    value={accountEmail}
-                    type="email"
-                    readOnly
-                    title={accountEmail || 'Email not available'}
-                    className="input-field min-h-12 rounded-2xl bg-white/92 pr-28 text-light-text dark:bg-slate-950/50 dark:text-dark-text"
-                    placeholder="Email not available"
-                  />
-                  <span className={`pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 rounded-full px-2.5 py-1 text-[11px] font-black ${
+                <div className="flex min-h-12 flex-col gap-2 rounded-2xl border border-light-border bg-white/92 px-4 py-3 text-light-text shadow-sm dark:border-dark-border dark:bg-slate-950/50 dark:text-dark-text sm:flex-row sm:items-center sm:justify-between">
+                  <span className="min-w-0 text-[clamp(12px,3.2vw,14px)] font-bold leading-5 break-words [overflow-wrap:anywhere]">
+                    {accountEmail || 'Email not available'}
+                  </span>
+                  <span className={`inline-flex flex-shrink-0 self-start rounded-full px-2.5 py-1 text-[11px] font-black sm:self-center ${
                     emailVerified
                       ? 'bg-emerald-500/12 text-emerald-700 dark:bg-emerald-400/15 dark:text-emerald-200'
                       : 'bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-200'
@@ -469,6 +533,42 @@ function PremiumProfileEditor({ mode = 'student' }) {
           </aside>
         </div>
       </div>
+      {photoPreviewOpen && currentProfilePhoto && (
+        <div className="fixed inset-0 z-[10000] flex flex-col bg-slate-950/96 text-white" role="dialog" aria-modal="true" aria-label="Profile photo preview">
+          <div className="flex min-h-16 items-center justify-between gap-3 px-4 py-3 sm:px-6">
+            <div className="min-w-0">
+              <p className="text-sm font-black leading-tight">{form.name || 'Profile photo'}</p>
+              <p className="text-xs font-semibold text-white/60">Tap change to choose from gallery or WhatsApp images</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setPhotoPreviewOpen(false)}
+              className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full bg-white/10 text-white transition hover:bg-white/16 active:scale-95"
+              aria-label="Close profile photo preview"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+          <div className="flex min-h-0 flex-1 items-center justify-center px-3 py-4">
+            <img
+              src={currentProfilePhoto}
+              alt={form.name || 'Profile'}
+              className="max-h-full max-w-full rounded-[1.25rem] object-contain shadow-[0_28px_90px_-34px_rgba(0,0,0,0.9)]"
+            />
+          </div>
+          <div className="flex justify-center px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-2">
+            <button
+              type="button"
+              onClick={openPhotoPicker}
+              disabled={uploadingPhoto}
+              className="inline-flex min-h-12 w-full max-w-xs items-center justify-center gap-2 rounded-full bg-white px-5 text-sm font-black text-slate-950 transition active:scale-[0.98] disabled:cursor-wait disabled:opacity-70"
+            >
+              {uploadingPhoto ? <Loader2 className="h-4 w-4 animate-spin" /> : <Camera className="h-4 w-4" />}
+              {uploadingPhoto ? 'Uploading...' : 'Change photo'}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

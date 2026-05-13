@@ -59,7 +59,7 @@ const AdminLayout = () => {
                         })}
                     </div>
                 </nav>
-                <div className="app-route-surface pb-24 md:pb-0">
+                <div className="app-route-surface rr-flat-mobile-pages pb-24 md:pb-0">
                     <Outlet />
                 </div>
             </main>
