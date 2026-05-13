@@ -214,27 +214,26 @@ function BookingRequestModal({ mode = 'create', applicationData = null, room, on
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[9999] flex items-end justify-center md:items-center"
+            className="fixed bottom-[calc(var(--rr-bottom-nav-height)+env(safe-area-inset-bottom,0px))] left-0 right-0 top-[var(--rr-mobile-header-offset)] z-[45] flex items-stretch justify-center bg-slate-50 dark:bg-slate-900 md:inset-0 md:z-[9999] md:items-center md:bg-transparent"
             onClick={onClose}
-            style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}
         >
             {/* Premium Blur Backdrop */}
-            <div className="absolute inset-0 bg-slate-900/70 dark:bg-black/80 backdrop-blur-xl" />
+            <div className="absolute inset-0 hidden bg-slate-900/70 backdrop-blur-xl dark:bg-black/80 md:block" />
             
             <motion.div 
                 initial={{ opacity: 0, scale: 0.98, y: 48 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.98, y: 48 }}
                 transition={{ duration: 0.4, ease: [0.23, 1, 0.32, 1] }}
-                className="relative z-[10000] flex h-[92dvh] max-h-[92dvh] w-full flex-col overflow-hidden rounded-t-[2rem] border-0 bg-slate-50 shadow-2xl dark:bg-slate-900 md:h-[95vh] md:max-w-[1400px] md:rounded-2xl md:border md:border-slate-200 md:dark:border-slate-700"
+                className="relative flex h-full max-h-full w-full flex-col overflow-hidden border-0 bg-slate-50 shadow-none dark:bg-slate-900 md:h-[95vh] md:max-w-[1400px] md:rounded-2xl md:border md:border-slate-200 md:shadow-2xl md:dark:border-slate-700"
                 onClick={(e) => e.stopPropagation()}
             >
                 {/* Header - Premium Indigo/Violet */}
-                <div className="relative bg-gradient-to-r from-indigo-600 via-violet-600 to-purple-600 dark:from-indigo-700 dark:via-violet-700 dark:to-purple-800 px-4 md:px-6 py-3 md:py-4 flex-shrink-0 shadow-lg">
-                    <div className="mx-auto mb-2 h-1.5 w-12 rounded-full bg-white/45 md:hidden" />
+                <div className="relative flex-shrink-0 bg-gradient-to-r from-indigo-600 via-violet-600 to-purple-600 px-4 py-3 shadow-lg dark:from-indigo-700 dark:via-violet-700 dark:to-purple-800 md:px-6 md:py-4">
                     <div className="absolute top-2 right-2 md:top-3 md:right-4 z-10">
                         <motion.button
                             onClick={onClose}
+                            aria-label="Close booking request"
                             whileHover={{ scale: 1.1, rotate: 90 }}
                             whileTap={{ scale: 0.9 }}
                             className="p-2 rounded-full bg-white/20 hover:bg-white/30 text-white transition-colors shadow-md"
@@ -257,8 +256,8 @@ function BookingRequestModal({ mode = 'create', applicationData = null, room, on
                 </div>
 
                 {/* Content - Full height scrollable area with bottom padding for visibility */}
-                <div className="flex-1 overflow-y-auto p-3 md:p-6 pb-20 md:pb-4 bg-gradient-to-b from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
-                <form onSubmit={handleSubmit} className="h-full">
+                <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-gradient-to-b from-slate-50 to-slate-100 p-3 dark:from-slate-900 dark:to-slate-800 md:p-6 md:pb-4">
+                <form onSubmit={handleSubmit} className="min-h-full">
                     {/* Multi-Column Grid Layout - No Scrolling on Desktop */}
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6">
                         
@@ -427,23 +426,21 @@ function BookingRequestModal({ mode = 'create', applicationData = null, room, on
                         </div>
                     </div>
                     {/* Bottom: Validation & Submit - Part of form, scrolls with content */}
-                    <div className="mt-4 lg:mt-6 pb-4 md:pb-0">
+                    <div className="sticky bottom-0 z-20 -mx-3 mt-4 border-t border-slate-200/80 bg-slate-50/95 px-3 py-3 shadow-[0_-14px_32px_rgba(15,23,42,0.10)] backdrop-blur-xl dark:border-slate-700/70 dark:bg-slate-900/95 md:static md:mx-0 md:border-0 md:bg-transparent md:p-0 md:shadow-none md:backdrop-blur-0 lg:mt-6">
                         {/* Validation Error */}
                         <AnimatePresence>
                             {validationError && (
                                 <motion.div 
-                                    initial={{ opacity: 0, height: 0 }}
-                                    animate={{ opacity: 1, height: 'auto' }}
-                                    exit={{ opacity: 0, height: 0 }}
-                                    className="bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 border border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-300 p-3 rounded-xl mb-4 flex items-start gap-2"
-                                    role="alert"
+                                    initial={{ opacity: 0, y: 10, height: 0 }}
+                                    animate={{ opacity: 1, y: 0, height: 'auto' }}
+                                    exit={{ opacity: 0, y: 8, height: 0 }}
+                                    className="mb-2 overflow-hidden"
+                                    role="status"
+                                    aria-live="polite"
                                 >
-                                    <div className="p-1 bg-amber-100 dark:bg-amber-900/30 rounded-lg">
-                                        <Shield className="w-4 h-4 text-amber-600 dark:text-amber-400" />
-                                    </div>
-                                    <div>
-                                        <p className="font-semibold text-sm">Validation Error</p>
-                                        <p className="text-xs mt-0.5">{validationError}</p>
+                                    <div className="inline-flex w-full items-center gap-2 rounded-full bg-slate-950/92 px-3.5 py-2.5 text-left text-[12px] font-black leading-5 text-white shadow-[0_10px_26px_-20px_rgba(15,23,42,0.85)] dark:bg-white dark:text-slate-950 md:w-auto md:max-w-full">
+                                        <Shield className="h-4 w-4 flex-shrink-0 text-amber-300 dark:text-amber-500" />
+                                        <span className="min-w-0">{validationError}</span>
                                     </div>
                                 </motion.div>
                             )}
@@ -483,7 +480,7 @@ function BookingRequestModal({ mode = 'create', applicationData = null, room, on
                         </motion.button>
                         
                         {/* Trust Indicators */}
-                        <div className="mt-4 flex flex-wrap items-center justify-center gap-2 text-xs text-slate-500 dark:text-slate-400 md:gap-6">
+                        <div className="mt-4 hidden flex-wrap items-center justify-center gap-2 text-xs text-slate-500 dark:text-slate-400 md:flex md:gap-6">
                             <span className="flex items-center gap-2 bg-emerald-50 dark:bg-emerald-900/20 px-3 py-1.5 rounded-full">
                                 <CheckCircle className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                                 <span className="font-semibold">Platform protection</span>

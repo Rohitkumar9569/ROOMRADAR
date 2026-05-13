@@ -27,6 +27,7 @@ const buildAuthUserPayload = (user) => ({
     roles: user.roles,
     status: user.status,
     accountRestriction: user.accountRestriction,
+    roleRestrictions: user.roleRestrictions,
     wishlist: user.wishlist,
     profilePicture: user.profilePicture,
     avatarUrl: user.avatarUrl,

@@ -122,9 +122,9 @@ function HomePage() {
   });
 
   const trustStats = useMemo(() => [
-    { label: 'Verified rooms', value: formatCount(stats.verifiedRooms || stats.totalRooms), Icon: ShieldCheck },
-    { label: 'Published listings', value: formatCount(stats.totalRooms), Icon: Building2 },
-    { label: 'Active cities', value: formatCount(stats.totalCities), Icon: MapPin },
+    { key: 'verified', label: 'Verified rooms', value: formatCount(stats.verifiedRooms || stats.totalRooms), Icon: ShieldCheck },
+    { key: 'published', label: 'Published listings', value: formatCount(stats.totalRooms), Icon: Building2 },
+    { key: 'cities', label: 'Active cities', value: formatCount(stats.totalCities), Icon: MapPin },
   ], [stats]);
 
   useEffect(() => {
@@ -336,6 +336,26 @@ function HomePage() {
     navigate(`/rooms?city=${encodeURIComponent(cityName)}`);
   };
 
+  const handleTrustStatClick = (key) => {
+    if (key === 'verified') {
+      navigate('/rooms?verifiedOnly=true&sort=popular');
+      return;
+    }
+
+    if (key === 'published') {
+      navigate('/rooms?sort=newest');
+      return;
+    }
+
+    const citiesSection = document.getElementById('home-live-cities');
+    if (citiesSection) {
+      citiesSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      return;
+    }
+
+    navigate('/rooms');
+  };
+
   const heroRoom = popularRooms[0] || categoryRooms[0] || recommendedRooms[0];
   const heroImage = heroRoom?.images?.[0]?.url || heroRoom?.images?.[0] || heroRoom?.imageUrl || backgroundImage;
   const heroRoomCity = heroRoom?.location?.city || heroRoom?.city || '';
@@ -407,12 +427,18 @@ function HomePage() {
             </div>
 
             <div className="relative z-10 mt-3 grid w-full max-w-md grid-cols-3 gap-2 overflow-visible border-0 bg-transparent shadow-none sm:mx-auto sm:mt-8 sm:max-w-2xl sm:gap-6">
-              {trustStats.map(({ label, value, Icon }) => (
-                <div key={label} className="min-w-0 px-1 py-2 text-center">
+              {trustStats.map(({ key, label, value, Icon }) => (
+                <button
+                  key={label}
+                  type="button"
+                  onClick={() => handleTrustStatClick(key)}
+                  className="group min-w-0 rounded-2xl px-1 py-2 text-center transition active:scale-[0.96] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/80 sm:hover:bg-white/10"
+                  aria-label={`Open ${label.toLowerCase()}`}
+                >
                   <Icon className="mx-auto h-4 w-4 text-cyan-600 dark:text-cyan-300 sm:h-5 sm:w-5" />
                   <p className="mt-1 text-lg font-black text-light-text dark:text-dark-text sm:mt-2 sm:text-3xl sm:text-white dark:sm:text-dark-text">{value}</p>
-                  <p className="mx-auto mt-0.5 max-w-[9ch] text-[9px] font-bold leading-tight text-light-muted dark:text-dark-muted sm:mt-1 sm:max-w-none sm:text-sm sm:text-white/78 dark:sm:text-dark-muted">{label}</p>
-                </div>
+                  <p className="mx-auto mt-0.5 max-w-[9ch] text-[9px] font-bold leading-tight text-light-muted transition group-hover:text-cyan-700 dark:text-dark-muted dark:group-hover:text-cyan-200 sm:mt-1 sm:max-w-none sm:text-sm sm:text-white/78 sm:group-hover:text-white dark:sm:text-dark-muted">{label}</p>
+                </button>
               ))}
             </div>
           </div>
@@ -494,7 +520,7 @@ function HomePage() {
         )}
 
         {cities.length > 0 && (
-          <section className="mt-12">
+          <section id="home-live-cities" className="scroll-mt-24 mt-12">
             <SectionHeader eyebrow="Live cities" title="Popular cities from real listings" />
             <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-2 sm:gap-4 lg:grid-cols-4">
               {cities.map((city) => (

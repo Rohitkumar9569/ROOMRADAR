@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { format } from 'date-fns';
 import toast from 'react-hot-toast';
 import { CalendarDays, CheckCircle2, MessageCircle, Search, Timer, XCircle } from 'lucide-react';
@@ -17,6 +17,7 @@ const statusMeta = {
 const getRoomImage = (room) => room?.images?.[0]?.url || room?.images?.[0] || room?.imageUrl || null;
 
 function LandlordApplicationsPage() {
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [applications, setApplications] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -137,15 +138,28 @@ function LandlordApplicationsPage() {
               const meta = statusMeta[application.status] || statusMeta.pending;
               const StatusIcon = meta.Icon;
               const roomImage = getRoomImage(application.room);
+              const target = application.conversation ? `/landlord/inbox/${application.conversation}` : application.room?._id ? `/room/${application.room._id}` : '/landlord/inbox';
               return (
-                <article key={application._id || `${application.room?._id || 'room'}-${application.student?._id || 'student'}-${index}`} className="rounded-3xl border border-light-border bg-light-card p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg dark:border-dark-border dark:bg-dark-card">
+                <article
+                  key={application._id || `${application.room?._id || 'room'}-${application.student?._id || 'student'}-${index}`}
+                  role="link"
+                  tabIndex={0}
+                  onClick={() => navigate(target)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault();
+                      navigate(target);
+                    }
+                  }}
+                  className="cursor-pointer rounded-3xl border border-light-border bg-light-card p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-cyan-300 hover:shadow-lg dark:border-dark-border dark:bg-dark-card dark:hover:border-cyan-700/60"
+                >
                   <div className="flex flex-col gap-4 md:flex-row md:items-center">
                     <div className="flex items-center gap-4 md:w-[35%]">
                       <div className="flex h-20 w-20 flex-shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-brand/10 text-lg font-black text-brand">
                         {roomImage ? <img src={roomImage} alt={application.room?.title || 'Room'} className="h-full w-full object-cover" loading="lazy" /> : (application.room?.title?.charAt(0) || 'R')}
                       </div>
                       <div className="min-w-0">
-                        <Link to={application.room?._id ? `/room/${application.room._id}` : '#'} className="block truncate text-base font-black hover:text-brand">
+                        <Link onClick={(event) => event.stopPropagation()} to={application.room?._id ? `/room/${application.room._id}` : '/landlord/my-rooms'} className="block truncate text-base font-black hover:text-brand">
                           {application.room?.title || 'Room'}
                         </Link>
                         <p className="mt-1 truncate text-sm font-semibold text-light-muted dark:text-dark-muted">{application.student?.name || 'Applicant'}</p>
@@ -170,11 +184,11 @@ function LandlordApplicationsPage() {
                       <div className="flex items-end justify-start gap-2 md:justify-end">
                         {application.status === 'pending' ? (
                           <>
-                            <button type="button" onClick={() => updateApplicationStatus(application._id, 'approve')} className="rr-approve-action rounded-xl bg-emerald-600 px-3 py-2 text-xs font-black text-white transition hover:bg-emerald-700">Approve</button>
-                            <button type="button" onClick={() => updateApplicationStatus(application._id, 'reject')} className="rounded-xl bg-brand px-3 py-2 text-xs font-black text-white transition hover:bg-red-600">Reject</button>
+                            <button type="button" onClick={(event) => { event.stopPropagation(); updateApplicationStatus(application._id, 'approve'); }} className="rr-approve-action rounded-xl bg-emerald-600 px-3 py-2 text-xs font-black text-white transition hover:bg-emerald-700">Approve</button>
+                            <button type="button" onClick={(event) => { event.stopPropagation(); updateApplicationStatus(application._id, 'reject'); }} className="rounded-xl bg-brand px-3 py-2 text-xs font-black text-white transition hover:bg-red-600">Reject</button>
                           </>
                         ) : (
-                          <Link to="/landlord/inbox" className="btn-outline inline-flex items-center gap-2 px-3 py-2 text-xs">
+                          <Link onClick={(event) => event.stopPropagation()} to={application.conversation ? `/landlord/inbox/${application.conversation}` : '/landlord/inbox'} className="btn-outline inline-flex items-center gap-2 px-3 py-2 text-xs">
                             <MessageCircle className="h-4 w-4" />
                             Chat
                           </Link>

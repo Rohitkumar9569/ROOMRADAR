@@ -69,13 +69,12 @@ const SmartAppHeader = () => {
   const isInbox = /\/(?:profile|landlord)\/inbox(?:\/|$)/.test(path);
   const isChat = /\/(?:profile|landlord)\/inbox\/[^/]+/.test(path);
   const isOverlay = false;
-  const [isScrolled, setIsScrolled] = useState(!(isHome || isSearchPage));
+  const [isScrolled, setIsScrolled] = useState(false);
   const [isNavbarSearchFocused, setIsNavbarSearchFocused] = useState(false);
   const [navbarLocationDraft, setNavbarLocationDraft] = useState('');
   const navbarLocationInputRef = useRef(null);
   const mode = isChat ? 'chat' : isInbox ? 'inbox' : isSearchPage ? 'search' : isHome ? 'home' : 'surface';
   const keepNavbarSearchOpen = (isHome || isSearchPage) && isNavbarSearchFocused;
-  const headerSearchActive = isScrolled || keepNavbarSearchOpen;
   const pageTitle = getPageTitle(path);
   const profileRole = isAdmin ? 'admin' : isLandlord ? 'landlord' : activeRole;
   const profile = getRoleProfile(user, profileRole);
@@ -86,7 +85,9 @@ const SmartAppHeader = () => {
   const chatStatus = rawChatStatus.toLowerCase() === 'admin update' ? 'Admin' : rawChatStatus;
   const showBack = isChat || path.startsWith('/room/') || path.includes('/payment/') || path.includes('/agreement/') || path.includes('/report-damage/') || /\/admin\/(?:users|rooms)\/[^/]+/.test(path);
   const inboxHeaderSearchActive = isInbox && !isChat && inboxListScrolled;
-  const compactLogo = inboxHeaderSearchActive || isAdmin || isLandlord || ((isHome || isSearchPage) && headerSearchActive) || (!isHome && !isSearchPage && !showBack);
+  const headerSearchActive = isChat || isScrolled || keepNavbarSearchOpen || inboxHeaderSearchActive;
+  const keepRoleChromeCompact = isAdmin;
+  const compactLogo = keepRoleChromeCompact || ((isHome || isSearchPage) && headerSearchActive) || (!isHome && !isSearchPage && !showBack && headerSearchActive);
   const showSearchPill = (isHome || isSearchPage) && headerSearchActive;
   const renderPortal = (node) => (typeof document === 'undefined' ? node : createPortal(node, document.body));
 
@@ -161,18 +162,18 @@ const SmartAppHeader = () => {
   }, [isHome, isSearchPage, location.search]);
 
   useEffect(() => {
-    if (!isHome && !isSearchPage) {
+    if (isChat) {
       setIsScrolled(true);
       return undefined;
     }
 
-    const threshold = isSearchPage ? 64 : 96;
+    const threshold = isSearchPage ? 64 : isHome ? 96 : 10;
     const updateHeaderVisibility = () => setIsScrolled(window.scrollY > threshold);
 
     updateHeaderVisibility();
     window.addEventListener('scroll', updateHeaderVisibility, { passive: true });
     return () => window.removeEventListener('scroll', updateHeaderVisibility);
-  }, [isHome, isSearchPage]);
+  }, [isChat, isHome, isSearchPage, path]);
 
   const headerClass = [
     'smart-app-header',

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import toast from 'react-hot-toast';
 import { Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts';
@@ -146,7 +146,7 @@ const LandlordOverviewPage = () => {
                     </div>
 
                     <aside className="space-y-6">
-                        <div className="rounded-3xl border border-light-border bg-light-card p-5 shadow-sm dark:border-dark-border dark:bg-dark-card">
+                        <Link to="/landlord/my-rooms" className="block rounded-3xl border border-light-border bg-light-card p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-cyan-300 hover:shadow-lg dark:border-dark-border dark:bg-dark-card dark:hover:border-cyan-700/60">
                             <div className="mb-4 flex items-center justify-between gap-4">
                                 <div>
                                     <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-brand">Listing health</p>
@@ -171,9 +171,9 @@ const LandlordOverviewPage = () => {
                                     No listing status data yet.
                                 </div>
                             )}
-                        </div>
+                        </Link>
 
-                        <div className="rounded-3xl border border-light-border bg-light-card p-5 shadow-sm dark:border-dark-border dark:bg-dark-card">
+                        <Link to="/landlord/insights" className="block rounded-3xl border border-light-border bg-light-card p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-cyan-300 hover:shadow-lg dark:border-dark-border dark:bg-dark-card dark:hover:border-cyan-700/60">
                             <div className="flex items-center gap-3">
                                 <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-brand text-white">
                                     <IndianRupee className="h-6 w-6" />
@@ -186,7 +186,7 @@ const LandlordOverviewPage = () => {
                             <p className="mt-4 text-sm leading-6 text-light-muted dark:text-dark-muted">
                                 Calculated from confirmed applications in the current month.
                             </p>
-                        </div>
+                        </Link>
                     </aside>
                 </section>
             </div>
@@ -282,21 +282,21 @@ const MobileDashboardHero = ({ user, stats }) => (
                 </div>
 
                 <div className="mt-4 grid grid-cols-3 overflow-hidden rounded-[1.35rem] border border-black/[0.06] bg-white/68 shadow-sm backdrop-blur-xl dark:border-white/10 dark:bg-white/[0.07]">
-                    <MiniHeroStat label="Rooms" value={stats?.totalRooms || 0} Icon={Home} />
-                    <MiniHeroStat label="Views" value={stats?.thisMonthViews || 0} Icon={Eye} />
-                    <MiniHeroStat label="Confirmed" value={stats?.confirmedBookings || 0} Icon={CheckCircle2} />
+                    <MiniHeroStat label="Rooms" value={stats?.totalRooms || 0} Icon={Home} link="/landlord/my-rooms" />
+                    <MiniHeroStat label="Views" value={stats?.thisMonthViews || 0} Icon={Eye} link="/landlord/insights" />
+                    <MiniHeroStat label="Confirmed" value={stats?.confirmedBookings || 0} Icon={CheckCircle2} link="/landlord/calendar" />
                 </div>
             </div>
         </div>
     </section>
 );
 
-const MiniHeroStat = ({ label, value, Icon }) => (
-    <div className="min-w-0 border-r border-black/[0.06] p-3 text-center last:border-r-0 dark:border-white/10">
+const MiniHeroStat = ({ label, value, Icon, link }) => (
+    <Link to={link} className="min-w-0 border-r border-black/[0.06] p-3 text-center transition hover:bg-cyan-500/10 active:bg-cyan-500/15 last:border-r-0 dark:border-white/10">
         <Icon className="mx-auto h-4 w-4 text-cyan-600 dark:text-cyan-300" />
         <p className="mt-2 text-[clamp(18px,5.4vw,26px)] font-black leading-none text-cyan-700 dark:text-cyan-300">{value}</p>
         <p className="mt-1 truncate text-[9.5px] font-black text-slate-500 dark:text-white/54">{label}</p>
-    </div>
+    </Link>
 );
 
 const StatCard = ({ title, value, caption, Icon, link }) => (
@@ -318,16 +318,29 @@ const StatCard = ({ title, value, caption, Icon, link }) => (
 );
 
 const PendingRequestRow = ({ application, onApprove, onReject, disabled }) => {
+    const navigate = useNavigate();
     const room = application.room || {};
     const student = application.student || {};
     const displayTitle = formatListingTitle(room.title, 'Room listing');
+    const target = application.conversation ? `/landlord/inbox/${application.conversation}` : room._id ? `/room/${room._id}` : '/landlord/applications';
 
     return (
-        <div className="grid gap-4 bg-light-card p-4 dark:bg-dark-card lg:grid-cols-[1fr_auto] lg:items-center">
+        <div
+            role="link"
+            tabIndex={0}
+            onClick={() => navigate(target)}
+            onKeyDown={(event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    navigate(target);
+                }
+            }}
+            className="grid cursor-pointer gap-4 bg-light-card p-4 transition hover:bg-cyan-50/60 dark:bg-dark-card dark:hover:bg-cyan-950/20 lg:grid-cols-[1fr_auto] lg:items-center"
+        >
             <div className="flex min-w-0 gap-4">
                 <img src={getRoomImage(room)} alt={displayTitle} className="h-20 w-24 rounded-2xl object-cover" />
                 <div className="min-w-0">
-                    <Link to={room._id ? `/room/${room._id}` : '/landlord/my-rooms'} className="block truncate text-base font-semibold hover:text-brand">
+                    <Link onClick={(event) => event.stopPropagation()} to={room._id ? `/room/${room._id}` : '/landlord/my-rooms'} className="block truncate text-base font-semibold hover:text-brand">
                         {displayTitle}
                     </Link>
                     <p className="mt-1 truncate text-sm text-light-muted dark:text-dark-muted">
@@ -339,11 +352,11 @@ const PendingRequestRow = ({ application, onApprove, onReject, disabled }) => {
                 </div>
             </div>
             <div className="flex gap-2">
-                <button type="button" onClick={onReject} disabled={disabled} className="inline-flex min-h-[44px] flex-1 items-center justify-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-4 text-sm font-semibold text-rose-700 transition hover:bg-rose-100 disabled:opacity-60 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-200 lg:flex-none">
+                <button type="button" onClick={(event) => { event.stopPropagation(); onReject(); }} disabled={disabled} className="inline-flex min-h-[44px] flex-1 items-center justify-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-4 text-sm font-semibold text-rose-700 transition hover:bg-rose-100 disabled:opacity-60 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-200 lg:flex-none">
                     <XCircle className="h-4 w-4" />
                     Reject
                 </button>
-                <button type="button" onClick={onApprove} disabled={disabled} className="rr-approve-action inline-flex min-h-[44px] flex-1 items-center justify-center gap-2 rounded-xl bg-brand px-4 text-sm font-semibold text-white transition hover:bg-red-600 disabled:opacity-60 lg:flex-none">
+                <button type="button" onClick={(event) => { event.stopPropagation(); onApprove(); }} disabled={disabled} className="rr-approve-action inline-flex min-h-[44px] flex-1 items-center justify-center gap-2 rounded-xl bg-brand px-4 text-sm font-semibold text-white transition hover:bg-red-600 disabled:opacity-60 lg:flex-none">
                     <CheckCircle2 className="h-4 w-4" />
                     Approve
                 </button>

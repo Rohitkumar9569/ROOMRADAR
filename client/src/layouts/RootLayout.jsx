@@ -10,6 +10,7 @@ import SmartAppHeader from '../components/layout/mobile/SmartAppHeader';
 import { useAuth } from '../context/AuthContext';
 import { useSettings } from '../context/SettingsContext';
 import AccountRestrictedPage from '../pages/AccountRestrictedPage';
+import { getAccessScopeForPath, isAccountRestricted, isScopeRestricted } from '../utils/roleRestrictions';
 
 const RoomRadarChatbot = lazy(() => import('../components/chatbot/RoomRadarChatbot'));
 
@@ -60,8 +61,14 @@ function RootLayout() {
         );
     }
 
-    if (user?.status === 'Banned' && !isAuthPath && !path.startsWith('/loading')) {
-        return <AccountRestrictedPage />;
+    const restrictedScope = getAccessScopeForPath(path);
+
+    if (isAccountRestricted(user) && !isAuthPath && !path.startsWith('/loading')) {
+        return <AccountRestrictedPage restrictionScope="account" />;
+    }
+
+    if (restrictedScope && isScopeRestricted(user, restrictedScope) && !isAuthPath && !path.startsWith('/loading')) {
+        return <AccountRestrictedPage restrictionScope={restrictedScope} />;
     }
 
     if (settings?.maintenanceMode && !isAdmin && !isAuthPath) {

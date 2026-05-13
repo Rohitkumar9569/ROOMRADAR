@@ -6,6 +6,7 @@ import Spinner from '../../components/common/Spinner';
 import { Eye, Search, ShieldCheck, UserCheck, Users, UserX, X } from 'lucide-react';
 import { format } from 'date-fns';
 import { confirmToast } from '../../utils/confirmToast';
+import { getScopeLabel, getScopeStatus, normalizeRoleScope } from '../../utils/roleRestrictions';
 
 const allRoles = ['Student', 'Landlord', 'Admin', 'Super_Admin', 'Moderator', 'Support'];
 
@@ -30,6 +31,31 @@ const statusTone = (status) =>
   status === 'Banned'
     ? 'bg-red-500/10 text-red-600 dark:text-red-300'
     : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-300';
+
+const getModerationScope = (roleFilter) => (
+  ['Student', 'Landlord'].includes(roleFilter) ? roleFilter : 'account'
+);
+
+const getScopeActionLabel = (scope, banned) => {
+  const label = getScopeLabel(scope);
+  return `${banned ? 'Unban' : 'Ban'} ${label === 'Account' ? 'account' : label}`;
+};
+
+const RoleAccessChips = ({ user }) => (
+  <div className="flex flex-wrap gap-1.5">
+    {['Student', 'Landlord'].filter((role) => user.roles?.includes(role)).map((role) => {
+      const status = getScopeStatus(user, role);
+      return (
+        <span key={role} className={`rounded-full px-2.5 py-1 text-[10px] font-black uppercase ${statusTone(status)}`}>
+          {displayRole(role)} {status}
+        </span>
+      );
+    })}
+    {user.status === 'Banned' && (
+      <span className="rounded-full bg-red-600 px-2.5 py-1 text-[10px] font-black uppercase text-white">Account Banned</span>
+    )}
+  </div>
+);
 
 const EditRoleModal = ({ user, onClose, onSave }) => {
   const [selectedRoles, setSelectedRoles] = useState([...user.roles]);
@@ -133,28 +159,33 @@ const UserManagementPage = () => {
     setSearchParams({ role });
   };
 
-  const handleBanUser = async (userId, userStatus) => {
-    const isBanned = userStatus === 'Banned';
+  const handleBanUser = async (targetUser, scope = getModerationScope(roleFilter)) => {
+    const roleScope = normalizeRoleScope(scope);
+    const isBanned = getScopeStatus(targetUser, roleScope) === 'Banned';
     const action = isBanned ? 'unban' : 'ban';
     const newStatus = isBanned ? 'Active' : 'Banned';
+    const scopeLabel = getScopeLabel(roleScope);
 
     confirmToast({
-      title: `${action.charAt(0).toUpperCase() + action.slice(1)} this user?`,
+      title: `${getScopeActionLabel(roleScope, isBanned)}?`,
       description: isBanned
-        ? 'This restores dashboard, booking, hosting, chat, and profile access.'
-        : 'The user will immediately see a Trust & Safety restriction page with review steps.',
-      confirmLabel: action.charAt(0).toUpperCase() + action.slice(1),
+        ? `This restores ${scopeLabel.toLowerCase()} access only. Other role restrictions stay unchanged.`
+        : roleScope === 'account'
+          ? 'This is a severe account-level restriction and blocks booking, hosting, chat, and profile actions.'
+          : `This blocks only ${scopeLabel.toLowerCase()} actions. Other active roles stay available.`,
+      confirmLabel: getScopeActionLabel(roleScope, isBanned),
       tone: isBanned ? 'success' : 'danger',
       onConfirm: async () => {
         try {
-          await api.patch(`/admin/users/${userId}/status`, {
+          await api.patch(`/admin/users/${targetUser._id}/status`, {
             status: newStatus,
+            roleScope,
             reason: 'RoomRadar Trust & Safety restricted this account after an admin review. Please check your recent listings, bookings, messages, and verification details before requesting a review.',
           });
-          toast.success(`User successfully ${action}ned.`);
+          toast.success(`${scopeLabel} successfully ${action}ned.`);
           fetchUsers();
         } catch (error) {
-          toast.error(error.response?.data?.message || `Failed to ${action} user.`);
+          toast.error(error.response?.data?.message || `Failed to ${action} ${scopeLabel.toLowerCase()}.`);
         }
       },
     });
@@ -248,13 +279,30 @@ const UserManagementPage = () => {
                         </td>
                         <td className="px-5 py-4 text-sm font-semibold text-light-muted dark:text-dark-muted">{format(new Date(user.createdAt), 'dd MMM yyyy')}</td>
                         <td className="px-5 py-4">
-                          <span className={`rounded-full px-2.5 py-1 text-[10px] font-black uppercase ${statusTone(user.status || 'Active')}`}>{user.status || 'Active'}</span>
+                          <RoleAccessChips user={user} />
                         </td>
                         <td className="px-5 py-4">
                           <div className="flex items-center gap-2">
-                            <button onClick={() => navigate(`/admin/users/${user._id}`)} title="View details" className="rounded-xl p-2 text-light-muted transition hover:bg-cyan-500/10 hover:text-cyan-500 dark:text-dark-muted"><Eye className="h-4 w-4" /></button>
-                            <button onClick={() => handleBanUser(user._id, user.status)} title="Ban or unban user" className="rounded-xl p-2 text-red-500 transition hover:bg-red-500/10"><UserX className="h-4 w-4" /></button>
-                            <button onClick={() => setSelectedUser(user)} title="Edit roles" className="rounded-xl p-2 text-cyan-500 transition hover:bg-cyan-500/10"><ShieldCheck className="h-4 w-4" /></button>
+                            <button onClick={() => navigate(`/admin/users/${user._id}`)} title="View details" className="inline-flex items-center gap-1.5 rounded-xl px-2.5 py-2 text-xs font-black text-light-muted transition hover:bg-cyan-500/10 hover:text-cyan-500 dark:text-dark-muted">
+                              <Eye className="h-4 w-4" />
+                              View
+                            </button>
+                            <button
+                              onClick={() => handleBanUser(user)}
+                              title={getScopeActionLabel(getModerationScope(roleFilter), getScopeStatus(user, getModerationScope(roleFilter)) === 'Banned')}
+                              className={`inline-flex items-center gap-1.5 rounded-xl px-2.5 py-2 text-xs font-black transition ${
+                                getScopeStatus(user, getModerationScope(roleFilter)) === 'Banned'
+                                  ? 'text-emerald-600 hover:bg-emerald-500/10 dark:text-emerald-300'
+                                  : 'text-red-500 hover:bg-red-500/10'
+                              }`}
+                            >
+                              {getScopeStatus(user, getModerationScope(roleFilter)) === 'Banned' ? <UserCheck className="h-4 w-4" /> : <UserX className="h-4 w-4" />}
+                              {getScopeActionLabel(getModerationScope(roleFilter), getScopeStatus(user, getModerationScope(roleFilter)) === 'Banned')}
+                            </button>
+                            <button onClick={() => setSelectedUser(user)} title="Edit roles" className="inline-flex items-center gap-1.5 rounded-xl px-2.5 py-2 text-xs font-black text-cyan-500 transition hover:bg-cyan-500/10">
+                              <ShieldCheck className="h-4 w-4" />
+                              Roles
+                            </button>
                           </div>
                         </td>
                       </tr>
@@ -266,29 +314,76 @@ const UserManagementPage = () => {
 
             <div className="grid gap-3 md:hidden">
               {filteredUsers.map((user) => (
-                <div key={user._id} className="min-w-0 overflow-hidden rounded-[1.35rem] border border-light-border bg-light-card p-3 shadow-sm dark:border-dark-border dark:bg-dark-card">
+                <article
+                  key={user._id}
+                  role="link"
+                  tabIndex={0}
+                  onClick={() => navigate(`/admin/users/${user._id}`)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault();
+                      navigate(`/admin/users/${user._id}`);
+                    }
+                  }}
+                  className="min-w-0 cursor-pointer overflow-hidden rounded-[1.35rem] border border-light-border bg-light-card p-3 shadow-sm transition hover:border-cyan-300 hover:shadow-md dark:border-dark-border dark:bg-dark-card dark:hover:border-cyan-700/60"
+                >
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0 flex-1">
                       <p className="break-words text-[15px] font-black leading-tight">{user.name}</p>
                       <p className="mt-0.5 break-all text-xs font-semibold leading-tight text-light-muted dark:text-dark-muted">{user.email}</p>
                     </div>
-                    <span className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-black uppercase ${statusTone(user.status || 'Active')}`}>{user.status || 'Active'}</span>
+                    <button
+                      type="button"
+                      onClick={(event) => { event.stopPropagation(); handleBanUser(user); }}
+                      className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-black uppercase transition active:scale-95 ${statusTone(getScopeStatus(user, getModerationScope(roleFilter)))}`}
+                      aria-label={getScopeActionLabel(getModerationScope(roleFilter), getScopeStatus(user, getModerationScope(roleFilter)) === 'Banned')}
+                    >
+                      {getScopeLabel(getModerationScope(roleFilter))} {getScopeStatus(user, getModerationScope(roleFilter)) === 'Banned' ? 'Banned' : 'Active'}
+                    </button>
                   </div>
                   <div className="mt-3 flex flex-wrap gap-1.5">
                     {user.roles?.map((role) => <span key={role} className={`rounded-full px-2.5 py-1 text-[10px] font-black uppercase ${roleTone(role)}`}>{displayRole(role)}</span>)}
                   </div>
-                  <div className="mt-3 flex items-center justify-between border-t border-light-border pt-3 dark:border-dark-border">
+                  <div className="mt-2">
+                    <RoleAccessChips user={user} />
+                  </div>
+                  <div className="mt-3 border-t border-light-border pt-3 dark:border-dark-border">
                     <p className="text-xs font-semibold text-light-muted dark:text-dark-muted">
                       <UserCheck className="mr-1 inline h-3.5 w-3.5" />
                       {format(new Date(user.createdAt), 'dd MMM yyyy')}
                     </p>
-                    <div className="flex shrink-0 items-center gap-1.5">
-                      <button onClick={() => navigate(`/admin/users/${user._id}`)} className="rounded-xl p-2 text-cyan-500 hover:bg-cyan-500/10"><Eye className="h-4 w-4" /></button>
-                      <button onClick={() => handleBanUser(user._id, user.status)} className="rounded-xl p-2 text-red-500 hover:bg-red-500/10"><UserX className="h-4 w-4" /></button>
-                      <button onClick={() => setSelectedUser(user)} className="rounded-xl p-2 text-cyan-500 hover:bg-cyan-500/10"><ShieldCheck className="h-4 w-4" /></button>
+                    <div className="mt-3 grid grid-cols-3 gap-2">
+                      <button
+                        type="button"
+                        onClick={(event) => { event.stopPropagation(); navigate(`/admin/users/${user._id}`); }}
+                        className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-2xl border border-light-border bg-light-bg px-2 text-[11px] font-black text-light-text transition active:scale-[0.98] dark:border-dark-border dark:bg-dark-input dark:text-dark-text"
+                      >
+                        <Eye className="h-3.5 w-3.5 text-cyan-500" />
+                        View
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(event) => { event.stopPropagation(); handleBanUser(user); }}
+                        className={`inline-flex min-h-10 items-center justify-center gap-1.5 rounded-2xl px-2 text-[11px] font-black text-white shadow-sm transition active:scale-[0.98] ${
+                          getScopeStatus(user, getModerationScope(roleFilter)) === 'Banned'
+                            ? 'bg-emerald-500 shadow-emerald-500/20'
+                            : 'bg-red-500 shadow-red-500/20'
+                        }`}
+                      >
+                        {getScopeStatus(user, getModerationScope(roleFilter)) === 'Banned' ? <UserCheck className="h-3.5 w-3.5" /> : <UserX className="h-3.5 w-3.5" />}
+                        {getScopeStatus(user, getModerationScope(roleFilter)) === 'Banned' ? 'Unban' : 'Ban'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(event) => { event.stopPropagation(); setSelectedUser(user); }}
+                        className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-2xl bg-cyan-500/10 px-2 text-[11px] font-black text-cyan-600 transition active:scale-[0.98] dark:text-cyan-300"
+                      >
+                        <ShieldCheck className="h-3.5 w-3.5" />
+                        Roles
+                      </button>
                     </div>
                   </div>
-                </div>
+                </article>
               ))}
             </div>
 

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import api from '../../api';
 import toast from 'react-hot-toast';
 import Spinner from '../../components/common/Spinner';
@@ -112,6 +112,7 @@ const RecentActivityFeed = ({ activities }) => {
 };
 
 const AdminDashboardPage = () => {
+  const navigate = useNavigate();
   const [stats, setStats] = useState(null);
   const [pendingRooms, setPendingRooms] = useState([]);
   const [signupData, setSignupData] = useState([]);
@@ -274,16 +275,16 @@ const AdminDashboardPage = () => {
             action={<Link to="/admin/revenue" className="text-xs font-bold text-cyan-500">Open</Link>}
           >
             <div className="grid grid-cols-2 gap-2 sm:gap-3">
-              <div className="rounded-2xl bg-light-bg p-3 dark:bg-dark-input sm:p-4">
+              <Link to="/admin/revenue" className="rounded-2xl bg-light-bg p-3 transition hover:-translate-y-0.5 hover:bg-cyan-50 hover:shadow-md dark:bg-dark-input dark:hover:bg-cyan-950/20 sm:p-4">
                 <CreditCard className="mb-3 h-5 w-5 text-emerald-500" />
                 <p className="text-[10px] font-bold uppercase tracking-wide text-light-muted dark:text-dark-muted sm:text-xs">Gross value</p>
                 <p className="mt-1 truncate text-[15px] font-black sm:text-lg">{money(revenue?.summary?.grossBookingValue)}</p>
-              </div>
-              <div className="rounded-2xl bg-light-bg p-3 dark:bg-dark-input sm:p-4">
+              </Link>
+              <Link to="/admin/revenue" className="rounded-2xl bg-light-bg p-3 transition hover:-translate-y-0.5 hover:bg-cyan-50 hover:shadow-md dark:bg-dark-input dark:hover:bg-cyan-950/20 sm:p-4">
                 <TrendingUp className="mb-3 h-5 w-5 text-cyan-500" />
                 <p className="text-[10px] font-bold uppercase tracking-wide text-light-muted dark:text-dark-muted sm:text-xs">Platform fee</p>
                 <p className="mt-1 truncate text-[15px] font-black sm:text-lg">{money(revenue?.summary?.platformFees)}</p>
-              </div>
+              </Link>
             </div>
           </SectionCard>
 
@@ -293,16 +294,16 @@ const AdminDashboardPage = () => {
             action={<Link to="/admin/verifications" className="text-xs font-bold text-cyan-500">Review</Link>}
           >
             <div className="grid grid-cols-2 gap-3">
-              <div className="rounded-2xl bg-cyan-500/10 p-4 text-cyan-600 dark:text-cyan-300">
+              <Link to="/admin/verifications" className="rounded-2xl bg-cyan-500/10 p-4 text-cyan-600 transition hover:-translate-y-0.5 hover:bg-cyan-500/15 hover:shadow-md dark:text-cyan-300">
                 <ShieldCheck className="mb-3 h-5 w-5" />
                 <p className="text-xs font-bold uppercase tracking-wide">Verified users</p>
                 <p className="mt-1 text-2xl font-black">{verification?.totals?.verified || 0}</p>
-              </div>
-              <div className="rounded-2xl bg-amber-500/10 p-4 text-amber-600 dark:text-amber-300">
+              </Link>
+              <Link to="/admin/rooms?status=Pending" className="rounded-2xl bg-amber-500/10 p-4 text-amber-600 transition hover:-translate-y-0.5 hover:bg-amber-500/15 hover:shadow-md dark:text-amber-300">
                 <FileClock className="mb-3 h-5 w-5" />
                 <p className="text-xs font-bold uppercase tracking-wide">Rooms pending</p>
                 <p className="mt-1 text-2xl font-black">{verification?.pendingPropertyRooms?.length || 0}</p>
-              </div>
+              </Link>
             </div>
           </SectionCard>
 
@@ -311,14 +312,14 @@ const AdminDashboardPage = () => {
             subtitle="Tickets and unresolved platform issues"
             action={<Link to="/admin/tickets" className="text-xs font-bold text-cyan-500">Open</Link>}
           >
-            <div className="rounded-2xl bg-light-bg p-4 dark:bg-dark-input">
+            <Link to="/admin/tickets" className="block rounded-2xl bg-light-bg p-4 transition hover:-translate-y-0.5 hover:bg-cyan-50 hover:shadow-md dark:bg-dark-input dark:hover:bg-cyan-950/20">
               <Headphones className="mb-3 h-5 w-5 text-violet-500" />
               <p className="text-xs font-bold uppercase tracking-wide text-light-muted dark:text-dark-muted">Open tickets</p>
               <p className="mt-1 text-3xl font-black">{supportOpenCount}</p>
               <p className="mt-2 text-xs font-semibold text-light-muted dark:text-dark-muted">
                 {tickets?.tickets?.length || 0} total tickets in support queue
               </p>
-            </div>
+            </Link>
           </SectionCard>
         </div>
 
@@ -358,7 +359,7 @@ const AdminDashboardPage = () => {
         <SectionCard
           title="Rooms Awaiting Review"
           subtitle="Approve trustworthy listings quickly, reject with clear repair notes"
-          action={<Link to="/admin/rooms?status=Pending" className="text-xs font-bold text-cyan-500">View queue</Link>}
+          action={<Link to="/admin/rooms?status=Pending" className="whitespace-nowrap text-xs font-bold text-cyan-500">View queue</Link>}
         >
           {pendingRooms.length === 0 ? (
             <div className="rounded-3xl border border-dashed border-light-border p-10 text-center dark:border-dark-border">
@@ -367,22 +368,34 @@ const AdminDashboardPage = () => {
               <p className="mt-1 text-sm font-semibold text-light-muted dark:text-dark-muted">There are no pending rooms to review.</p>
             </div>
           ) : (
-            <div className="grid grid-cols-2 gap-3 xl:grid-cols-3">
+            <div className="grid grid-cols-1 gap-3 min-[520px]:grid-cols-2 xl:grid-cols-3">
               {pendingRooms.slice(0, 6).map((room) => (
-                <div key={room._id} className="rounded-3xl border border-light-border bg-light-bg p-4 dark:border-dark-border dark:bg-dark-input">
+                <article
+                  key={room._id}
+                  role="link"
+                  tabIndex={0}
+                  onClick={() => navigate(`/admin/rooms/${room._id}/review`)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault();
+                      navigate(`/admin/rooms/${room._id}/review`);
+                    }
+                  }}
+                  className="cursor-pointer rounded-3xl border border-light-border bg-light-bg p-4 transition hover:-translate-y-0.5 hover:border-cyan-300 hover:shadow-md dark:border-dark-border dark:bg-dark-input dark:hover:border-cyan-700/60"
+                >
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <p className="break-words text-sm font-black">{formatListingTitle(room.title)}</p>
+                      <p className="line-clamp-2 text-sm font-black leading-tight">{formatListingTitle(room.title)}</p>
                       <p className="mt-1 text-xs font-semibold text-light-muted dark:text-dark-muted">{room.landlord?.name || 'Unknown landlord'}</p>
                     </div>
-                    <span className="rounded-full bg-amber-500/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-amber-600 dark:text-amber-300">Pending</span>
+                    <span className="shrink-0 rounded-full bg-amber-500/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-amber-600 dark:text-amber-300">Pending</span>
                   </div>
                   <div className="mt-4 grid grid-cols-3 gap-2">
-                    <button onClick={() => handleApproveRoom(room._id)} className="rr-approve-action rounded-2xl bg-emerald-500/10 px-3 py-2 text-xs font-black text-emerald-600 transition hover:bg-emerald-500 hover:text-white">Approve</button>
-                    <button onClick={() => handleRejectRoom(room._id)} className="rounded-2xl bg-red-500/10 px-3 py-2 text-xs font-black text-red-600 transition hover:bg-red-500 hover:text-white">Reject</button>
-                    <Link to={`/admin/rooms/${room._id}/review`} className="rounded-2xl bg-cyan-500/10 px-3 py-2 text-center text-xs font-black text-cyan-600 transition hover:bg-cyan-500 hover:text-white">View</Link>
+                    <button onClick={(event) => { event.stopPropagation(); handleApproveRoom(room._id); }} className="rr-approve-action rounded-2xl bg-emerald-500/10 px-2 py-2 text-[11px] font-black text-emerald-600 transition hover:bg-emerald-500 hover:text-white sm:px-3 sm:text-xs">Approve</button>
+                    <button onClick={(event) => { event.stopPropagation(); handleRejectRoom(room._id); }} className="rounded-2xl bg-red-500/10 px-2 py-2 text-[11px] font-black text-red-600 transition hover:bg-red-500 hover:text-white sm:px-3 sm:text-xs">Reject</button>
+                    <Link onClick={(event) => event.stopPropagation()} to={`/admin/rooms/${room._id}/review`} className="rounded-2xl bg-cyan-500/10 px-2 py-2 text-center text-[11px] font-black text-cyan-600 transition hover:bg-cyan-500 hover:text-white sm:px-3 sm:text-xs">View</Link>
                   </div>
-                </div>
+                </article>
               ))}
             </div>
           )}

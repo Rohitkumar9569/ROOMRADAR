@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User.js');
+const { getScopeLabel, isRoleRestricted } = require('../utils/roleRestrictions');
 
 const protect = async (req, res, next) => {
   let token;
@@ -34,13 +35,37 @@ const restrictTo = (...requiredRoles) => {
       return res.status(403).json({ message: 'You do not have permission to perform this action' });
     }
 
-    // Convert both user's roles and required roles to lowercase before comparing
+    if (req.user.status === 'Banned') {
+      return res.status(403).json({
+        message: 'Account access is restricted by RoomRadar Trust & Safety.',
+        roleScope: 'account',
+        code: 'ACCOUNT_RESTRICTED',
+      });
+    }
+
+    // Convert both user's roles and required roles to lowercase before comparing.
+    // A role-scoped Trust & Safety restriction removes only that role from the
+    // effective permission set; a landlord restriction should not block travel.
     const userRoles = req.user.roles.map(role => role.toLowerCase());
     const requiredRolesLower = requiredRoles.map(role => role.toLowerCase());
+    const restrictedRoles = new Set();
 
-    const hasRequiredRole = userRoles.some(role => requiredRolesLower.includes(role));
+    if (isRoleRestricted(req.user, 'student')) restrictedRoles.add('student');
+    if (isRoleRestricted(req.user, 'landlord')) restrictedRoles.add('landlord');
+
+    const effectiveUserRoles = userRoles.filter((role) => !restrictedRoles.has(role));
+
+    const hasRequiredRole = effectiveUserRoles.some(role => requiredRolesLower.includes(role));
 
     if (!hasRequiredRole) {
+      const blockedRole = [...restrictedRoles].find((role) => userRoles.includes(role) && requiredRolesLower.includes(role));
+      if (blockedRole) {
+        return res.status(403).json({
+          message: `${getScopeLabel(blockedRole)} access is restricted by RoomRadar Trust & Safety.`,
+          roleScope: blockedRole,
+          code: 'ROLE_RESTRICTED',
+        });
+      }
       return res.status(403).json({ message: 'You do not have permission to perform this action' });
     }
 

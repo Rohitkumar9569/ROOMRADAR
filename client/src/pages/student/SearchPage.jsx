@@ -51,6 +51,7 @@ const createEmptyFilters = () => {
     maxRent: '',
     beds: '',
     availableFrom: '',
+    verifiedOnly: '',
     amenities: [],
   };
   filterFields.forEach((field) => {
@@ -71,6 +72,7 @@ const buildInitialFilters = (searchParams) => {
   filters.maxRent = searchParams.get('maxRent') || '';
   filters.beds = searchParams.get('beds') || '';
   filters.availableFrom = searchParams.get('availableFrom') || '';
+  filters.verifiedOnly = searchParams.get('verifiedOnly') || '';
   filters.amenities = searchParams.get('amenities')?.split(',').filter(Boolean) || [];
   filterFields.forEach((field) => {
     if (field.key === 'roomType') filters.roomType = searchParams.get('roomType') || searchParams.get('type') || '';
@@ -365,6 +367,14 @@ function SearchPage() {
         return;
       }
       if (['latitude', 'longitude'].includes(key)) return;
+      if (key === 'verifiedOnly' && value) {
+        chips.push({
+          key,
+          label: 'Verified rooms',
+          clear: () => setFilters((prev) => ({ ...prev, verifiedOnly: '' })),
+        });
+        return;
+      }
       if (key === 'radius' && value) {
         chips.push({
           key,

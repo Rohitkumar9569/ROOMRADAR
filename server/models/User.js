@@ -36,6 +36,27 @@ const RoleProfileSchema = new mongoose.Schema({
     payoutNotes: { type: String, default: '', trim: true, maxlength: 300 },
 }, { _id: false });
 
+const RestrictionSchema = new mongoose.Schema({
+    status: {
+        type: String,
+        enum: ['Active', 'Banned'],
+        default: 'Active',
+    },
+    reason: { type: String, default: '', trim: true, maxlength: 500 },
+    note: { type: String, default: '', trim: true, maxlength: 500 },
+    bannedAt: Date,
+    bannedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    appealStatus: {
+        type: String,
+        enum: ['none', 'pending', 'reviewing', 'resolved'],
+        default: 'none',
+    },
+    appealMessage: { type: String, default: '', trim: true, maxlength: 1000 },
+    appealSubmittedAt: Date,
+    supportTicket: { type: mongoose.Schema.Types.ObjectId, ref: 'SupportTicket' },
+    resolvedAt: Date,
+}, { _id: false });
+
 const UserSchema = new mongoose.Schema({
     name: { type: String, required: true },
     email: { type: String, required: true, unique: true },
@@ -69,6 +90,10 @@ const UserSchema = new mongoose.Schema({
         appealSubmittedAt: Date,
         supportTicket: { type: mongoose.Schema.Types.ObjectId, ref: 'SupportTicket' },
         resolvedAt: Date,
+    },
+    roleRestrictions: {
+        student: { type: RestrictionSchema, default: () => ({}) },
+        landlord: { type: RestrictionSchema, default: () => ({}) },
     },
     
     profilePicture: { 

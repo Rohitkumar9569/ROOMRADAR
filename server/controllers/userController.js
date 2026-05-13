@@ -2,6 +2,7 @@ const User = require('../models/User');
 const Application = require('../models/Application');
 const SupportTicket = require('../models/SupportTicket');
 const { normalizeOptionalIndianMobile } = require('../utils/phoneUtils');
+const { getRoleRestriction, getScopeLabel, isRoleRestricted, normalizeRoleScope } = require('../utils/roleRestrictions');
 const Room = require('../models/Room'); // मकान मालिक के डैशबोर्ड के लिए आवश्यक
 
 const profileFields = [
@@ -24,6 +25,7 @@ const buildCurrentUserPayload = (user) => ({
   roles: user.roles,
   status: user.status,
   accountRestriction: user.accountRestriction,
+  roleRestrictions: user.roleRestrictions,
   wishlist: user.wishlist,
   profilePicture: user.profilePicture,
   avatarUrl: user.avatarUrl,
@@ -166,17 +168,22 @@ exports.requestAccountReview = async (req, res) => {
     const user = await User.findById(req.user.id).select('-password');
     if (!user) return res.status(404).json({ success: false, message: 'User not found' });
 
-    if (user.status !== 'Banned') {
+    const roleScope = normalizeRoleScope(req.body?.roleScope || req.body?.scope || 'account');
+    const isRestricted = roleScope === 'account'
+      ? user.status === 'Banned'
+      : isRoleRestricted(user, roleScope);
+
+    if (!isRestricted) {
       return res.status(400).json({
         success: false,
-        message: 'This account is not restricted.',
+        message: `This ${getScopeLabel(roleScope).toLowerCase()} access is not restricted.`,
       });
     }
 
     let ticket = await SupportTicket.findOne({
       user: user._id,
       category: 'account',
-      subject: 'Account restriction review',
+      subject: `${getScopeLabel(roleScope)} restriction review`,
       status: { $in: ['open', 'in_progress'] },
     }).sort({ createdAt: -1 });
 
@@ -187,7 +194,7 @@ exports.requestAccountReview = async (req, res) => {
     } else {
       ticket = await SupportTicket.create({
         user: user._id,
-        subject: 'Account restriction review',
+        subject: `${getScopeLabel(roleScope)} restriction review`,
         issueDescription: message,
         category: 'account',
         issueType: 'general',
@@ -195,13 +202,21 @@ exports.requestAccountReview = async (req, res) => {
       });
     }
 
-    user.accountRestriction = {
-      ...(user.accountRestriction?.toObject?.() || user.accountRestriction || {}),
+    const currentRestriction = roleScope === 'account'
+      ? (user.accountRestriction?.toObject?.() || user.accountRestriction || {})
+      : getRoleRestriction(user, roleScope);
+    const nextRestriction = {
+      ...(currentRestriction?.toObject?.() || currentRestriction || {}),
       appealStatus: 'pending',
       appealMessage: message,
       appealSubmittedAt: new Date(),
       supportTicket: ticket._id,
     };
+    if (roleScope === 'account') {
+      user.accountRestriction = nextRestriction;
+    } else {
+      user.set(`roleRestrictions.${roleScope}`, nextRestriction);
+    }
     await user.save({ validateBeforeSave: false });
 
     const io = req.app.get('io');

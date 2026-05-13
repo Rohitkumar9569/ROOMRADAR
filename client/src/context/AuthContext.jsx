@@ -1,6 +1,7 @@
 import React, { createContext, useState, useEffect, useContext, useCallback } from 'react';
 import api from '../api';
 import { clearTabCache } from '../utils/tabDataCache';
+import { isScopeRestricted } from '../utils/roleRestrictions';
 
 const AuthContext = createContext(null);
 const ADMIN_ROLES = ['Admin', 'Super_Admin', 'Moderator', 'Support'];
@@ -80,7 +81,7 @@ export const AuthProvider = ({ children }) => {
         const roles = Array.isArray(data.roles) ? data.roles : [data.role].filter(Boolean);
         if (roles.some((role) => ADMIN_ROLES.includes(role))) {
             switchRole('admin');
-        } else if (roles.includes('Landlord')) {
+        } else if (roles.includes('Landlord') && !isScopeRestricted(data, 'landlord')) {
             switchRole('landlord');
         } else {
             switchRole('student');

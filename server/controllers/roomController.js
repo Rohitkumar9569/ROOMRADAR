@@ -38,7 +38,7 @@ const LANDLORD_DETAIL_FIELDS = `${LANDLORD_PUBLIC_FIELDS} email mobileNumber pho
 const handledRoomQueryKeys = new Set([
     'keyword', 'city', 'type', 'sort', 'limit', 'page', 'exclude', 'minRent', 'maxRent',
     'beds', 'maxOccupants', 'roomType', 'gender', 'familyStatus', 'amenities', 'availableFrom',
-    'checkInDate', 'checkOutDate', 'moveInDate', 'latitude', 'longitude', 'radius'
+    'checkInDate', 'checkOutDate', 'moveInDate', 'latitude', 'longitude', 'radius', 'verifiedOnly'
 ]);
 const lockedInventoryStatuses = ['approved', 'confirmed', 'external', 'blocked'];
 
@@ -319,6 +319,7 @@ exports.getAllRooms = asyncHandler(async (req, res) => {
             latitude,
             longitude,
             radius,
+            verifiedOnly,
         } = req.query;
         const query = { status: 'Published', isDeleted: { $ne: true } };
 
@@ -341,6 +342,9 @@ exports.getAllRooms = asyncHandler(async (req, res) => {
             if (type === 'Rooms') query.roomType = { $regex: 'Room', $options: 'i' };
             else if (type === 'Flats') query.roomType = { $regex: 'Flat|BHK', $options: 'i' };
             else query.roomType = { $regex: type, $options: 'i' };
+        }
+        if (verifiedOnly === true || verifiedOnly === 'true' || verifiedOnly === '1') {
+            query['verifications.property'] = true;
         }
         if (gender && gender !== 'Any') {
             const genderClause = createGenderPreferenceClause(gender);

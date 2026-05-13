@@ -1,6 +1,8 @@
 import React from 'react';
 import toast from 'react-hot-toast';
 
+const CONFIRM_TOAST_ID = 'roomradar-confirm-action';
+
 export const confirmToast = ({
   title,
   description,
@@ -12,6 +14,8 @@ export const confirmToast = ({
   const confirmClass = tone === 'danger'
     ? 'bg-brand text-white hover:bg-red-600'
     : 'bg-emerald-600 text-white hover:bg-emerald-700';
+
+  toast.dismiss(CONFIRM_TOAST_ID);
 
   toast((t) => (
     <div className="max-w-sm space-y-3">
@@ -31,7 +35,11 @@ export const confirmToast = ({
           type="button"
           onClick={async () => {
             toast.dismiss(t.id);
-            await onConfirm?.();
+            try {
+              await onConfirm?.();
+            } finally {
+              toast.dismiss(t.id);
+            }
           }}
           className={`rounded-xl px-3 py-2 text-xs font-bold transition ${confirmClass}`}
         >
@@ -39,5 +47,5 @@ export const confirmToast = ({
         </button>
       </div>
     </div>
-  ), { duration: 10000 });
+  ), { id: CONFIRM_TOAST_ID, duration: 6500 });
 };

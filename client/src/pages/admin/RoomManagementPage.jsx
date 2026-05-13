@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import api from '../../api';
 import toast from 'react-hot-toast';
 import Spinner from '../../components/common/Spinner';
@@ -27,6 +27,7 @@ const statusTone = (status) => {
 };
 
 const RoomManagementPage = () => {
+  const navigate = useNavigate();
   const [rooms, setRooms] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -196,7 +197,19 @@ const RoomManagementPage = () => {
 
             <div className="grid gap-3 md:hidden">
               {filteredRooms.map((room) => (
-                <div key={room._id} className="rounded-[1.35rem] border border-light-border bg-light-card p-3 shadow-sm dark:border-dark-border dark:bg-dark-card">
+                <article
+                  key={room._id}
+                  role="link"
+                  tabIndex={0}
+                  onClick={() => navigate(`/admin/rooms/${room._id}/review`)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault();
+                      navigate(`/admin/rooms/${room._id}/review`);
+                    }
+                  }}
+                  className="cursor-pointer rounded-[1.35rem] border border-light-border bg-light-card p-3 shadow-sm transition hover:border-cyan-300 hover:shadow-md dark:border-dark-border dark:bg-dark-card dark:hover:border-cyan-700/60"
+                >
                   <div className="flex gap-3">
                     <div className="h-[74px] w-[88px] flex-shrink-0 overflow-hidden rounded-2xl bg-cyan-500/10">
                       {room.images?.[0] || room.imageUrl ? (
@@ -218,10 +231,10 @@ const RoomManagementPage = () => {
                     </div>
                   </div>
                   <div className="mt-4 grid grid-cols-2 gap-2 border-t border-light-border pt-3 dark:border-dark-border">
-                    <Link to={`/admin/rooms/${room._id}/review`} className="rounded-2xl bg-cyan-500/10 px-3 py-2 text-center text-xs font-black text-cyan-600 dark:text-cyan-300">Review</Link>
-                    <button onClick={() => handleDelete(room._id)} className="rounded-2xl bg-red-500/10 px-3 py-2 text-xs font-black text-red-600 dark:text-red-300">Delete</button>
+                    <Link onClick={(event) => event.stopPropagation()} to={`/admin/rooms/${room._id}/review`} className="rounded-2xl bg-cyan-500/10 px-3 py-2 text-center text-xs font-black text-cyan-600 dark:text-cyan-300">Review</Link>
+                    <button onClick={(event) => { event.stopPropagation(); handleDelete(room._id); }} className="rounded-2xl bg-red-500/10 px-3 py-2 text-xs font-black text-red-600 dark:text-red-300">Delete</button>
                   </div>
-                </div>
+                </article>
               ))}
             </div>
 

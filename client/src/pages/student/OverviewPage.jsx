@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import {
     ArrowRight,
@@ -136,7 +136,7 @@ function OverviewPage() {
                             </div>
                         </div>
 
-                        <div className="rounded-2xl bg-light-bg p-5 dark:bg-dark-input">
+                        <Link to="/profile/about-me" className="block rounded-2xl bg-light-bg p-5 transition hover:-translate-y-0.5 hover:bg-cyan-50 hover:shadow-md dark:bg-dark-input dark:hover:bg-cyan-950/20">
                             <div className="flex items-center justify-between">
                                 <div>
                                     <p className="text-sm font-semibold">Profile completion</p>
@@ -146,12 +146,12 @@ function OverviewPage() {
                             </div>
                             <div className="mt-5 flex items-end justify-between">
                                 <span className="text-4xl font-semibold">{profileCompletion}%</span>
-                                <Link to="/profile/about-me" className="text-sm font-semibold text-brand">Edit profile</Link>
+                                <span className="text-sm font-semibold text-brand">Edit profile</span>
                             </div>
                             <div className="mt-4 h-2 overflow-hidden rounded-full bg-light-border dark:bg-dark-border">
                                 <div className="h-full rounded-full bg-brand" style={{ width: `${profileCompletion}%` }} />
                             </div>
-                        </div>
+                        </Link>
                     </div>
                 </section>
 
@@ -239,14 +239,27 @@ const StatCard = ({ icon: Icon, label, value, link }) => (
 );
 
 const ApplicationRow = ({ application }) => {
+    const navigate = useNavigate();
     const status = (application.status || 'pending').toLowerCase();
     const meta = statusMeta[status] || statusMeta.pending;
     const Icon = meta.Icon;
     const room = application.room || {};
     const stay = application.checkInDate ? format(new Date(application.checkInDate), 'dd MMM yyyy') : 'Move-in pending';
+    const target = application.conversation ? `/profile/inbox/${application.conversation}` : '/profile/my-applications';
 
     return (
-        <div className="rounded-2xl border border-light-border p-4 dark:border-dark-border">
+        <div
+            role="link"
+            tabIndex={0}
+            onClick={() => navigate(target)}
+            onKeyDown={(event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    navigate(target);
+                }
+            }}
+            className="cursor-pointer rounded-2xl border border-light-border p-4 transition hover:border-cyan-300 hover:bg-cyan-50/60 dark:border-dark-border dark:hover:border-cyan-700/60 dark:hover:bg-cyan-950/20"
+        >
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center">
                 <img src={getRoomImage(room)} alt={formatListingTitle(room.title, 'Room')} className="h-28 w-full rounded-2xl object-cover lg:w-36" />
                 <div className="min-w-0 flex-1">
@@ -260,12 +273,12 @@ const ApplicationRow = ({ application }) => {
                             {stay}
                         </span>
                     </div>
-                    <Link to={room._id ? `/room/${room._id}` : '/rooms'} className="mt-2 block truncate text-lg font-semibold hover:text-brand">
+                    <Link onClick={(event) => event.stopPropagation()} to={room._id ? `/room/${room._id}` : '/rooms'} className="mt-2 block truncate text-lg font-semibold hover:text-brand">
                         {formatListingTitle(room.title, 'Room listing')}
                     </Link>
                     <p className="mt-1 truncate text-sm text-light-muted dark:text-dark-muted">{room.location?.fullAddress || room.location?.city || 'Location pending'}</p>
                 </div>
-                <Link to="/profile/my-applications" className="btn-outline inline-flex items-center justify-center gap-2">
+                <Link onClick={(event) => event.stopPropagation()} to={target} className="btn-outline inline-flex items-center justify-center gap-2">
                     Track
                     <ArrowRight className="h-4 w-4" />
                 </Link>

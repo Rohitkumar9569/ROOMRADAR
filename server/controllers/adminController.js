@@ -11,6 +11,7 @@ const Transaction = require('../models/Transaction');
 const PlatformSetting = require('../models/PlatformSetting');
 const { getDefaultSettings } = require('./settingsController');
 const mongoose = require('mongoose');
+const { getRoleForScope, getScopeLabel, normalizeRoleScope } = require('../utils/roleRestrictions');
 
 const writeAuditLog = async (req, action, targetType = 'System', target = null, metadata = {}) => {
     try {
@@ -454,6 +455,8 @@ exports.updateUserStatus = asyncHandler(async (req, res) => {
     const { status } = req.body;
     const reason = String(req.body?.reason || '').trim();
     const note = String(req.body?.note || '').trim();
+    const roleScope = normalizeRoleScope(req.body?.roleScope || req.body?.scope || 'account');
+    const scopeLabel = getScopeLabel(roleScope);
     const user = await User.findById(req.params.id);
 
     if (!user) {
@@ -466,15 +469,28 @@ exports.updateUserStatus = asyncHandler(async (req, res) => {
         throw new Error('Invalid account status.');
     }
 
-    if (user.roles.includes('Admin')) {
+    const adminRoles = ['Admin', 'Super_Admin', 'Moderator', 'Support'];
+    if (roleScope === 'account' && user.roles.some((role) => adminRoles.includes(role))) {
         res.status(403);
-        throw new Error("Admins cannot be banned.");
+        throw new Error("Admin and support accounts cannot be account-banned.");
     }
 
-    user.status = status;
-    if (status === 'Banned') {
-        user.accountRestriction = {
-            ...(user.accountRestriction?.toObject?.() || user.accountRestriction || {}),
+    if (roleScope !== 'account') {
+        const targetRole = getRoleForScope(roleScope);
+        if (!targetRole || !user.roles.includes(targetRole)) {
+            res.status(400);
+            throw new Error(`${scopeLabel} role is not enabled for this user.`);
+        }
+    }
+
+    const baseRestriction = roleScope === 'account'
+        ? (user.accountRestriction?.toObject?.() || user.accountRestriction || {})
+        : (user.roleRestrictions?.[roleScope]?.toObject?.() || user.roleRestrictions?.[roleScope] || {});
+
+    const nextRestriction = status === 'Banned'
+        ? {
+            ...baseRestriction,
+            status,
             reason: reason || DEFAULT_ACCOUNT_RESTRICTION_REASON,
             note,
             bannedAt: new Date(),
@@ -484,32 +500,42 @@ exports.updateUserStatus = asyncHandler(async (req, res) => {
             appealSubmittedAt: null,
             supportTicket: null,
             resolvedAt: null,
-        };
-    } else {
-        user.accountRestriction = {
-            ...(user.accountRestriction?.toObject?.() || user.accountRestriction || {}),
+        }
+        : {
+            ...baseRestriction,
+            status,
             appealStatus: 'resolved',
             resolvedAt: new Date(),
         };
+
+    if (roleScope === 'account') {
+        user.status = status;
+        user.accountRestriction = nextRestriction;
+    } else {
+        user.set(`roleRestrictions.${roleScope}`, nextRestriction);
     }
-    const updatedUser = await user.save();
-    await writeAuditLog(req, 'USER_STATUS_UPDATED', 'User', updatedUser._id, {
+    // Status moderation should not be blocked by legacy profile data that may
+    // predate current phone validators. Profile edits still validate normally.
+    const updatedUser = await user.save({ validateBeforeSave: false });
+    await writeAuditLog(req, roleScope === 'account' ? 'USER_STATUS_UPDATED' : 'USER_ROLE_STATUS_UPDATED', 'User', updatedUser._id, {
         status,
+        roleScope,
         email: updatedUser.email,
-        reason: status === 'Banned' ? updatedUser.accountRestriction?.reason : undefined,
+        reason: status === 'Banned' ? nextRestriction.reason : undefined,
     });
 
     const notification = await Notification.create({
         user: updatedUser._id,
-        title: status === 'Banned' ? 'Account restricted' : 'Account restored',
+        title: status === 'Banned' ? `${scopeLabel} access restricted` : `${scopeLabel} access restored`,
         message: status === 'Banned'
-            ? 'Your RoomRadar account has been restricted. Open the app to review the reason and request a Trust & Safety review.'
-            : 'Your RoomRadar account has been restored. You can use RoomRadar again.',
-        link: status === 'Banned' ? '/profile/overview' : '/',
-        type: status === 'Banned' ? 'account_restricted' : 'account_restored',
+            ? `Your RoomRadar ${scopeLabel.toLowerCase()} access has been restricted. Open the app to review the reason and request a Trust & Safety review.`
+            : `Your RoomRadar ${scopeLabel.toLowerCase()} access has been restored.`,
+        link: roleScope === 'landlord' ? '/landlord/overview' : '/profile/overview',
+        type: status === 'Banned' ? `${roleScope}_restricted` : `${roleScope}_restored`,
         metadata: {
             status,
-            reason: updatedUser.accountRestriction?.reason,
+            roleScope,
+            reason: nextRestriction.reason,
         },
     });
     emitToUser(req, updatedUser._id, 'newNotification', notification);
@@ -517,6 +543,8 @@ exports.updateUserStatus = asyncHandler(async (req, res) => {
         reason: 'status_updated',
         userId: updatedUser._id,
         status: updatedUser.status,
+        roleScope,
+        roleRestrictions: updatedUser.roleRestrictions,
     });
 
     res.json({
@@ -526,6 +554,7 @@ exports.updateUserStatus = asyncHandler(async (req, res) => {
         roles: updatedUser.roles,
         status: updatedUser.status,
         accountRestriction: updatedUser.accountRestriction,
+        roleRestrictions: updatedUser.roleRestrictions,
     });
 });
 
@@ -565,6 +594,7 @@ exports.updateUserRoles = asyncHandler(async (req, res) => {
         email: updatedUser.email,
         roles: updatedUser.roles,
         status: updatedUser.status,
+        roleRestrictions: updatedUser.roleRestrictions,
     });
 });
 

@@ -290,7 +290,23 @@ ReactDOM.createRoot(document.getElementById('root')).render(
                         <SettingsProvider>
                             <SocketProvider>
                                 <UIProvider>
-                                    <Toaster position="top-center" reverseOrder={false} />
+                                    <Toaster
+                                        position="top-center"
+                                        reverseOrder={false}
+                                        gutter={10}
+                                        toastOptions={{
+                                            duration: 3600,
+                                            success: { duration: 2600 },
+                                            error: { duration: 5200 },
+                                            loading: { duration: 12000 },
+                                            custom: { duration: 6500 },
+                                            style: {
+                                                maxWidth: 'min(92vw, 420px)',
+                                                borderRadius: '16px',
+                                                fontWeight: 700,
+                                            },
+                                        }}
+                                    />
                                     <RouterProvider router={router} future={{ v7_startTransition: true }} />
                                 </UIProvider>
                             </SocketProvider>

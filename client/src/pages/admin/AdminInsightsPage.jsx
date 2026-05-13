@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import api from '../../api';
 import toast from 'react-hot-toast';
 import Spinner from '../../components/common/Spinner';
@@ -54,7 +55,7 @@ const PageShell = ({ eyebrow, title, subtitle, children }) => (
   </div>
 );
 
-const MetricCard = ({ label, value, icon: Icon, tone = 'cyan', detail }) => {
+const MetricCard = ({ label, value, icon: Icon, tone = 'cyan', detail, to }) => {
   const tones = {
     cyan: 'text-cyan-500 bg-cyan-500/10',
     green: 'text-emerald-500 bg-emerald-500/10',
@@ -63,8 +64,8 @@ const MetricCard = ({ label, value, icon: Icon, tone = 'cyan', detail }) => {
     violet: 'text-violet-500 bg-violet-500/10',
   };
 
-  return (
-    <div className="min-w-0 overflow-hidden rounded-[1.35rem] border border-light-border bg-light-card p-3 shadow-sm dark:border-dark-border dark:bg-dark-card sm:rounded-3xl sm:p-4">
+  const content = (
+    <div className={`min-w-0 overflow-hidden rounded-[1.35rem] border border-light-border bg-light-card p-3 shadow-sm transition dark:border-dark-border dark:bg-dark-card sm:rounded-3xl sm:p-4 ${to ? 'hover:-translate-y-0.5 hover:border-cyan-300 hover:shadow-md dark:hover:border-cyan-700/60' : ''}`}>
       <div className="flex items-start justify-between gap-2 sm:gap-4">
         <div className="min-w-0 flex-1">
           <p className="max-w-[12rem] text-[9.5px] font-black uppercase leading-tight tracking-[0.08em] text-light-muted dark:text-dark-muted sm:text-[11px] sm:tracking-[0.14em]">{label}</p>
@@ -77,6 +78,8 @@ const MetricCard = ({ label, value, icon: Icon, tone = 'cyan', detail }) => {
       </div>
     </div>
   );
+
+  return to ? <Link to={to}>{content}</Link> : content;
 };
 
 const Card = ({ title, subtitle, children }) => (
@@ -227,17 +230,17 @@ const AnalyticsPanel = ({ data }) => {
 const VerificationPanel = ({ data }) => (
   <PageShell eyebrow="Trust & Safety" title="KYC & Verification Center" subtitle="Review user verification signals and property documents before risk reaches the marketplace.">
       <div className="grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-4">
-      <MetricCard label="Verified users" value={data?.totals?.verified || 0} icon={ShieldCheck} tone="green" />
-      <MetricCard label="Unverified users" value={data?.totals?.unverified || 0} icon={Users} tone="amber" />
-      <MetricCard label="Identity checks" value={data?.totals?.identityVerified || 0} icon={CheckCircle2} tone="cyan" />
-      <MetricCard label="Property checks" value={data?.totals?.propertyVerified || 0} icon={Home} tone="violet" />
+      <MetricCard label="Verified users" value={data?.totals?.verified || 0} icon={ShieldCheck} tone="green" to="/admin/users" />
+      <MetricCard label="Unverified users" value={data?.totals?.unverified || 0} icon={Users} tone="amber" to="/admin/verifications" />
+      <MetricCard label="Identity checks" value={data?.totals?.identityVerified || 0} icon={CheckCircle2} tone="cyan" to="/admin/verifications" />
+      <MetricCard label="Property checks" value={data?.totals?.propertyVerified || 0} icon={Home} tone="violet" to="/admin/rooms?status=Pending" />
     </div>
 
     <div className="grid gap-4 sm:gap-6 xl:grid-cols-2">
       <Card title="Pending User Verification" subtitle="Users needing manual trust review">
         <div className="space-y-3">
           {(data?.pendingKycUsers || []).length ? data.pendingKycUsers.map((user) => (
-            <div key={user._id} className="rounded-2xl border border-light-border bg-light-bg p-3 dark:border-dark-border dark:bg-dark-input">
+            <Link key={user._id} to={`/admin/users/${user._id}`} className="block rounded-2xl border border-light-border bg-light-bg p-3 transition hover:border-cyan-300 hover:shadow-md dark:border-dark-border dark:bg-dark-input dark:hover:border-cyan-700/60">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <p className="truncate font-bold">{user.name}</p>
@@ -246,7 +249,7 @@ const VerificationPanel = ({ data }) => (
                 <span className={`rounded-full px-2.5 py-1 text-[10px] font-black uppercase ${statusTone(user.kyc_status)}`}>{user.kyc_status || 'Unverified'}</span>
               </div>
               <p className="mt-2 text-xs font-semibold text-light-muted dark:text-dark-muted">Joined {dateLabel(user.createdAt)}</p>
-            </div>
+            </Link>
           )) : <EmptyState title="No pending KYC" description="Users needing review will appear here." />}
         </div>
       </Card>
@@ -254,7 +257,7 @@ const VerificationPanel = ({ data }) => (
       <Card title="Property Verification Queue" subtitle="Rooms needing document or publishing review">
         <div className="space-y-3">
           {(data?.pendingPropertyRooms || []).length ? data.pendingPropertyRooms.map((room) => (
-            <div key={room._id} className="rounded-2xl border border-light-border bg-light-bg p-3 dark:border-dark-border dark:bg-dark-input">
+            <Link key={room._id} to={`/admin/rooms/${room._id}/review`} className="block rounded-2xl border border-light-border bg-light-bg p-3 transition hover:border-cyan-300 hover:shadow-md dark:border-dark-border dark:bg-dark-input dark:hover:border-cyan-700/60">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <p className="break-words font-bold">{formatListingTitle(room.title)}</p>
@@ -263,7 +266,7 @@ const VerificationPanel = ({ data }) => (
                 <span className={`rounded-full px-2.5 py-1 text-[10px] font-black uppercase ${statusTone(room.status)}`}>{room.status}</span>
               </div>
               <p className="mt-2 text-xs font-semibold text-light-muted dark:text-dark-muted">{room.documents?.length || 0} document(s) uploaded</p>
-            </div>
+            </Link>
           )) : <EmptyState title="No property queue" description="Pending property checks will appear here." />}
         </div>
       </Card>

@@ -71,15 +71,14 @@ const InquiryModal = ({ room, onClose }) => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[9999] flex items-end justify-center md:items-center"
+            className="fixed bottom-[calc(var(--rr-bottom-nav-height)+env(safe-area-inset-bottom,0px))] left-0 right-0 top-[var(--rr-mobile-header-offset)] z-[45] flex items-stretch justify-center bg-slate-50 dark:bg-slate-900 md:inset-0 md:z-[9999] md:items-center md:bg-transparent"
             onClick={onClose}
-            style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}
         >
             {/* Premium Blur Backdrop */}
             <motion.div 
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                className="absolute inset-0 bg-slate-900/70 dark:bg-black/80 backdrop-blur-xl" 
+                className="absolute inset-0 hidden bg-slate-900/70 backdrop-blur-xl dark:bg-black/80 md:block" 
             />
             
             <motion.div 
@@ -87,15 +86,15 @@ const InquiryModal = ({ room, onClose }) => {
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.98, y: 48 }}
                 transition={{ duration: 0.4, ease: [0.23, 1, 0.32, 1] }}
-                className="relative z-[10000] flex h-[88dvh] max-h-[88dvh] w-full flex-col overflow-hidden rounded-t-[2rem] border-0 bg-slate-50 shadow-2xl dark:bg-slate-900 md:h-auto md:min-h-[600px] md:max-w-4xl md:rounded-2xl md:border md:border-slate-200 md:dark:border-slate-700"
+                className="relative flex h-full max-h-full w-full flex-col overflow-hidden border-0 bg-slate-50 shadow-none dark:bg-slate-900 md:h-auto md:max-h-[92vh] md:min-h-[600px] md:max-w-4xl md:rounded-2xl md:border md:border-slate-200 md:shadow-2xl md:dark:border-slate-700"
                 onClick={(e) => e.stopPropagation()}
             >
                 {/* Compact Header - Premium Blue/Cyan */}
-                <div className="relative bg-gradient-to-r from-blue-600 via-cyan-600 to-cyan-600 dark:from-blue-700 dark:via-cyan-700 dark:to-cyan-700 px-4 md:px-6 py-3 md:py-4 flex-shrink-0 shadow-lg">
-                    <div className="mx-auto mb-2 h-1.5 w-12 rounded-full bg-white/45 md:hidden" />
+                <div className="relative flex-shrink-0 bg-gradient-to-r from-blue-600 via-cyan-600 to-cyan-600 px-4 py-3 shadow-lg dark:from-blue-700 dark:via-cyan-700 dark:to-cyan-700 md:px-6 md:py-4">
                     <div className="absolute top-2 right-2 md:top-3 md:right-4 z-10">
                         <motion.button
                             onClick={onClose}
+                            aria-label="Close contact landlord form"
                             whileHover={{ scale: 1.1, rotate: 90 }}
                             whileTap={{ scale: 0.9 }}
                             className="p-2 rounded-full bg-white/20 hover:bg-white/30 text-white transition-colors shadow-md"
@@ -118,8 +117,8 @@ const InquiryModal = ({ room, onClose }) => {
                 </div>
 
                 {/* Content - Full height scrollable area with bottom padding for visibility */}
-                <div className="flex-1 p-3 md:p-8 pb-20 md:pb-4 overflow-y-auto bg-gradient-to-b from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 h-full">
+                <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-gradient-to-b from-slate-50 to-slate-100 p-3 dark:from-slate-900 dark:to-slate-800 md:p-8 md:pb-4">
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-6 md:min-h-[480px]">
                         {/* Left: Room Info */}
                         <motion.div 
                             initial={{ opacity: 0, x: -20 }}
@@ -186,19 +185,19 @@ const InquiryModal = ({ room, onClose }) => {
                             initial={{ opacity: 0, x: 20 }}
                             animate={{ opacity: 1, x: 0 }}
                             transition={{ delay: 0.2 }}
-                            className="flex flex-col"
+                            className="flex min-h-0 flex-col"
                         >
-                            <form onSubmit={handleSendInquiry} className="flex flex-col h-full">
+                            <form onSubmit={handleSendInquiry} className="flex min-h-full flex-col md:h-full">
                                 <label className="block text-sm font-bold text-slate-800 dark:text-slate-200 mb-3 uppercase tracking-wide">
                                     Your Message *
                                 </label>
-                                <div className="relative flex-1">
+                                <div className="relative md:flex-1">
                                     <textarea
                                         id="message"
                                         name="message"
                                         value={message}
                                         onChange={(e) => setMessage(e.target.value)}
-                                        className="block w-full h-full min-h-[200px] rounded-xl border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/80 shadow-inner px-4 py-4 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:focus:border-blue-400 dark:focus:ring-blue-400/30 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 resize-none transition-all duration-300 hover:border-slate-300 dark:hover:border-slate-600 leading-relaxed"
+                                        className="block min-h-[240px] w-full rounded-xl border-slate-200 bg-slate-50 px-4 py-4 text-slate-900 shadow-inner transition-all duration-300 placeholder:text-slate-400 hover:border-slate-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-700 dark:bg-slate-800/80 dark:text-slate-100 dark:placeholder:text-slate-500 dark:hover:border-slate-600 dark:focus:border-blue-400 dark:focus:ring-blue-400/30 md:h-full md:min-h-[200px]"
                                         placeholder={`Hi, I'm interested in "${displayTitle}". Could you please provide more information about availability, amenities, and move-in process?`}
                                         required
                                     />
@@ -208,7 +207,7 @@ const InquiryModal = ({ room, onClose }) => {
                                 </p>
 
                                 {/* Action Buttons - Part of form flow */}
-                                <div className="mt-4 grid grid-cols-2 gap-2 md:flex md:justify-end md:gap-3">
+                                <div className="sticky bottom-0 z-20 -mx-3 mt-4 grid grid-cols-2 gap-2 border-t border-slate-200/80 bg-slate-50/95 px-3 py-3 shadow-[0_-14px_32px_rgba(15,23,42,0.10)] backdrop-blur-xl dark:border-slate-700/70 dark:bg-slate-900/95 md:static md:mx-0 md:flex md:justify-end md:gap-3 md:border-0 md:bg-transparent md:p-0 md:shadow-none md:backdrop-blur-0">
                                     <motion.button 
                                         type="button" 
                                         onClick={onClose}

@@ -6,6 +6,7 @@ import Spinner from '../../components/common/Spinner';
 import { AlertTriangle, ArrowLeft, BadgeCheck, Calendar, FileText, Home, Mail, ShieldCheck, UserX, X } from 'lucide-react';
 import { format } from 'date-fns';
 import { confirmToast } from '../../utils/confirmToast';
+import { getScopeLabel, getScopeStatus, normalizeRoleScope } from '../../utils/roleRestrictions';
 
 const allRoles = ['Student', 'Landlord', 'Admin', 'Super_Admin', 'Moderator', 'Support'];
 
@@ -22,6 +23,11 @@ const statusTone = (status) =>
   status === 'Banned'
     ? 'bg-red-500/10 text-red-600 dark:text-red-300'
     : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-300';
+
+const getScopeActionLabel = (scope, banned) => {
+  const label = getScopeLabel(scope);
+  return `${banned ? 'Unban' : 'Ban'} ${label === 'Account' ? 'account' : label}`;
+};
 
 const EditRoleModal = ({ user, onClose, onSave }) => {
   const [selectedRoles, setSelectedRoles] = useState([...user.roles]);
@@ -164,28 +170,33 @@ const AdminUserDetailsPage = () => {
     fetchUserDetails();
   }, [fetchUserDetails]);
 
-  const handleBanUser = async () => {
-    const isBanned = user.status === 'Banned';
+  const handleBanUser = async (scope = 'account') => {
+    const roleScope = normalizeRoleScope(scope);
+    const isBanned = getScopeStatus(user, roleScope) === 'Banned';
     const action = isBanned ? 'unban' : 'ban';
     const newStatus = isBanned ? 'Active' : 'Banned';
+    const scopeLabel = getScopeLabel(roleScope);
 
     confirmToast({
-      title: `${action.charAt(0).toUpperCase() + action.slice(1)} this user?`,
+      title: `${getScopeActionLabel(roleScope, isBanned)}?`,
       description: isBanned
-        ? 'This restores dashboard, booking, hosting, chat, and profile access.'
-        : 'The user will immediately see a Trust & Safety restriction page with review steps.',
-      confirmLabel: action.charAt(0).toUpperCase() + action.slice(1),
+        ? `This restores ${scopeLabel.toLowerCase()} access only. Other restrictions stay unchanged.`
+        : roleScope === 'account'
+          ? 'This severe account-level restriction blocks booking, hosting, chat, and profile actions.'
+          : `This blocks only ${scopeLabel.toLowerCase()} actions. Other active roles stay available.`,
+      confirmLabel: getScopeActionLabel(roleScope, isBanned),
       tone: isBanned ? 'success' : 'danger',
       onConfirm: async () => {
         try {
           const { data } = await api.patch(`/admin/users/${user._id}/status`, {
             status: newStatus,
+            roleScope,
             reason: 'RoomRadar Trust & Safety restricted this account after an admin review. Please check your recent listings, bookings, messages, and verification details before requesting a review.',
           });
-          toast.success(`User successfully ${action}ned.`);
-          setUser((currentUser) => ({ ...currentUser, ...data, status: newStatus }));
+          toast.success(`${scopeLabel} successfully ${action}ned.`);
+          setUser((currentUser) => ({ ...currentUser, ...data }));
         } catch (err) {
-          toast.error(err.response?.data?.message || `Failed to ${action} user.`);
+          toast.error(err.response?.data?.message || `Failed to ${action} ${scopeLabel.toLowerCase()}.`);
         }
       },
     });
@@ -262,8 +273,8 @@ const AdminUserDetailsPage = () => {
                     <button onClick={handleVerificationToggle} className="rounded-2xl bg-white/15 px-4 py-2 text-sm font-black backdrop-blur transition hover:bg-white/25">
                       {user.isVerified ? 'Revoke verify' : 'Verify'}
                     </button>
-                    <button onClick={handleBanUser} className="rounded-2xl bg-red-500 px-4 py-2 text-sm font-black transition hover:bg-red-600">
-                      {user.status === 'Banned' ? 'Unban' : 'Ban'}
+                    <button onClick={() => handleBanUser('account')} className="rounded-2xl bg-red-500 px-4 py-2 text-sm font-black transition hover:bg-red-600">
+                      {user.status === 'Banned' ? 'Unban account' : 'Ban account'}
                     </button>
                   </div>
                 </div>
@@ -273,8 +284,37 @@ const AdminUserDetailsPage = () => {
                 <StatBox label="Applications" value={user.applications?.length ?? 0} icon={FileText} />
                 <StatBox label="Listings" value={user.roles.includes('Landlord') ? (user.listings?.length ?? 0) : 'N/A'} icon={Home} />
                 <StatBox label="Verification" value={user.isVerified ? 'Verified' : 'Needs review'} icon={ShieldCheck} />
-                <StatBox label="Status" value={user.status || 'Active'} icon={UserX} />
+                <StatBox label="Account" value={user.status || 'Active'} icon={UserX} />
               </div>
+            </div>
+
+            <div className="grid gap-3 md:grid-cols-2">
+              {['Student', 'Landlord'].filter((role) => user.roles.includes(role)).map((role) => {
+                const status = getScopeStatus(user, role);
+                const isBanned = status === 'Banned';
+                return (
+                  <div key={role} className="rounded-[1.35rem] border border-light-border bg-light-card p-4 shadow-sm dark:border-dark-border dark:bg-dark-card">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <p className="text-[11px] font-black uppercase tracking-[0.14em] text-light-muted dark:text-dark-muted">{displayRole(role)} access</p>
+                        <p className={`mt-1 text-lg font-black ${isBanned ? 'text-red-600 dark:text-red-300' : 'text-emerald-600 dark:text-emerald-300'}`}>{status}</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleBanUser(role)}
+                        className={`inline-flex min-h-10 items-center justify-center rounded-2xl px-4 text-sm font-black text-white transition active:scale-[0.98] ${isBanned ? 'bg-emerald-500' : 'bg-red-500'}`}
+                      >
+                        {getScopeActionLabel(role, isBanned)}
+                      </button>
+                    </div>
+                    {isBanned && (
+                      <p className="mt-3 text-sm font-semibold leading-6 text-light-muted dark:text-dark-muted">
+                        {user.roleRestrictions?.[normalizeRoleScope(role)]?.reason || 'RoomRadar Trust & Safety restricted this role.'}
+                      </p>
+                    )}
+                  </div>
+                );
+              })}
             </div>
 
             {user.status === 'Banned' && (
@@ -301,7 +341,7 @@ const AdminUserDetailsPage = () => {
             <div className="flex flex-wrap gap-2">
               {user.roles.map((role) => (
                 <span key={role} className={`rounded-full px-3 py-1.5 text-xs font-black uppercase tracking-wide ${roleTone(role)}`}>
-                  {displayRole(role)}
+                  {displayRole(role)} {['Student', 'Landlord'].includes(role) ? getScopeStatus(user, role) : ''}
                 </span>
               ))}
               <span className={`rounded-full px-3 py-1.5 text-xs font-black uppercase tracking-wide ${statusTone(user.status || 'Active')}`}>

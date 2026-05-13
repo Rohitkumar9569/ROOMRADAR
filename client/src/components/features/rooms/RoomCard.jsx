@@ -104,6 +104,41 @@ const getElectricityLabel = (value = '') => {
     return '';
 };
 
+const getCompactTagText = (key = '', text = '') => {
+    const value = String(text || '').trim();
+    if (!value) return '';
+
+    if (key === 'tenant') {
+        if (/women/i.test(value)) return 'Women';
+        if (/men/i.test(value)) return 'Men';
+        if (/family/i.test(value)) return 'Family';
+        if (/bachelor/i.test(value)) return 'Bachelor';
+    }
+
+    if (key === 'room-type') {
+        const bhkMatch = value.match(/(\d+)\s*BHK/i);
+        if (bhkMatch) return `${bhkMatch[1]} BHK`;
+        if (/shared/i.test(value)) return 'Shared';
+        if (/single/i.test(value)) return 'Single';
+        if (/pg/i.test(value)) return 'PG';
+        return value.replace(/\s*\([^)]*\)/g, '').replace(/\s+room\b/i, '').trim();
+    }
+
+    if (key === 'washroom') return /attached/i.test(value) ? 'Bath' : value.replace(/\s+bath/i, '');
+    if (key === 'deposit') return value.replace(/^Deposit/i, 'Dep');
+    if (key === 'electricity') return /included/i.test(value) ? 'Electricity' : 'Metered';
+    if (key === 'available') return value.replace(/^Move-in\s+/i, '');
+    if (key === 'occupancy') return value.replace(/^Up to\s+/i, '').replace(/\s+people$/i, ' guests');
+    if (key === 'beds') return value.replace(/\s+beds?/i, ' bed');
+    if (key === 'wifi') return 'WiFi';
+    if (key === 'ac') return 'AC';
+    if (key === 'powerBackup') return 'Power';
+    if (key === 'security') return 'Security';
+    if (key === 'payment') return /offline/i.test(value) ? 'Offline pay' : 'Online pay';
+
+    return value.length > 12 ? `${value.slice(0, 11).trim()}...` : value;
+};
+
 const pushUniqueTag = (tags, tag) => {
     if (!tag?.text) return;
     const key = tag.key || tag.text.toLowerCase();
@@ -660,7 +695,7 @@ function RoomCard({ room, context = 'default', onRemove, imagePriority = false }
 
                     {detailTags.length > 0 && (
                         <div className="rr-room-card-tags mb-1.5 grid min-w-0 grid-cols-2 gap-1.5 sm:mb-4 sm:flex sm:flex-wrap sm:gap-2.5">
-                            {detailTags.map(({ Icon, text, tone }, tagIndex) => (
+                            {detailTags.map(({ Icon, text, tone, key: tagKey }, tagIndex) => (
                                 <span
                                     key={`${text}-${tagIndex}`}
                                     title={text}
@@ -671,7 +706,8 @@ function RoomCard({ room, context = 'default', onRemove, imagePriority = false }
                                     } ${tagIndex > 2 ? 'rr-wide-only' : ''}`}
                                 >
                                     <Icon className="mt-[1px] h-3.5 w-3.5 flex-shrink-0 sm:h-4 sm:w-4" />
-                                    <span className="rr-feature-label min-w-0">{text}</span>
+                                    <span className="rr-feature-label rr-feature-label-full min-w-0">{text}</span>
+                                    <span className="rr-feature-label rr-feature-label-compact min-w-0">{getCompactTagText(tagKey, text)}</span>
                                 </span>
                             ))}
                         </div>

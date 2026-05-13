@@ -3,6 +3,7 @@ import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../../../context/AuthContext';
 import Spinner from '../../common/Spinner';
 import AccountRestrictedPage from '../../../pages/AccountRestrictedPage';
+import { getAccessScopeForPath, isAccountRestricted, isScopeRestricted } from '../../../utils/roleRestrictions';
 
 const ProtectedRoute = ({ allowedRoles }) => {
     const { user, isAuthLoading } = useAuth();
@@ -22,8 +23,13 @@ const ProtectedRoute = ({ allowedRoles }) => {
         return <Navigate to="/login" state={{ from: location }} replace />;
     }
 
-    if (user.status === 'Banned') {
-        return <AccountRestrictedPage />;
+    if (isAccountRestricted(user)) {
+        return <AccountRestrictedPage restrictionScope="account" />;
+    }
+
+    const restrictedScope = getAccessScopeForPath(location.pathname, allowedRoles || []);
+    if (restrictedScope && isScopeRestricted(user, restrictedScope)) {
+        return <AccountRestrictedPage restrictionScope={restrictedScope} />;
     }
 
     // --- [CHANGED] This is the updated role check ---

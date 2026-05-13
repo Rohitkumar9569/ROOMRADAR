@@ -15,15 +15,15 @@ const {
 const { protect, restrictTo } = require('../middleware/authMiddleware');
 
 
-router.get('/wishlist', protect, getWishlist);
+router.get('/wishlist', protect, restrictTo('Student'), getWishlist);
 router.get('/me', protect, getCurrentUser);
 router.put('/profile', protect, updateProfile);
 router.post('/account-review', protect, requestAccountReview);
 
 
-router.post('/wishlist', protect, addToWishlist);
+router.post('/wishlist', protect, restrictTo('Student'), addToWishlist);
 
-router.delete('/wishlist/:roomId', protect, removeFromWishlist);
+router.delete('/wishlist/:roomId', protect, restrictTo('Student'), removeFromWishlist);
 
 
 
@@ -31,7 +31,7 @@ router.delete('/wishlist/:roomId', protect, removeFromWishlist);
 // @route   GET /api/users/dashboard-summary/student
 // @desc    
 // @access  Private (Student)
-router.get('/dashboard-summary/student', protect, getStudentDashboardSummary);
+router.get('/dashboard-summary/student', protect, restrictTo('Student'), getStudentDashboardSummary);
 
 // @route   GET /api/users/dashboard-summary/landlord
 // @desc   
