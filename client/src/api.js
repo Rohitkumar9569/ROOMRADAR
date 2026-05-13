@@ -53,6 +53,12 @@ export const confirmPayment = (applicationId, payload = {}) =>
 export const cancelApplication = (applicationId) =>
   api.patch(`/applications/${applicationId}/cancel`);
 
+export const requestStayChange = (applicationId, payload) =>
+  api.post(`/applications/${applicationId}/stay-change`, payload);
+
+export const respondStayChange = (applicationId, payload) =>
+  api.patch(`/applications/${applicationId}/stay-change/respond`, payload);
+
 
 // --- API Calls: Dashboard ---
 
@@ -65,6 +71,9 @@ export const getLandlordDashboardSummary = () => api.get('/users/dashboard-summa
 
 export const createReview = (roomId, reviewData) => 
   api.post(`/reviews/${roomId}`, reviewData);
+
+export const createGuestReview = (applicationId, reviewData) =>
+  api.post(`/reviews/guest/${applicationId}`, reviewData);
 
 export const getReviewsForRoom = (roomId) => 
   api.get(`/reviews/${roomId}`);

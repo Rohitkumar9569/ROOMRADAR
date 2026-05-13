@@ -9,10 +9,12 @@ const { getFilterableFields } = require('../utils/roomConfigUtils');
 const { sanitizeDateRange, toOptionalDate } = require('../utils/dateUtils');
 const { normalizeOptionalIndianMobile } = require('../utils/phoneUtils');
 const {
+    ROOM_DISCOVERY_SELECT,
     appendAndClause,
     buildLocationQuery,
     createGenderPreferenceClause,
     findDiscoveryFallbackRooms,
+    rankRoomsByDiscovery,
 } = require('../utils/roomDiscoveryUtils');
 
 const LANDLORD_PUBLIC_FIELDS = [
@@ -38,15 +40,192 @@ const LANDLORD_DETAIL_FIELDS = `${LANDLORD_PUBLIC_FIELDS} email mobileNumber pho
 const handledRoomQueryKeys = new Set([
     'keyword', 'city', 'type', 'sort', 'limit', 'page', 'exclude', 'minRent', 'maxRent',
     'beds', 'maxOccupants', 'roomType', 'gender', 'familyStatus', 'amenities', 'availableFrom',
-    'checkInDate', 'checkOutDate', 'moveInDate', 'latitude', 'longitude', 'radius', 'verifiedOnly'
+    'checkInDate', 'checkOutDate', 'moveInDate', 'latitude', 'longitude', 'radius', 'verifiedOnly',
+    'strictLocation', 'listingCategory', 'pricingMode', 'stayType', 'maxGuests', 'instantBook',
+    'minPricePerNight', 'maxPricePerNight',
 ]);
 const lockedInventoryStatuses = ['approved', 'confirmed', 'external', 'blocked'];
+const DISCOVERABLE_ROOM_STATUSES = [
+    'Published',
+    'Available',
+    'Booked',
+    'Confirmed',
+    'published',
+    'available',
+    'booked',
+    'confirmed',
+];
+const BOOKED_DISCOVERY_STATUSES = new Set(['booked', 'confirmed']);
+
+const createDiscoverableBaseQuery = () => ({
+    status: { $in: DISCOVERABLE_ROOM_STATUSES },
+    isDeleted: { $ne: true },
+});
+
+const createDiscoverableStatusClause = () => ({ status: { $in: DISCOVERABLE_ROOM_STATUSES } });
+
+const getAvailabilityRank = (room = {}) => {
+    const normalizedStatus = String(room.status || '').toLowerCase();
+    return BOOKED_DISCOVERY_STATUSES.has(normalizedStatus) ? 1 : 0;
+};
+
+const prioritizeAvailableRooms = (rooms = []) => rooms
+    .map((room, index) => ({ room, index, availabilityRank: getAvailabilityRank(room) }))
+    .sort((a, b) => a.availabilityRank - b.availabilityRank || a.index - b.index)
+    .map(({ room }) => room);
+
+const discoverableMatchStage = () => ({
+    status: { $in: DISCOVERABLE_ROOM_STATUSES },
+    isDeleted: { $ne: true },
+});
 
 const normalizePreferredOccupant = (value) => {
     if (!value) return value;
     if (String(value).toLowerCase() === 'student') return 'Individual';
     if (String(value).toLowerCase() === 'room seeker') return 'Individual';
     return value;
+};
+
+const normalizeListingCategory = (value = '') => {
+    const normalized = String(value || '').trim();
+    const lower = normalized.toLowerCase();
+    if (!lower) return '';
+    if (lower === 'all' || lower === 'any') return '';
+    if (lower.includes('pg')) return 'PG';
+    if (lower.includes('hostel')) return 'Hostel';
+    if (lower.includes('co') && lower.includes('living')) return 'Co-living';
+    if (lower.includes('studio')) return 'Studio';
+    if (lower.includes('apartment')) return 'Apartment';
+    if (lower.includes('flat') || lower.includes('bhk') || lower.includes('rk')) return 'Flat';
+    if (lower.includes('room')) return 'Room';
+    return ['PG', 'Hostel', 'Flat', 'Apartment', 'Studio', 'Co-living', 'Room', 'Other'].includes(normalized)
+        ? normalized
+        : 'Other';
+};
+
+const deriveListingCategory = (payload = {}, existing = {}) => {
+    const explicit = normalizeListingCategory(payload.listingCategory);
+    if (explicit) return explicit;
+
+    const candidateText = [
+        payload.roomType,
+        payload.title,
+        existing.listingCategory,
+        existing.roomType,
+        existing.title,
+    ].filter(Boolean).join(' ');
+
+    return normalizeListingCategory(candidateText) || 'Room';
+};
+
+const normalizePricingMode = (value, fallback = 'monthly') => {
+    const normalized = String(value || fallback || 'monthly').trim().toLowerCase();
+    if (['daily', 'day'].includes(normalized)) return 'daily';
+    if (['nightly', 'night'].includes(normalized)) return 'nightly';
+    return 'monthly';
+};
+
+const normalizeStayType = (value, fallback = 'long_term') => {
+    const normalized = String(value || fallback || 'long_term').trim().toLowerCase().replace(/[\s-]+/g, '_');
+    if (['short_term', 'short'].includes(normalized)) return 'short_term';
+    if (['flexible', 'flex'].includes(normalized)) return 'flexible';
+    return 'long_term';
+};
+
+const isAllFilterValue = (value) => {
+    const normalized = String(value || '').trim().toLowerCase();
+    return !normalized || normalized === 'all' || normalized === 'any';
+};
+
+const createListingCategoryClause = (value) => {
+    const category = normalizeListingCategory(value);
+    if (!category || category === 'Other') return null;
+
+    const patternByCategory = {
+        PG: 'pg|paying guest',
+        Hostel: 'hostel',
+        'Co-living': 'co[-\\s]?living|co living',
+        Studio: 'studio',
+        Apartment: 'apartment',
+        Flat: 'flat|bhk|rk|apartment',
+        Room: 'room|single|shared',
+    };
+    const pattern = patternByCategory[category];
+    const legacyMatch = pattern
+        ? [
+            { roomType: { $regex: pattern, $options: 'i' } },
+            { title: { $regex: pattern, $options: 'i' } },
+        ]
+        : [];
+
+    return {
+        $or: [
+            { listingCategory: category },
+            ...legacyMatch,
+        ],
+    };
+};
+
+const createPricingModeClause = (value) => {
+    const mode = normalizePricingMode(value);
+    if (mode === 'monthly') {
+        return {
+            $or: [
+                { pricingMode: 'monthly' },
+                { pricingMode: { $exists: false } },
+                { pricingMode: '' },
+                { pricingMode: null },
+            ],
+        };
+    }
+    return { pricingMode: mode };
+};
+
+const createStayTypeClause = (value) => {
+    const stayType = normalizeStayType(value);
+    if (stayType === 'long_term') {
+        return {
+            $or: [
+                { stayType: 'long_term' },
+                { stayType: { $exists: false } },
+                { stayType: '' },
+                { stayType: null },
+            ],
+        };
+    }
+    return { stayType };
+};
+
+const parseBedroomsFromRoomType = (roomType = '') => {
+    const match = String(roomType || '').match(/(\d+)\s*(?:bhk|bed|bedroom)/i);
+    if (!match) return undefined;
+    const bedrooms = Number(match[1]);
+    return Number.isFinite(bedrooms) ? bedrooms : undefined;
+};
+
+const enrichListingMarketplaceFields = (payload = {}, existing = {}) => {
+    const next = { ...payload };
+    next.listingCategory = deriveListingCategory(next, existing);
+    next.pricingMode = normalizePricingMode(next.pricingMode, existing.pricingMode || 'monthly');
+    next.stayType = normalizeStayType(next.stayType, existing.stayType || 'long_term');
+    next.instantBook = next.instantBook === true || next.instantBook === 'true' || next.instantBook === '1' || Boolean(existing.instantBook && next.instantBook === undefined);
+
+    const maxGuests = toNumberLike(next.maxGuests ?? next.maxOccupants ?? existing.maxGuests ?? existing.maxOccupants);
+    if (maxGuests !== undefined) next.maxGuests = Math.max(1, Math.round(maxGuests));
+
+    const bedrooms = toNumberLike(next.bedrooms ?? parseBedroomsFromRoomType(next.roomType || existing.roomType) ?? existing.bedrooms);
+    if (bedrooms !== undefined) next.bedrooms = Math.max(0, Math.round(bedrooms));
+
+    const nightlyPrice = toNumberLike(next.pricePerNight ?? existing.pricePerNight);
+    if (nightlyPrice !== undefined) next.pricePerNight = Math.max(0, nightlyPrice);
+
+    if (next.pricingMode === 'monthly') {
+        next.stayType = next.stayType || 'long_term';
+    } else if (!next.stayType || next.stayType === 'long_term') {
+        next.stayType = 'short_term';
+    }
+
+    return next;
 };
 
 const toNumberLike = (value) => {
@@ -59,7 +238,10 @@ const toNumberLike = (value) => {
 
 const numericRoomFields = [
     'rent',
+    'pricePerNight',
     'maxOccupants',
+    'maxGuests',
+    'bedrooms',
     'bathrooms',
     'beds',
     'totalFloors',
@@ -75,7 +257,10 @@ const numericRoomFields = [
 
 const numericFieldDefaults = {
     rent: 0,
+    pricePerNight: 0,
     maxOccupants: 1,
+    maxGuests: 1,
+    bedrooms: 1,
     bathrooms: 1,
     beds: 1,
     securityDeposit: 0,
@@ -112,12 +297,43 @@ const normalizeNumericRoomPayload = (payload = {}) => {
 const valueUnitDefaults = {
     noticePeriod: 'days',
     minimumStay: 'months',
-    distanceCollege: 'km',
-    distanceHospital: 'km',
-    distanceMetro: 'km',
-    distanceBusStand: 'km',
-    distanceRailway: 'km',
-    distanceMarket: 'km',
+    distanceCollege: 'm',
+    distanceHospital: 'm',
+    distanceMetro: 'm',
+    distanceBusStand: 'm',
+    distanceRailway: 'm',
+    distanceMarket: 'm',
+};
+
+const valueUnitAllowedUnits = {
+    noticePeriod: ['days'],
+    minimumStay: ['months'],
+    distanceCollege: ['m', 'km'],
+    distanceHospital: ['m', 'km'],
+    distanceMetro: ['m', 'km'],
+    distanceBusStand: ['m', 'km'],
+    distanceRailway: ['m', 'km'],
+    distanceMarket: ['m', 'km'],
+};
+
+const normalizeValueUnitName = (field, unit) => {
+    const fallback = valueUnitDefaults[field] || '';
+    const normalizedUnit = String(unit || fallback).trim().toLowerCase();
+    const unitAliases = {
+        meter: 'm',
+        meters: 'm',
+        metre: 'm',
+        metres: 'm',
+        kilometer: 'km',
+        kilometers: 'km',
+        kilometre: 'km',
+        kilometres: 'km',
+        month: 'months',
+        day: 'days',
+    };
+    const candidate = unitAliases[normalizedUnit] || normalizedUnit;
+    const allowedUnits = valueUnitAllowedUnits[field] || [fallback];
+    return allowedUnits.includes(candidate) ? candidate : fallback;
 };
 
 const normalizeValueUnitPayload = (payload = {}) => {
@@ -133,8 +349,41 @@ const normalizeValueUnitPayload = (payload = {}) => {
         }
         normalizedPayload[field] = {
             value: numericValue,
-            unit: fieldValue && typeof fieldValue === 'object' ? fieldValue.unit || unit : unit,
+            unit: normalizeValueUnitName(field, fieldValue && typeof fieldValue === 'object' ? fieldValue.unit : unit),
         };
+    });
+    return normalizedPayload;
+};
+
+const normalizeClockTime = (value) => {
+    if (value === undefined || value === null || value === '') return '';
+    const rawValue = String(value).trim();
+    const time24 = rawValue.match(/^([01]?\d|2[0-3]):([0-5]\d)$/);
+    if (time24) return `${time24[1].padStart(2, '0')}:${time24[2]}`;
+
+    const time12 = rawValue.match(/^(\d{1,2})(?::([0-5]\d))?\s*(am|pm)$/i);
+    if (!time12) return null;
+    let hours = Number(time12[1]);
+    const minutes = time12[2] || '00';
+    const period = time12[3].toLowerCase();
+    if (hours < 1 || hours > 12) return null;
+    if (period === 'pm' && hours !== 12) hours += 12;
+    if (period === 'am' && hours === 12) hours = 0;
+    return `${String(hours).padStart(2, '0')}:${minutes}`;
+};
+
+const normalizeTimingPayload = (payload = {}) => {
+    if (!payload || typeof payload !== 'object') return payload;
+    const normalizedPayload = { ...payload };
+    ['entryTiming', 'visitorTiming'].forEach((field) => {
+        if (!Object.prototype.hasOwnProperty.call(normalizedPayload, field)) return;
+        const normalizedTime = normalizeClockTime(normalizedPayload[field]);
+        if (normalizedTime === '') {
+            delete normalizedPayload[field];
+            return;
+        }
+        if (!normalizedTime) throw new Error(`${field === 'entryTiming' ? 'Entry timing' : 'Visitor timing'} must be a valid time.`);
+        normalizedPayload[field] = normalizedTime;
     });
     return normalizedPayload;
 };
@@ -171,6 +420,16 @@ const normalizeRulesPayload = (rules = {}) => {
         if (numericNoticePeriod === undefined) delete normalizedRules.noticePeriod;
         else normalizedRules.noticePeriod = numericNoticePeriod;
     }
+    ['entryTiming', 'visitorTiming'].forEach((field) => {
+        if (!Object.prototype.hasOwnProperty.call(normalizedRules, field)) return;
+        const normalizedTime = normalizeClockTime(normalizedRules[field]);
+        if (normalizedTime === '') {
+            delete normalizedRules[field];
+            return;
+        }
+        if (!normalizedTime) throw new Error(`${field === 'entryTiming' ? 'Entry timing' : 'Visitor timing'} must be a valid time.`);
+        normalizedRules[field] = normalizedTime;
+    });
     return normalizedRules;
 };
 
@@ -251,10 +510,138 @@ const addAvailabilityExclusion = (query, { startDate, endDate }) => {
     };
 };
 
+const toFiniteQueryNumber = (value) => {
+    if (value === undefined || value === null || value === '') return undefined;
+    const numeric = Number(value);
+    return Number.isFinite(numeric) ? numeric : undefined;
+};
+
+const isUsefulLocationKeyword = (value = '') => {
+    const normalized = String(value || '').trim().toLowerCase();
+    return Boolean(normalized && !['current location', 'my location', 'near me', 'your location'].includes(normalized));
+};
+
+const getLocationKeyword = (...values) => values.find(isUsefulLocationKeyword) || '';
+
+const isStrictLocationRequest = (value) => ['true', '1', 'yes'].includes(String(value || '').trim().toLowerCase());
+
+const escapeLocationRegex = (value = '') => String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+const buildStrictLocationQuery = (value = '') => {
+    const location = String(value || '').trim();
+    if (!location) return null;
+
+    const exactRegex = new RegExp(`^\\s*${escapeLocationRegex(location)}\\s*$`, 'i');
+    const wordRegex = new RegExp(`\\b${escapeLocationRegex(location)}\\b`, 'i');
+
+    return {
+        $or: [
+            { 'location.city': exactRegex },
+            { 'location.locality': exactRegex },
+            { 'location.landmark': exactRegex },
+            { 'location.state': exactRegex },
+            { 'location.pincode': exactRegex },
+            { 'location.postalCode': exactRegex },
+            { 'location.fullAddress': wordRegex },
+            { city: exactRegex },
+            { locality: exactRegex },
+            { landmark: exactRegex },
+        ],
+    };
+};
+
+const getGeoSearch = (raw = {}, defaultRadius = 8) => {
+    const latitudeNumber = toFiniteQueryNumber(raw.latitude);
+    const longitudeNumber = toFiniteQueryNumber(raw.longitude);
+    const hasGeoSearch = Number.isFinite(latitudeNumber) && Number.isFinite(longitudeNumber);
+    const radiusKm = Math.max(toFiniteQueryNumber(raw.radius) || defaultRadius, 1);
+    return {
+        hasGeoSearch,
+        latitudeNumber,
+        longitudeNumber,
+        radiusKm,
+    };
+};
+
+const rankLocationAwareRooms = (rooms, rawFilters = {}, { limit } = {}) => {
+    if (!rooms.length) return rooms;
+    return rankRoomsByDiscovery(rooms, rawFilters, { limit: limit || rooms.length });
+};
+
+const getLocationPersonalizedRooms = async (rawFilters = {}, { limit = 8, excludeIds = [] } = {}) => {
+    const cityKeyword = getLocationKeyword(rawFilters.city, rawFilters.keyword, rawFilters.location, rawFilters.search);
+    const geo = getGeoSearch(rawFilters, 12);
+    const strictLocation = isStrictLocationRequest(rawFilters.strictLocation);
+    if (!cityKeyword && !geo.hasGeoSearch) return [];
+
+    const baseQuery = createDiscoverableBaseQuery();
+    const query = { ...baseQuery };
+    if (excludeIds.length) query._id = { $nin: excludeIds };
+
+    if (strictLocation && cityKeyword) {
+        const locationQuery = buildStrictLocationQuery(cityKeyword);
+        if (locationQuery) appendAndClause(query, locationQuery);
+    } else if (geo.hasGeoSearch) {
+        query.location = {
+            $geoWithin: {
+                $centerSphere: [[geo.longitudeNumber, geo.latitudeNumber], (geo.radiusKm * 1000) / 6378100],
+            },
+        };
+    } else {
+        const locationQuery = strictLocation
+            ? buildStrictLocationQuery(cityKeyword)
+            : buildLocationQuery(cityKeyword, { matchAll: true });
+        if (locationQuery) appendAndClause(query, locationQuery);
+    }
+
+    const exactRooms = await Room.find(query)
+        .select(ROOM_DISCOVERY_SELECT)
+        .sort({ views: -1, averageRating: -1, createdAt: -1 })
+        .limit(Math.max(limit * 4, limit))
+        .lean();
+
+    const rankedFilters = {
+        ...rawFilters,
+        city: cityKeyword,
+        latitude: geo.hasGeoSearch ? geo.latitudeNumber : rawFilters.latitude,
+        longitude: geo.hasGeoSearch ? geo.longitudeNumber : rawFilters.longitude,
+        radius: geo.hasGeoSearch ? geo.radiusKm : rawFilters.radius,
+        sort: rawFilters.sort || 'popular',
+        limit,
+    };
+
+    let candidates = exactRooms;
+    if (!strictLocation && exactRooms.length < limit) {
+        const fallbackRooms = await findDiscoveryFallbackRooms(Room, rankedFilters, {
+            resultLimit: limit - exactRooms.length,
+            candidateLimit: 240,
+            excludeIds: [
+                ...excludeIds,
+                ...exactRooms.map((room) => room._id),
+            ],
+        });
+        candidates = [...exactRooms, ...fallbackRooms];
+    }
+
+    const seen = new Set();
+    return prioritizeAvailableRooms(rankLocationAwareRooms(
+        candidates.filter((room) => {
+            const id = String(room._id);
+            if (seen.has(id)) return false;
+            seen.add(id);
+            return true;
+        }),
+        rankedFilters,
+        { limit }
+    ));
+};
+
 // CREATE ROOM
 exports.createRoom = asyncHandler(async (req, res) => {
     try {
-        const roomPayload = normalizeRoomPhonePayload(normalizeNumericRoomPayload(sanitizeRoomDatePayload(normalizeValueUnitPayload({ ...req.body }))));
+        const roomPayload = enrichListingMarketplaceFields(
+            normalizeRoomPhonePayload(normalizeNumericRoomPayload(sanitizeRoomDatePayload(normalizeTimingPayload(normalizeValueUnitPayload({ ...req.body })))))
+        );
         roomPayload.rules = normalizeRulesPayload(roomPayload.rules);
 
         if (!roomPayload.location || !roomPayload.location.coordinates || !roomPayload.location.fullAddress || !roomPayload.location.city) {
@@ -309,6 +696,13 @@ exports.getAllRooms = asyncHandler(async (req, res) => {
             beds,
             maxOccupants,
             roomType,
+            listingCategory,
+            pricingMode,
+            stayType,
+            maxGuests,
+            instantBook,
+            minPricePerNight,
+            maxPricePerNight,
             gender,
             familyStatus,
             amenities,
@@ -320,24 +714,42 @@ exports.getAllRooms = asyncHandler(async (req, res) => {
             longitude,
             radius,
             verifiedOnly,
+            strictLocation,
         } = req.query;
-        const query = { status: 'Published', isDeleted: { $ne: true } };
+        const hasDateAvailabilityIntent = Boolean(checkInDate || moveInDate || availableFrom);
+        const query = { isDeleted: { $ne: true } };
+        appendAndClause(query, createDiscoverableStatusClause(hasDateAvailabilityIntent));
 
-        const cityKeyword = city || keyword;
-        if (cityKeyword) {
-            const locationQuery = buildLocationQuery(cityKeyword, { matchAll: true });
+        const cityKeyword = getLocationKeyword(city, keyword);
+        const geoSearch = getGeoSearch(req.query, 8);
+        const strictLocationMode = isStrictLocationRequest(strictLocation);
+        if (cityKeyword && (strictLocationMode || !geoSearch.hasGeoSearch)) {
+            const locationQuery = strictLocationMode
+                ? buildStrictLocationQuery(cityKeyword)
+                : buildLocationQuery(cityKeyword, { matchAll: true });
             if (locationQuery) appendAndClause(query, locationQuery);
         }
-        if (latitude && longitude && radius) {
-            const radiusInMeters = Math.max(Number(radius) || 5, 1) * 1000;
+        if (geoSearch.hasGeoSearch && !(strictLocationMode && cityKeyword)) {
+            const radiusInMeters = geoSearch.radiusKm * 1000;
             query.location = {
                 $geoWithin: {
-                    $centerSphere: [[Number(longitude), Number(latitude)], radiusInMeters / 6378100]
+                    $centerSphere: [[geoSearch.longitudeNumber, geoSearch.latitudeNumber], radiusInMeters / 6378100]
                 }
             };
         }
         if (exclude) query._id = { $ne: exclude };
         if (roomType) query.roomType = roomType;
+        if (!isAllFilterValue(listingCategory)) {
+            const categoryClause = createListingCategoryClause(listingCategory);
+            if (categoryClause) appendAndClause(query, categoryClause);
+        }
+        if (!isAllFilterValue(pricingMode)) {
+            appendAndClause(query, createPricingModeClause(pricingMode));
+        }
+        if (!isAllFilterValue(stayType)) {
+            appendAndClause(query, createStayTypeClause(stayType));
+        }
+        if (instantBook === true || instantBook === 'true' || instantBook === '1') query.instantBook = true;
         if (type && type !== 'All') {
             if (type === 'Rooms') query.roomType = { $regex: 'Room', $options: 'i' };
             else if (type === 'Flats') query.roomType = { $regex: 'Flat|BHK', $options: 'i' };
@@ -369,13 +781,19 @@ exports.getAllRooms = asyncHandler(async (req, res) => {
             if (minRent) query.rent.$gte = Number(minRent);
             if (maxRent) query.rent.$lte = Number(maxRent);
         }
-        const occupantCount = Number(maxOccupants);
+        if (minPricePerNight || maxPricePerNight) {
+            query.pricePerNight = {};
+            if (minPricePerNight) query.pricePerNight.$gte = Number(minPricePerNight);
+            if (maxPricePerNight) query.pricePerNight.$lte = Number(maxPricePerNight);
+        }
+        const occupantCount = Number(maxGuests || maxOccupants);
         if (Number.isFinite(occupantCount) && occupantCount > 0) {
             query.$and = [
                 ...(query.$and || []),
                 {
                     $or: [
                         { maxOccupants: { $gte: occupantCount } },
+                        { maxGuests: { $gte: occupantCount } },
                         { beds: { $gte: occupantCount } },
                     ],
                 },
@@ -385,7 +803,7 @@ exports.getAllRooms = asyncHandler(async (req, res) => {
         const availableFromDate = toOptionalDate(availableFrom);
         if (availableFromDate) query.availableFrom = { $lte: availableFromDate };
         addAvailabilityExclusion(query, {
-            startDate: checkInDate || moveInDate,
+            startDate: checkInDate || moveInDate || availableFrom,
             endDate: checkOutDate,
         });
         if (amenities) {
@@ -400,8 +818,9 @@ exports.getAllRooms = asyncHandler(async (req, res) => {
 
         let sortOption = { createdAt: -1 };
         if (sort === 'views' || sort === 'popular') sortOption = { views: -1, createdAt: -1 };
-        if (sort === 'price_asc') sortOption = { rent: 1 };
-        if (sort === 'price_desc') sortOption = { rent: -1 };
+        const normalizedPricingMode = isAllFilterValue(pricingMode) ? 'monthly' : normalizePricingMode(pricingMode);
+        if (sort === 'price_asc') sortOption = normalizedPricingMode !== 'monthly' ? { pricePerNight: 1, rent: 1 } : { rent: 1 };
+        if (sort === 'price_desc') sortOption = normalizedPricingMode !== 'monthly' ? { pricePerNight: -1, rent: -1 } : { rent: -1 };
         if (sort === 'rating') sortOption = { averageRating: -1, numReviews: -1 };
 
         const pageNumber = page ? Math.max(Number(page), 1) : null;
@@ -417,14 +836,25 @@ exports.getAllRooms = asyncHandler(async (req, res) => {
             pageNumber ? Room.countDocuments(query) : Promise.resolve(0),
         ]);
         let fallbackMeta = null;
-        const exactTotal = total;
-        const hasLocationIntent = Boolean(cityKeyword || (latitude && longitude));
+        const exactTotal = pageNumber ? total : rooms.length;
+        const hasLocationIntent = Boolean(cityKeyword || geoSearch.hasGeoSearch);
+        const rankedFilterPayload = {
+            ...req.query,
+            city: cityKeyword,
+            latitude: geoSearch.hasGeoSearch ? geoSearch.latitudeNumber : latitude,
+            longitude: geoSearch.hasGeoSearch ? geoSearch.longitudeNumber : longitude,
+            radius: geoSearch.hasGeoSearch ? geoSearch.radiusKm : radius,
+            sort,
+            limit: rooms.length || limitNumber || undefined,
+        };
 
-        if (pageNumber === 1 && hasLocationIntent && limitNumber && rooms.length < limitNumber) {
+        if (hasLocationIntent && rooms.length) {
+            rooms = rankLocationAwareRooms(rooms, rankedFilterPayload, { limit: rooms.length });
+        }
+
+        if (!strictLocationMode && (!pageNumber || pageNumber === 1) && hasLocationIntent && limitNumber && rooms.length < limitNumber) {
             let fallbackRooms = await findDiscoveryFallbackRooms(Room, {
-                ...req.query,
-                city: cityKeyword || city,
-                sort,
+                ...rankedFilterPayload,
                 limit: limitNumber - rooms.length,
             }, {
                 resultLimit: limitNumber - rooms.length,
@@ -448,7 +878,7 @@ exports.getAllRooms = asyncHandler(async (req, res) => {
             }
         }
 
-        if (pageNumber === 1 && rooms.length === 0) {
+        if (!strictLocationMode && (!pageNumber || pageNumber === 1) && rooms.length === 0) {
             let fallbackRooms = await findDiscoveryFallbackRooms(Room, {
                 ...req.query,
                 sort,
@@ -465,10 +895,12 @@ exports.getAllRooms = asyncHandler(async (req, res) => {
                 total = fallbackRooms.length;
                 fallbackMeta = {
                     type: 'relaxed',
-                    message: 'No exact match found. Showing the closest available rooms based on your search filters.',
+                    message: 'No exact match found. Showing the closest matching rooms based on your search filters.',
                 };
             }
         }
+
+        rooms = prioritizeAvailableRooms(rooms);
 
         if (pageNumber) {
             return res.json({
@@ -492,8 +924,30 @@ exports.getAllRooms = asyncHandler(async (req, res) => {
 // SEARCH ROOMS 
 exports.searchRooms = asyncHandler(async (req, res) => {
     try {
-        const { latitude, longitude, radius, city, minRent, maxRent, beds, roomType, checkInDate, checkOutDate, moveInDate } = req.body;
-        let query = { status: 'Published', isDeleted: { $ne: true } };
+        const {
+            latitude,
+            longitude,
+            radius,
+            city,
+            minRent,
+            maxRent,
+            beds,
+            maxOccupants,
+            maxGuests,
+            roomType,
+            listingCategory,
+            pricingMode,
+            stayType,
+            instantBook,
+            minPricePerNight,
+            maxPricePerNight,
+            checkInDate,
+            checkOutDate,
+            moveInDate,
+        } = req.body;
+        const hasDateAvailabilityIntent = Boolean(checkInDate || moveInDate);
+        let query = { isDeleted: { $ne: true } };
+        appendAndClause(query, createDiscoverableStatusClause(hasDateAvailabilityIntent));
 
         if (latitude && longitude && radius) {
             const radiusInMeters = parseFloat(radius) * 1000;
@@ -509,6 +963,35 @@ exports.searchRooms = asyncHandler(async (req, res) => {
             query.rent = {};
             if (minRent) query.rent.$gte = parseFloat(minRent);
             if (maxRent) query.rent.$lte = parseFloat(maxRent);
+        }
+        if (minPricePerNight || maxPricePerNight) {
+            query.pricePerNight = {};
+            if (minPricePerNight) query.pricePerNight.$gte = parseFloat(minPricePerNight);
+            if (maxPricePerNight) query.pricePerNight.$lte = parseFloat(maxPricePerNight);
+        }
+        if (!isAllFilterValue(listingCategory)) {
+            const categoryClause = createListingCategoryClause(listingCategory);
+            if (categoryClause) appendAndClause(query, categoryClause);
+        }
+        if (!isAllFilterValue(pricingMode)) {
+            appendAndClause(query, createPricingModeClause(pricingMode));
+        }
+        if (!isAllFilterValue(stayType)) {
+            appendAndClause(query, createStayTypeClause(stayType));
+        }
+        if (instantBook === true || instantBook === 'true' || instantBook === '1') query.instantBook = true;
+        const occupantCount = Number(maxGuests || maxOccupants);
+        if (Number.isFinite(occupantCount) && occupantCount > 0) {
+            query.$and = [
+                ...(query.$and || []),
+                {
+                    $or: [
+                        { maxOccupants: { $gte: occupantCount } },
+                        { maxGuests: { $gte: occupantCount } },
+                        { beds: { $gte: occupantCount } },
+                    ],
+                },
+            ];
         }
         if (beds) { query.beds = parseInt(beds); }
         if (roomType) { query.roomType = roomType; }
@@ -530,10 +1013,11 @@ exports.searchRooms = asyncHandler(async (req, res) => {
                 rooms = await Room.populate(rooms, { path: 'landlord', select: LANDLORD_PUBLIC_FIELDS });
                 fallback = {
                     type: 'relaxed',
-                    message: 'No exact match found. Showing the closest available rooms based on your search filters.',
+                    message: 'No exact match found. Showing the closest matching rooms based on your search filters.',
                 };
             }
         }
+        rooms = prioritizeAvailableRooms(rooms);
         res.status(200).json({
             message: `${rooms.length} rooms found.`,
             count: rooms.length,
@@ -548,6 +1032,10 @@ exports.searchRooms = asyncHandler(async (req, res) => {
 exports.getRecommendedRooms = asyncHandler(async (req, res) => {
     const limit = Math.min(Number(req.query.limit) || 8, 24);
     let userId = req.query.userId;
+    const requestedLocation = getLocationKeyword(req.query.city, req.query.keyword, req.query.location, req.query.search);
+    const requestedGeo = getGeoSearch(req.query, 12);
+    const strictLocationMode = isStrictLocationRequest(req.query.strictLocation);
+    const hasLocationIntent = Boolean(requestedLocation || requestedGeo.hasGeoSearch);
 
     if (!userId && req.headers.authorization?.startsWith('Bearer ') && process.env.JWT_SECRET) {
         try {
@@ -558,20 +1046,60 @@ exports.getRecommendedRooms = asyncHandler(async (req, res) => {
         }
     }
 
+    let wishlistRooms = [];
+    let applicationRooms = [];
     if (userId) {
-        const user = await User.findById(userId).populate('wishlist', 'location rent').lean();
-        const wishlistRooms = user?.wishlist || [];
-        const cities = [...new Set(wishlistRooms.map((room) => room.location?.city).filter(Boolean))];
-        const rents = wishlistRooms.map((room) => Number(room.rent || 0)).filter((rent) => rent > 0);
+        const [user, recentApplications] = await Promise.all([
+            User.findById(userId).populate('wishlist', 'location rent').lean(),
+            Application.find({ student: userId })
+                .populate('room', 'location rent')
+                .sort({ createdAt: -1 })
+                .limit(12)
+                .lean(),
+        ]);
+        wishlistRooms = user?.wishlist || [];
+        applicationRooms = recentApplications.map((application) => application.room).filter(Boolean);
+    }
+
+    const preferenceRooms = [...wishlistRooms, ...applicationRooms];
+    const wishlistIds = preferenceRooms.map((room) => room._id).filter(Boolean);
+    const locationRooms = await getLocationPersonalizedRooms(req.query, {
+        limit,
+        excludeIds: [],
+    });
+
+    if (locationRooms.length) {
+        const populatedRooms = await Room.populate(locationRooms, { path: 'landlord', select: LANDLORD_PUBLIC_FIELDS });
+        return res.json({
+            data: populatedRooms,
+            count: populatedRooms.length,
+            personalized: true,
+            source: 'location',
+        });
+    }
+
+    if (strictLocationMode && hasLocationIntent) {
+        return res.json({
+            data: [],
+            count: 0,
+            personalized: true,
+            source: 'location',
+            fallback: null,
+        });
+    }
+
+    if (userId) {
+        const cities = [...new Set(preferenceRooms.map((room) => room.location?.city).filter(Boolean))];
+        const rents = preferenceRooms.map((room) => Number(room.rent || 0)).filter((rent) => rent > 0);
 
         if (cities.length || rents.length) {
-            const query = { status: 'Published', isDeleted: { $ne: true } };
+            const query = createDiscoverableBaseQuery();
             if (cities.length) query['location.city'] = { $in: cities };
             if (rents.length) {
                 const avgRent = rents.reduce((sum, rent) => sum + rent, 0) / rents.length;
                 query.rent = { $gte: Math.max(0, avgRent * 0.7), $lte: avgRent * 1.3 };
             }
-            if (wishlistRooms.length) query._id = { $nin: wishlistRooms.map((room) => room._id) };
+            if (wishlistIds.length) query._id = { $nin: wishlistIds };
 
             const personalized = await Room.find(query)
                 .populate('landlord', LANDLORD_PUBLIC_FIELDS)
@@ -580,23 +1108,23 @@ exports.getRecommendedRooms = asyncHandler(async (req, res) => {
                 .lean();
 
             if (personalized.length) {
-                return res.json({ data: personalized, count: personalized.length, personalized: true });
+                return res.json({ data: prioritizeAvailableRooms(personalized), count: personalized.length, personalized: true });
             }
         }
     }
 
-    const rooms = await Room.find({ status: 'Published', isDeleted: { $ne: true } })
+    const rooms = await Room.find(createDiscoverableBaseQuery())
         .populate('landlord', LANDLORD_PUBLIC_FIELDS)
         .sort({ views: -1, averageRating: -1, createdAt: -1 })
         .limit(limit)
         .lean();
 
-    res.json({ data: rooms, count: rooms.length, personalized: false });
+    res.json({ data: prioritizeAvailableRooms(rooms), count: rooms.length, personalized: false });
 });
 
 exports.getPriceRange = asyncHandler(async (req, res) => {
     const result = await Room.aggregate([
-        { $match: { status: 'Published', isDeleted: { $ne: true } } },
+        { $match: discoverableMatchStage() },
         { $group: { _id: null, min: { $min: '$rent' }, max: { $max: '$rent' } } }
     ]);
 
@@ -667,7 +1195,9 @@ const calculateRoomSimilarityScore = (candidate, source, { group = 'similar', di
     if (candidateRent && sourceRent) score += Math.max(0, 30 - Math.round(rentGap * 46));
     if (candidateRent && sourceRent && candidateRent <= sourceRent) score += 4;
     if (Number(candidate.beds || 0) === Number(source.beds || 0)) score += 9;
-    if (Number(candidate.maxOccupants || 0) && Number(candidate.maxOccupants || 0) >= Number(source.maxOccupants || source.beds || 1)) score += 6;
+    const candidateCapacity = Math.max(Number(candidate.maxGuests || 0), Number(candidate.maxOccupants || 0), Number(candidate.beds || 0));
+    const sourceCapacity = Math.max(Number(source.maxGuests || 0), Number(source.maxOccupants || 0), Number(source.beds || 1));
+    if (candidateCapacity && candidateCapacity >= sourceCapacity) score += 6;
     if (valuesMatchOrOpen(candidate.gender || candidate.tenantPreferences?.allowedGender, source.gender || source.tenantPreferences?.allowedGender)) score += 12;
     if (valuesMatchOrOpen(candidate.familyStatus || candidate.tenantPreferences?.familyStatus, source.familyStatus || source.tenantPreferences?.familyStatus)) score += 8;
     score += Math.min(sharedAmenities * 3, 21);
@@ -688,11 +1218,8 @@ exports.getSimilarRooms = asyncHandler(async (req, res) => {
         return res.status(404).json({ message: 'Room not found' });
     }
 
-    const baseQuery = {
-        status: 'Published',
-        isDeleted: { $ne: true },
-    };
-    const baseSelection = 'title rent location roomType images imageUrl averageRating numReviews beds maxOccupants bathrooms washroomType attachedWashroom furnishingStatus gender familyStatus tenantPreferences facilities securityDeposit maintenanceCharge electricityBilling availableFrom paymentPreference offlinePaymentAllowed rentNegotiable minimumStay createdAt landlord views';
+    const baseQuery = createDiscoverableBaseQuery();
+    const baseSelection = 'title rent location roomType listingCategory pricingMode stayType pricePerNight maxGuests bedrooms instantBook images imageUrl averageRating numReviews beds maxOccupants bathrooms washroomType attachedWashroom furnishingStatus gender familyStatus tenantPreferences facilities securityDeposit maintenanceCharge electricityBilling availableFrom paymentPreference offlinePaymentAllowed rentNegotiable minimumStay status createdAt landlord views';
     const seenIds = new Set([String(room._id)]);
     const sourceCoordinates = getRoomCoordinates(room);
     const rankCandidates = (rooms, group = 'similar') => rooms
@@ -785,8 +1312,7 @@ exports.getSimilarRooms = asyncHandler(async (req, res) => {
                         spherical: true,
                         maxDistance: 25000,
                         query: {
-                            status: 'Published',
-                            isDeleted: { $ne: true },
+                            ...discoverableMatchStage(),
                             _id: { $ne: room._id },
                         },
                     },
@@ -798,6 +1324,13 @@ exports.getSimilarRooms = asyncHandler(async (req, res) => {
                         rent: 1,
                         location: 1,
                         roomType: 1,
+                        listingCategory: 1,
+                        pricingMode: 1,
+                        stayType: 1,
+                        pricePerNight: 1,
+                        maxGuests: 1,
+                        bedrooms: 1,
+                        instantBook: 1,
                         images: 1,
                         imageUrl: 1,
                         averageRating: 1,
@@ -820,6 +1353,7 @@ exports.getSimilarRooms = asyncHandler(async (req, res) => {
                         offlinePaymentAllowed: 1,
                         rentNegotiable: 1,
                         minimumStay: 1,
+                        status: 1,
                         createdAt: 1,
                         landlord: 1,
                         views: 1,
@@ -878,7 +1412,8 @@ exports.getSimilarRooms = asyncHandler(async (req, res) => {
         appendUnique(similar, rankCandidates(fallbackCandidates, 'similar'), 8);
     }
 
-    res.json({ data: similar, count: similar.length });
+    const prioritizedSimilar = prioritizeAvailableRooms(similar);
+    res.json({ data: prioritizedSimilar, count: prioritizedSimilar.length });
 });
 
 
@@ -980,7 +1515,10 @@ exports.updateRoom = asyncHandler(async (req, res) => {
             return res.status(401).json({ message: 'Not authorized' });
         }
 
-        const newRoomData = normalizeRoomPhonePayload(normalizeNumericRoomPayload(sanitizeRoomDatePayload(normalizeValueUnitPayload({ ...req.body }))));
+        const newRoomData = enrichListingMarketplaceFields(
+            normalizeRoomPhonePayload(normalizeNumericRoomPayload(sanitizeRoomDatePayload(normalizeTimingPayload(normalizeValueUnitPayload({ ...req.body }))))),
+            room.toObject ? room.toObject() : room
+        );
         newRoomData.rules = normalizeRulesPayload(newRoomData.rules);
         if (Object.prototype.hasOwnProperty.call(newRoomData, 'preferredOccupant')) {
             newRoomData.preferredOccupant = normalizePreferredOccupant(newRoomData.preferredOccupant);

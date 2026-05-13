@@ -42,15 +42,30 @@ const valueUnitSchema = new mongoose.Schema({
     unit: { type: String }
 }, { _id: false });
 
+const listingCategoryValues = ['Room', 'PG', 'Hostel', 'Flat', 'Apartment', 'Studio', 'Co-living', 'Other'];
+const pricingModeValues = ['monthly', 'daily', 'nightly'];
+const stayTypeValues = ['long_term', 'short_term', 'flexible'];
+
 const valueUnitDefaults = {
     noticePeriod: 'days',
     minimumStay: 'months',
-    distanceCollege: 'km',
-    distanceHospital: 'km',
-    distanceMetro: 'km',
-    distanceBusStand: 'km',
-    distanceRailway: 'km',
-    distanceMarket: 'km',
+    distanceCollege: 'm',
+    distanceHospital: 'm',
+    distanceMetro: 'm',
+    distanceBusStand: 'm',
+    distanceRailway: 'm',
+    distanceMarket: 'm',
+};
+
+const valueUnitAllowedUnits = {
+    noticePeriod: ['days'],
+    minimumStay: ['months'],
+    distanceCollege: ['m', 'km'],
+    distanceHospital: ['m', 'km'],
+    distanceMetro: ['m', 'km'],
+    distanceBusStand: ['m', 'km'],
+    distanceRailway: ['m', 'km'],
+    distanceMarket: ['m', 'km'],
 };
 
 const numericRoomDefaults = {
@@ -67,6 +82,9 @@ const numericRoomDefaults = {
     recentReviewsCount: 0,
     activeApplicationsCount: 0,
     views: 0,
+    pricePerNight: 0,
+    maxGuests: 1,
+    bedrooms: 1,
 };
 
 const toLooseNumber = (value) => {
@@ -85,12 +103,27 @@ const normalizeValueUnit = (field, value) => {
     if (value === undefined || value === null || value === '') return undefined;
     const numericValue = toLooseNumber(value);
     if (numericValue === undefined) return undefined;
+    const fallback = valueUnitDefaults[field];
+    const rawUnit = value && typeof value === 'object' && !Array.isArray(value) ? value.unit || fallback : fallback;
+    const normalizedUnit = String(rawUnit || fallback).trim().toLowerCase();
+    const unitAliases = {
+        meter: 'm',
+        meters: 'm',
+        metre: 'm',
+        metres: 'm',
+        kilometer: 'km',
+        kilometers: 'km',
+        kilometre: 'km',
+        kilometres: 'km',
+        month: 'months',
+        day: 'days',
+    };
+    const candidateUnit = unitAliases[normalizedUnit] || normalizedUnit;
+    const allowedUnits = valueUnitAllowedUnits[field] || [fallback];
 
     return {
         value: numericValue,
-        unit: value && typeof value === 'object' && !Array.isArray(value)
-            ? value.unit || valueUnitDefaults[field]
-            : valueUnitDefaults[field],
+        unit: allowedUnits.includes(candidateUnit) ? candidateUnit : fallback,
     };
 };
 
@@ -177,8 +210,23 @@ const roomSchema = new mongoose.Schema({
         set: (val) => Math.round(val * 100) / 100
     },
     numReviews: { type: Number, default: 0 },
+    ratingBreakdown: {
+        cleanliness: { type: Number, default: 0, min: 0, max: 5 },
+        accuracy: { type: Number, default: 0, min: 0, max: 5 },
+        checkIn: { type: Number, default: 0, min: 0, max: 5 },
+        communication: { type: Number, default: 0, min: 0, max: 5 },
+        location: { type: Number, default: 0, min: 0, max: 5 },
+        value: { type: Number, default: 0, min: 0, max: 5 },
+    },
     beds: { type: Number, required: true },
     roomType: { type: String, index: true },
+    listingCategory: { type: String, enum: listingCategoryValues, default: 'Room', index: true },
+    pricingMode: { type: String, enum: pricingModeValues, default: 'monthly', index: true },
+    stayType: { type: String, enum: stayTypeValues, default: 'long_term', index: true },
+    pricePerNight: { type: Number, default: 0, min: 0, index: true },
+    maxGuests: { type: Number, default: 1, min: 1, index: true },
+    bedrooms: { type: Number, default: 1, min: 0 },
+    instantBook: { type: Boolean, default: false, index: true },
     tenantPreferences: {
         familyStatus: { type: String, enum: ['Any', 'Bachelors', 'Family'], default: 'Any' },
         allowedGender: { type: String, enum: ['Any', 'Male', 'Female'], default: 'Any' },
@@ -322,6 +370,7 @@ const roomSchema = new mongoose.Schema({
 
 roomSchema.index({ location: '2dsphere' });
 roomSchema.index({ isDeleted: 1, status: 1, 'location.city': 1, rent: 1, roomType: 1 });
+roomSchema.index({ isDeleted: 1, status: 1, listingCategory: 1, pricingMode: 1, stayType: 1 });
 roomSchema.index({ 'unavailableRanges.startDate': 1, 'unavailableRanges.endDate': 1, 'unavailableRanges.status': 1 });
 roomSchema.index({ landlord: 1, isDeleted: 1, status: 1, createdAt: -1 });
 

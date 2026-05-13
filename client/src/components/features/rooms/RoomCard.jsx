@@ -104,6 +104,13 @@ const getElectricityLabel = (value = '') => {
     return '';
 };
 
+const getDistanceLabel = (value) => {
+    const distance = Number(value);
+    if (!Number.isFinite(distance) || distance <= 0) return '';
+    if (distance < 1) return `${Math.max(100, Math.round(distance * 1000))} m away`;
+    return `${distance.toFixed(distance < 10 ? 1 : 0)} km away`;
+};
+
 const getCompactTagText = (key = '', text = '') => {
     const value = String(text || '').trim();
     if (!value) return '';
@@ -124,10 +131,13 @@ const getCompactTagText = (key = '', text = '') => {
         return value.replace(/\s*\([^)]*\)/g, '').replace(/\s+room\b/i, '').trim();
     }
 
+    if (key === 'category') return value.replace(/^Co-living$/i, 'Co-live');
+    if (key === 'instant') return 'Instant';
     if (key === 'washroom') return /attached/i.test(value) ? 'Bath' : value.replace(/\s+bath/i, '');
     if (key === 'deposit') return value.replace(/^Deposit/i, 'Dep');
     if (key === 'electricity') return /included/i.test(value) ? 'Electricity' : 'Metered';
     if (key === 'available') return value.replace(/^Move-in\s+/i, '');
+    if (key === 'distance') return value.replace(/\s+away$/i, '');
     if (key === 'occupancy') return value.replace(/^Up to\s+/i, '').replace(/\s+people$/i, ' guests');
     if (key === 'beds') return value.replace(/\s+beds?/i, ' bed');
     if (key === 'wifi') return 'WiFi';
@@ -449,10 +459,17 @@ function RoomCard({ room, context = 'default', onRemove, imagePriority = false }
         const depositAmount = Number(String(cardRoom.securityDeposit ?? '').replace(/[^\d.-]/g, ''));
         const moveInLabel = getMoveInLabel(cardRoom.availableFrom);
         const electricityLabel = getElectricityLabel(cardRoom.electricityBilling);
+        const distanceLabel = getDistanceLabel(cardRoom._match?.distanceKm ?? cardRoom._recommendation?.distanceKm);
         const roomTypeLabel = cardRoom.roomType
             ? normalizeRoomTypeLabel(cardRoom.roomType)
             : '';
+        const listingCategory = String(cardRoom.listingCategory || '').trim();
+        const shouldShowCategory = listingCategory
+            && !['Room', 'Other'].includes(listingCategory)
+            && !String(roomTypeLabel || '').toLowerCase().includes(listingCategory.toLowerCase());
 
+        pushUniqueTag(tags, distanceLabel && { key: 'distance', Icon: MapPin, text: distanceLabel, tone: 'accent' });
+        pushUniqueTag(tags, shouldShowCategory && { key: 'category', Icon: Award, text: listingCategory, tone: 'accent' });
         pushUniqueTag(tags, roomTypeLabel && { key: 'room-type', Icon: Home, text: roomTypeLabel, tone: 'accent' });
         pushUniqueTag(tags, tenantLabel && {
             key: 'tenant',
@@ -460,6 +477,7 @@ function RoomCard({ room, context = 'default', onRemove, imagePriority = false }
             text: tenantLabel,
             tone: 'accent',
         });
+        pushUniqueTag(tags, cardRoom.instantBook && { key: 'instant', Icon: Zap, text: 'Instant book', tone: 'accent' });
         pushUniqueTag(tags, washroomLabel && { key: 'washroom', Icon: Bath, text: washroomLabel, tone: 'accent' });
         pushUniqueTag(tags, facilities.meals && { key: 'meals', Icon: Utensils, text: 'Meals included', tone: 'accent' });
         pushUniqueTag(tags, Number.isFinite(depositAmount) && depositAmount > 0 && {
@@ -506,9 +524,15 @@ function RoomCard({ room, context = 'default', onRemove, imagePriority = false }
 
     const displayTitle = formatListingTitle(cardRoom.title, '');
     const rentAmount = Number(cardRoom.rent);
+    const pricePerNight = Number(cardRoom.pricePerNight || 0);
+    const pricingMode = String(cardRoom.pricingMode || 'monthly').toLowerCase();
+    const displayPriceAmount = pricingMode !== 'monthly' && pricePerNight > 0 ? pricePerNight : rentAmount;
+    const priceUnitCompact = pricingMode === 'nightly' ? '/night' : pricingMode === 'daily' ? '/day' : '/mo';
+    const priceUnitFull = pricingMode === 'nightly' ? '/night' : pricingMode === 'daily' ? '/day' : '/month';
     const city = String(cardRoom.location?.city || cardRoom.city || '').trim();
     const locationLabel = getRealLocationLabel(cardRoom);
     const statusLabel = normalizeStatusLabel(cardRoom.status);
+    const isBookedStatus = ['booked', 'confirmed'].includes(String(cardRoom.status || '').toLowerCase());
 
     if (!roomId || !displayTitle || !Number.isFinite(rentAmount) || rentAmount <= 0 || !city) return null;
 
@@ -565,13 +589,25 @@ function RoomCard({ room, context = 'default', onRemove, imagePriority = false }
                         </div>
                     )}
 
-                    {(isGuestFavourite || isVerifiedHost || room.verifications?.property) && (
-                        <span className={`rr-card-badge rr-verify-badge ${isGuestFavourite ? 'is-guest-fav' : ''} absolute left-2.5 top-2.5 sm:left-4 sm:top-4`}>
-                            <span className="rr-card-badge-icon">
-                                {isGuestFavourite ? <Award /> : <ShieldCheck />}
-                            </span>
-                            <span className="rr-overlay-label">{isGuestFavourite ? 'Guest fav' : 'Verified'}</span>
-                        </span>
+                    {(isBookedStatus || isGuestFavourite || isVerifiedHost || room.verifications?.property) && (
+                        <div className="rr-card-badge-stack absolute left-2.5 top-2.5 flex max-w-[70%] flex-col items-start gap-1.5 sm:left-4 sm:top-4">
+                            {isBookedStatus && (
+                                <span className="rr-card-badge rr-booked-badge">
+                                    <span className="rr-card-badge-icon">
+                                        <CalendarDays />
+                                    </span>
+                                    <span className="rr-overlay-label">Booked</span>
+                                </span>
+                            )}
+                            {(isGuestFavourite || isVerifiedHost || room.verifications?.property) && (
+                                <span className={`rr-card-badge rr-verify-badge ${isGuestFavourite ? 'is-guest-fav' : ''}`}>
+                                    <span className="rr-card-badge-icon">
+                                        {isGuestFavourite ? <Award /> : <ShieldCheck />}
+                                    </span>
+                                    <span className="rr-overlay-label">{isGuestFavourite ? 'Guest fav' : 'Verified'}</span>
+                                </span>
+                            )}
+                        </div>
                     )}
 
                     <div className="absolute right-2.5 top-2.5 flex flex-col items-end gap-2 sm:right-4 sm:top-4">
@@ -658,10 +694,10 @@ function RoomCard({ room, context = 'default', onRemove, imagePriority = false }
                         </div>
                         <div className="rr-card-price-row mb-1.5 flex min-w-0 items-center justify-between gap-1.5 sm:hidden">
                             <p className="rr-card-price-compact min-w-0">
-                                <span className="text-[13.5px] font-black leading-none text-light-text dark:text-dark-text">{money(room.rent)}</span>
-                                <span className="ml-0.5 text-[8.5px] font-bold leading-none text-light-muted dark:text-dark-muted">/mo</span>
+                                <span className="text-[13.5px] font-black leading-none text-light-text dark:text-dark-text">{money(displayPriceAmount)}</span>
+                                <span className="ml-0.5 text-[8.5px] font-bold leading-none text-light-muted dark:text-dark-muted">{priceUnitCompact}</span>
                             </p>
-                            {statusLabel && <span className="rr-card-mini-status">{statusLabel}</span>}
+                            {statusLabel && <span className={`rr-card-mini-status ${isBookedStatus ? 'is-booked' : ''}`}>{isBookedStatus ? 'Booked' : statusLabel}</span>}
                         </div>
                         {locationLabel && (
                             <p className="rr-room-card-location mb-2 flex min-w-0 items-start gap-1 text-[9.5px] font-semibold leading-[1.16] text-light-muted dark:text-dark-muted sm:text-[12px]">
@@ -716,12 +752,16 @@ function RoomCard({ room, context = 'default', onRemove, imagePriority = false }
                     <div className="rr-room-card-footer mt-auto hidden items-end justify-between gap-3 border-t border-black/[0.08] pt-3 dark:border-white/[0.08] sm:flex sm:gap-4 sm:pt-4">
                         <p className="min-w-0">
                             <span className="rr-room-card-price text-[15px] font-bold leading-none text-light-text dark:text-dark-text min-[390px]:text-base sm:text-lg">
-                                {money(room.rent)}
+                                {money(displayPriceAmount)}
                             </span>
-                            <span className="rr-room-card-price-unit ml-1 text-[11px] font-normal text-light-muted dark:text-dark-muted sm:text-xs">/month</span>
+                            <span className="rr-room-card-price-unit ml-1 text-[11px] font-normal text-light-muted dark:text-dark-muted sm:text-xs">{priceUnitFull}</span>
                         </p>
-                        <span className="rr-room-card-view-btn hidden rounded-full bg-brand px-3 py-2 text-xs font-bold text-white transition group-hover:bg-red-600 sm:inline-flex">
-                            View
+                        <span className={`rr-room-card-view-btn hidden rounded-full px-3 py-2 text-xs font-bold transition sm:inline-flex ${
+                            isBookedStatus
+                                ? 'bg-slate-200 text-slate-700 group-hover:bg-slate-300 dark:bg-zinc-800 dark:text-zinc-200'
+                                : 'bg-brand text-white group-hover:bg-red-600'
+                        }`}>
+                            {isBookedStatus ? 'Booked' : 'View'}
                         </span>
                     </div>
                 </div>
@@ -759,6 +799,13 @@ RoomCard.propTypes = {
         averageRating: PropTypes.number,
         beds: PropTypes.number,
         maxOccupants: PropTypes.number,
+        listingCategory: PropTypes.string,
+        pricingMode: PropTypes.string,
+        stayType: PropTypes.string,
+        pricePerNight: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+        maxGuests: PropTypes.number,
+        bedrooms: PropTypes.number,
+        instantBook: PropTypes.bool,
         availableFrom: PropTypes.oneOfType([PropTypes.string, PropTypes.instanceOf(Date)]),
         furnishingStatus: PropTypes.string,
         securityDeposit: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
@@ -797,6 +844,12 @@ RoomCard.propTypes = {
         tenantPreferences: PropTypes.shape({
             familyStatus: PropTypes.string,
             allowedGender: PropTypes.string,
+        }),
+        _match: PropTypes.shape({
+            distanceKm: PropTypes.number,
+        }),
+        _recommendation: PropTypes.shape({
+            distanceKm: PropTypes.number,
         }),
     }).isRequired,
 };

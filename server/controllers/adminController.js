@@ -9,6 +9,7 @@ const AuditLog = require('../models/AuditLog');
 const SupportTicket = require('../models/SupportTicket');
 const Transaction = require('../models/Transaction');
 const PlatformSetting = require('../models/PlatformSetting');
+const UsageEvent = require('../models/UsageEvent');
 const { getDefaultSettings } = require('./settingsController');
 const mongoose = require('mongoose');
 const { getRoleForScope, getScopeLabel, normalizeRoleScope } = require('../utils/roleRestrictions');
@@ -32,6 +33,76 @@ const writeAuditLog = async (req, action, targetType = 'System', target = null, 
 const getPlatformDefaults = () => ({
     ...getDefaultSettings(),
 });
+
+const getStartOfDay = (date = new Date()) => {
+    const start = new Date(date);
+    start.setHours(0, 0, 0, 0);
+    return start;
+};
+
+const getOnlineUserIds = (req) => {
+    const getOnlineUsers = req.app.get('getOnlineUsers');
+    const onlineUsers = typeof getOnlineUsers === 'function' ? getOnlineUsers() : [];
+
+    return Array.from(new Set(
+        (onlineUsers || [])
+            .map((user) => user?.userId?.toString())
+            .filter(Boolean)
+    ));
+};
+
+const buildUsageSummary = async (req) => {
+    const todayStart = getStartOfDay();
+    const liveSince = new Date(Date.now() - 5 * 60 * 1000);
+    const sessionFilter = { sessionId: { $exists: true, $ne: '' } };
+    const onlineUserIds = getOnlineUserIds(req);
+
+    const [
+        todaySessions,
+        todayPageViews,
+        totalAppInstalls,
+        appOpensToday,
+        liveSessions,
+        mobileSessionsToday,
+        desktopSessionsToday,
+    ] = await Promise.all([
+        UsageEvent.distinct('sessionId', {
+            ...sessionFilter,
+            eventType: 'session_start',
+            createdAt: { $gte: todayStart },
+        }),
+        UsageEvent.countDocuments({ eventType: 'page_view', createdAt: { $gte: todayStart } }),
+        UsageEvent.countDocuments({ eventType: 'pwa_install' }),
+        UsageEvent.countDocuments({ eventType: 'app_open', createdAt: { $gte: todayStart } }),
+        UsageEvent.distinct('sessionId', {
+            ...sessionFilter,
+            createdAt: { $gte: liveSince },
+        }),
+        UsageEvent.distinct('sessionId', {
+            ...sessionFilter,
+            eventType: 'session_start',
+            device: 'mobile',
+            createdAt: { $gte: todayStart },
+        }),
+        UsageEvent.distinct('sessionId', {
+            ...sessionFilter,
+            eventType: 'session_start',
+            device: 'desktop',
+            createdAt: { $gte: todayStart },
+        }),
+    ]);
+
+    return {
+        liveNow: Math.max(liveSessions.length, onlineUserIds.length),
+        liveLoggedInUsers: onlineUserIds.length,
+        todaySessions: todaySessions.length,
+        todayPageViews,
+        totalAppInstalls,
+        appOpensToday,
+        mobileSessionsToday: mobileSessionsToday.length,
+        desktopSessionsToday: desktopSessionsToday.length,
+    };
+};
 
 const emitToUser = (req, userId, event, payload) => {
     const io = req.app.get('io');
@@ -223,12 +294,23 @@ const currencySummaryPipeline = [
  * @access  Private/Admin
  */
 exports.getDashboardStats = asyncHandler(async (req, res) => {
-    const totalUsers = await User.countDocuments();
-    const totalLandlords = await User.countDocuments({ roles: 'Landlord' });
-    const totalRooms = await Room.countDocuments({ isDeleted: { $ne: true } });
-    const pendingRoomsCount = await Room.countDocuments({ status: 'Pending', isDeleted: { $ne: true } });
-    const publishedRoomsCount = await Room.countDocuments({ status: 'Published', isDeleted: { $ne: true } });
-    const totalApplications = await Application.countDocuments();
+    const [
+        totalUsers,
+        totalLandlords,
+        totalRooms,
+        pendingRoomsCount,
+        publishedRoomsCount,
+        totalApplications,
+        usage,
+    ] = await Promise.all([
+        User.countDocuments(),
+        User.countDocuments({ roles: 'Landlord' }),
+        Room.countDocuments({ isDeleted: { $ne: true } }),
+        Room.countDocuments({ status: 'Pending', isDeleted: { $ne: true } }),
+        Room.countDocuments({ status: 'Published', isDeleted: { $ne: true } }),
+        Application.countDocuments(),
+        buildUsageSummary(req),
+    ]);
 
     res.json({
         totalUsers,
@@ -236,7 +318,8 @@ exports.getDashboardStats = asyncHandler(async (req, res) => {
         totalRooms,
         pendingRoomsCount,
         publishedRoomsCount,
-        totalApplications
+        totalApplications,
+        usage,
     });
 });
 
@@ -773,6 +856,10 @@ exports.getRecentActivities = asyncHandler(async (req, res) => {
  * @access  Private/Admin
  */
 exports.getAnalyticsReport = asyncHandler(async (req, res) => {
+    const usageSince = new Date(Date.now() - 1000 * 60 * 60 * 24 * 14);
+    const topPagesSince = new Date(Date.now() - 1000 * 60 * 60 * 24 * 7);
+    const deviceSince = new Date(Date.now() - 1000 * 60 * 60 * 24 * 30);
+
     const [
         roomStatusBreakdown,
         userRoleBreakdown,
@@ -781,6 +868,9 @@ exports.getAnalyticsReport = asyncHandler(async (req, res) => {
         topRooms,
         weeklyApplications,
         revenueSummary,
+        usageDaily,
+        deviceBreakdown,
+        topPages,
     ] = await Promise.all([
         Room.aggregate([
             { $match: { isDeleted: { $ne: true } } },
@@ -831,6 +921,56 @@ exports.getAnalyticsReport = asyncHandler(async (req, res) => {
             { $sort: { _id: 1 } },
         ]),
         Application.aggregate(currencySummaryPipeline),
+        UsageEvent.aggregate([
+            {
+                $match: {
+                    eventType: { $in: ['session_start', 'page_view', 'pwa_install', 'app_open'] },
+                    createdAt: { $gte: usageSince },
+                },
+            },
+            {
+                $group: {
+                    _id: {
+                        date: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt', timezone: '+05:30' } },
+                        label: { $dateToString: { format: '%d %b', date: '$createdAt', timezone: '+05:30' } },
+                        eventType: '$eventType',
+                    },
+                    count: { $sum: 1 },
+                },
+            },
+            {
+                $project: {
+                    _id: 0,
+                    date: '$_id.date',
+                    label: '$_id.label',
+                    eventType: '$_id.eventType',
+                    count: 1,
+                },
+            },
+            { $sort: { date: 1, eventType: 1 } },
+        ]),
+        UsageEvent.aggregate([
+            {
+                $match: {
+                    eventType: 'session_start',
+                    createdAt: { $gte: deviceSince },
+                },
+            },
+            { $group: { _id: '$device', count: { $sum: 1 } } },
+            { $sort: { count: -1 } },
+        ]),
+        UsageEvent.aggregate([
+            {
+                $match: {
+                    eventType: 'page_view',
+                    path: { $exists: true, $ne: '' },
+                    createdAt: { $gte: topPagesSince },
+                },
+            },
+            { $group: { _id: '$path', views: { $sum: 1 } } },
+            { $sort: { views: -1 } },
+            { $limit: 8 },
+        ]),
     ]);
 
     res.json({
@@ -846,6 +986,11 @@ exports.getAnalyticsReport = asyncHandler(async (req, res) => {
             rentVolume: 0,
             pendingPayments: 0,
             paidPayments: 0,
+        },
+        usage: {
+            daily: usageDaily,
+            deviceBreakdown,
+            topPages,
         },
     });
 });
@@ -997,14 +1142,46 @@ exports.getRevenueReport = asyncHandler(async (req, res) => {
  * @access  Private/Admin
  */
 exports.getSupportTickets = asyncHandler(async (req, res) => {
-    const [tickets, statusBreakdown, priorityBreakdown] = await Promise.all([
-        SupportTicket.find({})
-            .sort({ createdAt: -1 })
-            .limit(50)
-            .populate('user assignedAdmin', 'name email roles')
-            .populate('application', 'status checkInDate checkOutDate amountBreakdown escrow')
-            .populate('room', 'title location rent')
-            .select('subject issueDescription category issueType priority status user assignedAdmin application room evidence requestedAmount escrowAction escrowFrozenAt resolutionDecision resolutionNote createdAt updatedAt'),
+    const [ticketDocs, statusBreakdown, priorityBreakdown] = await Promise.all([
+        SupportTicket.aggregate([
+            {
+                $addFields: {
+                    statusWeight: {
+                        $switch: {
+                            branches: [
+                                { case: { $eq: ['$status', 'open'] }, then: 4 },
+                                { case: { $eq: ['$status', 'in_progress'] }, then: 3 },
+                                { case: { $eq: ['$status', 'resolved'] }, then: 1 },
+                            ],
+                            default: 0,
+                        },
+                    },
+                    priorityWeight: {
+                        $switch: {
+                            branches: [
+                                { case: { $eq: ['$priority', 'urgent'] }, then: 4 },
+                                { case: { $eq: ['$priority', 'high'] }, then: 3 },
+                                { case: { $eq: ['$priority', 'medium'] }, then: 2 },
+                            ],
+                            default: 1,
+                        },
+                    },
+                    categoryWeight: {
+                        $switch: {
+                            branches: [
+                                { case: { $in: ['$category', ['safety', 'payment', 'damage', 'refund']] }, then: 3 },
+                                { case: { $in: ['$category', ['account', 'booking', 'listing']] }, then: 2 },
+                            ],
+                            default: 1,
+                        },
+                    },
+                    evidenceWeight: { $size: { $ifNull: ['$evidence', []] } },
+                },
+            },
+            { $sort: { statusWeight: -1, priorityWeight: -1, categoryWeight: -1, evidenceWeight: -1, createdAt: -1 } },
+            { $limit: 150 },
+            { $project: { statusWeight: 0, priorityWeight: 0, categoryWeight: 0, evidenceWeight: 0 } },
+        ]),
         SupportTicket.aggregate([
             { $group: { _id: '$status', count: { $sum: 1 } } },
             { $sort: { count: -1 } },
@@ -1013,6 +1190,12 @@ exports.getSupportTickets = asyncHandler(async (req, res) => {
             { $group: { _id: '$priority', count: { $sum: 1 } } },
             { $sort: { count: -1 } },
         ]),
+    ]);
+
+    const tickets = await SupportTicket.populate(ticketDocs, [
+        { path: 'user assignedAdmin', select: 'name email roles' },
+        { path: 'application', select: 'status checkInDate checkOutDate amountBreakdown escrow' },
+        { path: 'room', select: 'title location rent' },
     ]);
 
     res.json({ tickets, statusBreakdown, priorityBreakdown });

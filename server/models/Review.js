@@ -15,6 +15,14 @@ const reviewSchema = new mongoose.Schema(
       trim: true,
       maxlength: 1000,
     },
+    categoryRatings: {
+      cleanliness: { type: Number, min: 1, max: 5 },
+      accuracy: { type: Number, min: 1, max: 5 },
+      checkIn: { type: Number, min: 1, max: 5 },
+      communication: { type: Number, min: 1, max: 5 },
+      location: { type: Number, min: 1, max: 5 },
+      value: { type: Number, min: 1, max: 5 },
+    },
     room: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Room',

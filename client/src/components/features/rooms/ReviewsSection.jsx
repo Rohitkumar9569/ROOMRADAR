@@ -48,13 +48,21 @@ const ReviewsSection = ({ reviews = [], averageRating, numReviews, ratingBreakdo
         ? reviews.reduce((sum, review) => sum + Number(review.rating || 0), 0) / reviews.length
         : 0;
     const displayAverage = averageRating || derivedAverage;
+    const getCategoryAverage = (key) => {
+        if (typeof ratingBreakdown[key] === 'number' && ratingBreakdown[key] > 0) return ratingBreakdown[key];
+        const values = reviews
+            .map((review) => Number(review.categoryRatings?.[key] || 0))
+            .filter((score) => Number.isFinite(score) && score > 0);
+        if (!values.length) return null;
+        return values.reduce((sum, score) => sum + score, 0) / values.length;
+    };
     const breakdown = [
-        ['Cleanliness', ratingBreakdown.cleanliness],
-        ['Accuracy', ratingBreakdown.accuracy],
-        ['Check-in', ratingBreakdown.checkIn],
-        ['Communication', ratingBreakdown.communication],
-        ['Location', ratingBreakdown.location],
-        ['Value', ratingBreakdown.value],
+        ['Cleanliness', getCategoryAverage('cleanliness')],
+        ['Accuracy', getCategoryAverage('accuracy')],
+        ['Check-in', getCategoryAverage('checkIn')],
+        ['Communication', getCategoryAverage('communication')],
+        ['Location', getCategoryAverage('location')],
+        ['Value', getCategoryAverage('value')],
     ].filter(([, score]) => typeof score === 'number');
 
     if (reviewCount === 0) {

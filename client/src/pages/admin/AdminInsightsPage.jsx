@@ -1,25 +1,34 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../../api';
 import toast from 'react-hot-toast';
 import Spinner from '../../components/common/Spinner';
 import {
   Activity,
+  AlertTriangle,
   BarChart3,
   CheckCircle2,
+  Clock3,
   CreditCard,
   FileClock,
+  Filter,
   Headphones,
   Home,
+  Inbox,
   Save,
+  Search,
   Settings,
   ShieldCheck,
   Ticket,
   TrendingUp,
+  UserCheck,
   Users,
+  XCircle,
 } from 'lucide-react';
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { useSettings } from '../../context/SettingsContext';
+import { useAuth } from '../../context/AuthContext';
+import { useSocket } from '../../context/SocketContext';
 import { formatListingTitle } from '../../utils/listingDisplay';
 
 const money = (value = 0) =>
@@ -318,48 +327,442 @@ const RevenuePanel = ({ data }) => (
   </PageShell>
 );
 
-const TicketsPanel = ({ data }) => (
-  <PageShell eyebrow="Resolution Center" title="Support & Disputes" subtitle="Freeze escrow, review evidence, and resolve booking, refund, safety, and deposit issues from one operational queue.">
-    <div className="grid grid-cols-1 gap-2 sm:grid-cols-3 sm:gap-3">
-      <MetricCard label="Tickets" value={data?.tickets?.length || 0} icon={Ticket} tone="cyan" />
-      <MetricCard label="Status groups" value={data?.statusBreakdown?.length || 0} icon={Activity} tone="violet" />
-      <MetricCard label="Priority groups" value={data?.priorityBreakdown?.length || 0} icon={Headphones} tone="amber" />
-    </div>
+const priorityWeight = { urgent: 4, high: 3, medium: 2, low: 1 };
+const statusWeight = { open: 4, in_progress: 3, resolved: 1, closed: 0 };
+const riskCategoryWeight = { safety: 4, payment: 4, damage: 4, refund: 4, account: 3, booking: 3, listing: 2, verification: 2, other: 1 };
+const categoryLabels = {
+  account: 'Account / ban',
+  listing: 'Room approval',
+  booking: 'Booking',
+  payment: 'Payment',
+  verification: 'KYC',
+  safety: 'Safety',
+  damage: 'Damage',
+  refund: 'Refund',
+  other: 'Other',
+};
 
-    <Card title="Ticket Queue" subtitle="Newest support tickets first">
-      <div className="space-y-3">
-        {(data?.tickets || []).length ? data.tickets.map((ticket) => (
-          <div key={ticket._id} className="rounded-2xl border border-light-border bg-light-bg p-4 dark:border-dark-border dark:bg-dark-input">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-              <div className="min-w-0">
-                <div className="flex flex-wrap items-center gap-2">
-                  <p className="break-words font-black">{ticket.subject}</p>
-                  {ticket.escrowAction === 'freeze' && (
-                    <span className="rounded-full bg-red-500/10 px-2 py-0.5 text-[10px] font-black uppercase text-red-600 dark:text-red-300">Escrow frozen</span>
-                  )}
-                </div>
-                <p className="mt-1 line-clamp-2 text-sm font-semibold text-light-muted dark:text-dark-muted">{ticket.issueDescription}</p>
-                <div className="mt-2 flex flex-wrap gap-2 text-xs font-semibold text-light-muted dark:text-dark-muted">
-                  <span>{ticket.user?.name || 'Unknown user'}</span>
-                  <span>-</span>
-                  <span>{dateLabel(ticket.createdAt)}</span>
-                  {ticket.room?.title && <span>- {formatListingTitle(ticket.room.title)}</span>}
-                  {ticket.requestedAmount > 0 && <span>- Claim {money(ticket.requestedAmount)}</span>}
-                  {ticket.evidence?.length > 0 && <span>- {ticket.evidence.length} evidence files</span>}
-                </div>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <span className={`rounded-full px-2.5 py-1 text-[10px] font-black uppercase ${statusTone(ticket.status)}`}>{ticket.status}</span>
-                <span className={`rounded-full px-2.5 py-1 text-[10px] font-black uppercase ${statusTone(ticket.priority)}`}>{ticket.priority}</span>
-                <span className={`rounded-full px-2.5 py-1 text-[10px] font-black uppercase ${statusTone(ticket.issueType)}`}>{ticket.issueType || 'general'}</span>
-              </div>
+const ticketAgeLabel = (value) => {
+  if (!value) return 'No time';
+  const diffMs = Date.now() - new Date(value).getTime();
+  const minutes = Math.max(0, Math.floor(diffMs / 60000));
+  if (minutes < 1) return 'just now';
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days}d ago`;
+  return dateLabel(value);
+};
+
+const getTicketParts = (ticket = {}) => {
+  const [issueText = '', contextText = ''] = String(ticket.issueDescription || '').split('\n---\nContext\n');
+  return { issueText: issueText.trim(), contextText: contextText.trim() };
+};
+
+const isUnresolvedTicket = (ticket = {}) => !['resolved', 'closed'].includes(ticket.status);
+
+const getTicketScore = (ticket = {}) => {
+  const evidenceCount = ticket.evidence?.length || 0;
+  return (
+    (statusWeight[ticket.status] || 0) * 100 +
+    (priorityWeight[ticket.priority] || 0) * 40 +
+    (riskCategoryWeight[ticket.category] || 0) * 12 +
+    (ticket.escrowAction === 'freeze' ? 25 : 0) +
+    Math.min(evidenceCount, 4) * 3
+  );
+};
+
+const sortTicketsForAdmin = (items = []) => [...items].sort((a, b) => {
+  const scoreDiff = getTicketScore(b) - getTicketScore(a);
+  if (scoreDiff) return scoreDiff;
+  return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
+});
+
+const TicketPill = ({ children, tone = 'cyan' }) => {
+  const tones = {
+    cyan: 'bg-cyan-500/10 text-cyan-700 dark:text-cyan-200',
+    amber: 'bg-amber-500/10 text-amber-700 dark:text-amber-200',
+    red: 'bg-red-500/10 text-red-700 dark:text-red-200',
+    green: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-200',
+    slate: 'bg-slate-200/70 text-slate-700 dark:bg-slate-800 dark:text-slate-200',
+  };
+  return <span className={`rounded-full px-2.5 py-1 text-[10px] font-black uppercase ${tones[tone] || tones.cyan}`}>{children}</span>;
+};
+
+const TicketListItem = ({ ticket, selected, onSelect }) => {
+  const { issueText } = getTicketParts(ticket);
+  const isHot = ticket.priority === 'urgent' || ticket.priority === 'high' || ticket.escrowAction === 'freeze';
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      className={`block w-full rounded-[1.35rem] border p-3 text-left transition active:scale-[0.99] ${
+        selected
+          ? 'border-cyan-400 bg-cyan-50 shadow-[0_14px_38px_-30px_rgba(8,145,178,0.7)] dark:border-cyan-500/70 dark:bg-cyan-950/25'
+          : 'border-light-border bg-white hover:border-cyan-300 hover:bg-cyan-50/60 dark:border-dark-border dark:bg-slate-950/35 dark:hover:border-cyan-800 dark:hover:bg-cyan-950/18'
+      }`}
+    >
+      <div className="flex items-start gap-3">
+        <span className={`mt-0.5 flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-2xl ${isHot ? 'bg-red-500 text-white' : 'bg-cyan-500/10 text-cyan-700 dark:text-cyan-200'}`}>
+          {isHot ? <AlertTriangle className="h-5 w-5" /> : <Ticket className="h-5 w-5" />}
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="flex flex-wrap items-center gap-1.5">
+            <span className="min-w-0 flex-1 truncate text-sm font-black">{ticket.subject || 'Support request'}</span>
+            <TicketPill tone={ticket.priority === 'urgent' || ticket.priority === 'high' ? 'red' : 'amber'}>{ticket.priority}</TicketPill>
+          </span>
+          <span className="mt-1 block rr-line-clamp-2 text-xs font-semibold leading-5 text-light-muted dark:text-dark-muted">{issueText || 'No message provided.'}</span>
+          <span className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] font-bold text-light-muted dark:text-dark-muted">
+            <span className="truncate">{ticket.user?.name || 'Unknown user'}</span>
+            <span>{ticketAgeLabel(ticket.createdAt)}</span>
+            {ticket.evidence?.length > 0 && <span>{ticket.evidence.length} proof</span>}
+          </span>
+          <span className="mt-2 flex flex-wrap gap-1.5">
+            <TicketPill tone={ticket.status === 'open' ? 'amber' : ticket.status === 'in_progress' ? 'cyan' : ticket.status === 'resolved' ? 'green' : 'slate'}>{ticket.status}</TicketPill>
+            <TicketPill tone="cyan">{categoryLabels[ticket.category] || ticket.issueType || 'General'}</TicketPill>
+            {ticket.escrowAction === 'freeze' && <TicketPill tone="red">Escrow frozen</TicketPill>}
+          </span>
+        </span>
+      </div>
+    </button>
+  );
+};
+
+const TicketDetailPanel = ({ ticket, onUpdate, currentAdmin }) => {
+  const [saving, setSaving] = useState('');
+  const [resolutionNote, setResolutionNote] = useState('');
+
+  useEffect(() => {
+    setResolutionNote(ticket?.resolutionNote || '');
+    setSaving('');
+  }, [ticket?._id, ticket?.resolutionNote]);
+
+  if (!ticket) {
+    return <EmptyState title="Select a support ticket" description="Choose a ticket from the queue to read the full message and take action." />;
+  }
+
+  const { issueText, contextText } = getTicketParts(ticket);
+  const updateTicket = async (updates, actionKey) => {
+    setSaving(actionKey);
+    await onUpdate(ticket._id, updates);
+    setSaving('');
+  };
+  const assignedName = ticket.assignedAdmin?.name || (String(ticket.assignedAdmin || '') === currentAdmin?._id ? currentAdmin?.name : '');
+
+  return (
+    <div className="rounded-[1.35rem] border border-light-border bg-white p-4 shadow-sm dark:border-dark-border dark:bg-slate-950/55 sm:rounded-3xl sm:p-5">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <TicketPill tone={ticket.priority === 'urgent' || ticket.priority === 'high' ? 'red' : 'amber'}>P{priorityWeight[ticket.priority] || 1} priority</TicketPill>
+            <TicketPill tone={ticket.status === 'open' ? 'amber' : ticket.status === 'in_progress' ? 'cyan' : ticket.status === 'resolved' ? 'green' : 'slate'}>{ticket.status}</TicketPill>
+            {ticket.escrowAction === 'freeze' && <TicketPill tone="red">Escrow frozen</TicketPill>}
+          </div>
+          <h3 className="mt-3 break-words text-xl font-black leading-tight">{ticket.subject || 'Support request'}</h3>
+          <p className="mt-1 text-xs font-bold text-light-muted dark:text-dark-muted">
+            {ticket.user?.name || 'Unknown user'}{ticket.user?.email ? ` - ${ticket.user.email}` : ''} - {dateLabel(ticket.createdAt)}
+          </p>
+        </div>
+        <select
+          value={ticket.priority || 'medium'}
+          onChange={(event) => updateTicket({ priority: event.target.value }, 'priority')}
+          disabled={Boolean(saving)}
+          className="min-h-11 rounded-2xl border border-light-border bg-light-bg px-3 text-xs font-black uppercase outline-none dark:border-dark-border dark:bg-dark-input"
+          aria-label="Change ticket priority"
+        >
+          <option value="urgent">Urgent</option>
+          <option value="high">High</option>
+          <option value="medium">Medium</option>
+          <option value="low">Low</option>
+        </select>
+      </div>
+
+      <div className="mt-4 rounded-3xl bg-light-bg p-4 dark:bg-dark-input">
+        <p className="text-[10px] font-black uppercase tracking-[0.16em] text-cyan-600 dark:text-cyan-300">Message</p>
+        <p className="mt-2 whitespace-pre-line text-sm font-semibold leading-6 text-slate-700 dark:text-slate-200">{issueText || 'No message provided.'}</p>
+      </div>
+
+      {contextText && (
+        <div className="mt-3 rounded-3xl bg-white p-4 text-sm font-semibold leading-6 text-light-muted ring-1 ring-light-border dark:bg-slate-950/50 dark:text-dark-muted dark:ring-dark-border">
+          <p className="mb-1 text-[10px] font-black uppercase tracking-[0.16em] text-cyan-600 dark:text-cyan-300">Context</p>
+          <p className="whitespace-pre-line">{contextText}</p>
+        </div>
+      )}
+
+      <div className="mt-3 grid gap-2 sm:grid-cols-2">
+        <div className="rounded-2xl bg-light-bg p-3 dark:bg-dark-input">
+          <p className="text-[10px] font-black uppercase tracking-[0.12em] text-light-muted dark:text-dark-muted">Category</p>
+          <p className="mt-1 text-sm font-black">{categoryLabels[ticket.category] || ticket.category || 'Other'} - {ticket.issueType || 'general'}</p>
+        </div>
+        <div className="rounded-2xl bg-light-bg p-3 dark:bg-dark-input">
+          <p className="text-[10px] font-black uppercase tracking-[0.12em] text-light-muted dark:text-dark-muted">Assigned</p>
+          <p className="mt-1 text-sm font-black">{assignedName || 'Not taken yet'}</p>
+        </div>
+        {ticket.room?.title && (
+          <div className="rounded-2xl bg-light-bg p-3 dark:bg-dark-input sm:col-span-2">
+            <p className="text-[10px] font-black uppercase tracking-[0.12em] text-light-muted dark:text-dark-muted">Room</p>
+            <p className="mt-1 text-sm font-black">{formatListingTitle(ticket.room.title)}</p>
+            {ticket.room?.location?.city && <p className="text-xs font-semibold text-light-muted dark:text-dark-muted">{ticket.room.location.city}</p>}
+          </div>
+        )}
+        {ticket.requestedAmount > 0 && (
+          <div className="rounded-2xl bg-amber-500/10 p-3 text-amber-700 dark:text-amber-200">
+            <p className="text-[10px] font-black uppercase tracking-[0.12em]">Claim amount</p>
+            <p className="mt-1 text-sm font-black">{money(ticket.requestedAmount)}</p>
+          </div>
+        )}
+      </div>
+
+      {ticket.evidence?.length > 0 && (
+        <div className="mt-4">
+          <p className="text-xs font-black uppercase tracking-[0.12em] text-light-muted dark:text-dark-muted">Proof files</p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {ticket.evidence.map((item, index) => (
+              <a key={`${item.url}-${index}`} href={item.url} target="_blank" rel="noreferrer" className="rounded-full border border-cyan-200 bg-cyan-500/10 px-3 py-2 text-[11px] font-black text-cyan-700 transition hover:bg-cyan-500 hover:text-white dark:border-cyan-400/20 dark:text-cyan-200">
+                Proof {index + 1}{item.type ? ` - ${item.type}` : ''}
+              </a>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <label className="mt-4 block">
+        <span className="text-xs font-black uppercase tracking-[0.12em] text-light-muted dark:text-dark-muted">Admin note</span>
+        <textarea
+          value={resolutionNote}
+          onChange={(event) => setResolutionNote(event.target.value)}
+          rows={3}
+          className="mt-2 w-full resize-none rounded-2xl border border-light-border bg-light-bg px-4 py-3 text-sm font-semibold outline-none focus:border-cyan-400 focus:ring-4 focus:ring-cyan-500/10 dark:border-dark-border dark:bg-dark-input"
+          placeholder="Add what you checked or what action was taken."
+        />
+      </label>
+
+      <div className="mt-4 grid grid-cols-2 gap-2 border-t border-light-border pt-4 dark:border-dark-border sm:flex sm:flex-wrap">
+        {ticket.status !== 'in_progress' && (
+          <button type="button" disabled={Boolean(saving)} onClick={() => updateTicket({ status: 'in_progress', assignedAdmin: currentAdmin?._id }, 'in_progress')} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-amber-300 bg-amber-500/10 px-4 text-xs font-black text-amber-700 disabled:opacity-60 dark:border-amber-400/20 dark:text-amber-200">
+            <UserCheck className="h-4 w-4" />
+            {saving === 'in_progress' ? 'Saving...' : 'Take up'}
+          </button>
+        )}
+        {ticket.status !== 'resolved' && (
+          <button type="button" disabled={Boolean(saving)} onClick={() => updateTicket({ status: 'resolved', resolutionNote: resolutionNote || 'Resolved from admin support queue.' }, 'resolved')} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-emerald-300 bg-emerald-500/10 px-4 text-xs font-black text-emerald-700 disabled:opacity-60 dark:border-emerald-400/20 dark:text-emerald-200">
+            <CheckCircle2 className="h-4 w-4" />
+            {saving === 'resolved' ? 'Saving...' : 'Resolve'}
+          </button>
+        )}
+        {ticket.status !== 'closed' && (
+          <button type="button" disabled={Boolean(saving)} onClick={() => updateTicket({ status: 'closed', resolutionNote: resolutionNote || ticket.resolutionNote }, 'closed')} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-slate-300 bg-white px-4 text-xs font-black text-slate-700 disabled:opacity-60 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-300">
+            <XCircle className="h-4 w-4" />
+            {saving === 'closed' ? 'Saving...' : 'Close'}
+          </button>
+        )}
+        {ticket.status !== 'open' && (
+          <button type="button" disabled={Boolean(saving)} onClick={() => updateTicket({ status: 'open' }, 'open')} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-cyan-300 bg-cyan-500/10 px-4 text-xs font-black text-cyan-700 disabled:opacity-60 dark:border-cyan-400/20 dark:text-cyan-200">
+            <Clock3 className="h-4 w-4" />
+            {saving === 'open' ? 'Saving...' : 'Reopen'}
+          </button>
+        )}
+      </div>
+    </div>
+  );
+};
+
+const TicketsPanel = ({ data }) => {
+  const { user } = useAuth();
+  const { socket } = useSocket() || {};
+  const [tickets, setTickets] = useState(() => sortTicketsForAdmin(data?.tickets || []));
+  const [selectedTicketId, setSelectedTicketId] = useState('');
+  const [queueFilter, setQueueFilter] = useState('attention');
+  const [priorityFilter, setPriorityFilter] = useState('all');
+  const [categoryFilter, setCategoryFilter] = useState('all');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [refreshing, setRefreshing] = useState(false);
+
+  useEffect(() => {
+    const sorted = sortTicketsForAdmin(data?.tickets || []);
+    setTickets(sorted);
+    setSelectedTicketId((current) => (current && sorted.some((ticket) => ticket._id === current) ? current : sorted[0]?._id || ''));
+  }, [data?.tickets]);
+
+  const refreshTickets = useCallback(async ({ silent = false } = {}) => {
+    try {
+      setRefreshing(true);
+      const { data: response } = await api.get('/admin/tickets');
+      const sorted = sortTicketsForAdmin(response?.tickets || []);
+      setTickets(sorted);
+      setSelectedTicketId((current) => (current && sorted.some((ticket) => ticket._id === current) ? current : sorted[0]?._id || ''));
+      if (!silent) toast.success('Support queue refreshed.');
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Could not refresh support queue.');
+    } finally {
+      setRefreshing(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!socket) return undefined;
+    const handleNewTicket = () => {
+      toast.success('New support ticket received.');
+      refreshTickets({ silent: true });
+    };
+    socket.on('admin_support_ticket_created', handleNewTicket);
+    return () => socket.off('admin_support_ticket_created', handleNewTicket);
+  }, [refreshTickets, socket]);
+
+  const handleUpdateTicket = async (ticketId, updates) => {
+    try {
+      const { data: updatedTicket } = await api.patch(`/admin/tickets/${ticketId}`, updates);
+      setTickets((current) => sortTicketsForAdmin(current.map((ticket) => (ticket._id === ticketId ? updatedTicket : ticket))));
+      setSelectedTicketId(updatedTicket._id);
+      toast.success('Ticket updated.');
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Could not update ticket.');
+    }
+  };
+
+  const stats = useMemo(() => {
+    const unresolved = tickets.filter(isUnresolvedTicket);
+    return {
+      total: tickets.length,
+      attention: unresolved.length,
+      urgent: tickets.filter((ticket) => isUnresolvedTicket(ticket) && ['urgent', 'high'].includes(ticket.priority)).length,
+      escrow: tickets.filter((ticket) => isUnresolvedTicket(ticket) && ticket.escrowAction === 'freeze').length,
+      mine: tickets.filter((ticket) => String(ticket.assignedAdmin?._id || ticket.assignedAdmin || '') === String(user?._id || '')).length,
+    };
+  }, [tickets, user?._id]);
+
+  const filteredTickets = useMemo(() => {
+    const query = searchTerm.trim().toLowerCase();
+    return tickets.filter((ticket) => {
+      if (queueFilter === 'attention' && !isUnresolvedTicket(ticket)) return false;
+      if (queueFilter === 'open' && ticket.status !== 'open') return false;
+      if (queueFilter === 'in_progress' && ticket.status !== 'in_progress') return false;
+      if (queueFilter === 'mine' && String(ticket.assignedAdmin?._id || ticket.assignedAdmin || '') !== String(user?._id || '')) return false;
+      if (priorityFilter !== 'all' && ticket.priority !== priorityFilter) return false;
+      if (categoryFilter !== 'all' && ticket.category !== categoryFilter) return false;
+      if (!query) return true;
+      const haystack = [
+        ticket.subject,
+        ticket.issueDescription,
+        ticket.user?.name,
+        ticket.user?.email,
+        ticket.room?.title,
+        ticket.category,
+        ticket.issueType,
+        ticket.status,
+        ticket.priority,
+      ].filter(Boolean).join(' ').toLowerCase();
+      return haystack.includes(query);
+    });
+  }, [categoryFilter, priorityFilter, queueFilter, searchTerm, tickets, user?._id]);
+
+  const selectedTicket = useMemo(() => (
+    filteredTickets.find((ticket) => ticket._id === selectedTicketId) || filteredTickets[0] || null
+  ), [filteredTickets, selectedTicketId]);
+
+  useEffect(() => {
+    if (selectedTicket?._id && selectedTicket._id !== selectedTicketId) {
+      setSelectedTicketId(selectedTicket._id);
+    }
+  }, [selectedTicket?._id, selectedTicketId]);
+
+  const queueTabs = [
+    { value: 'attention', label: 'Needs action', count: stats.attention },
+    { value: 'open', label: 'Open', count: tickets.filter((ticket) => ticket.status === 'open').length },
+    { value: 'in_progress', label: 'Taken up', count: tickets.filter((ticket) => ticket.status === 'in_progress').length },
+    { value: 'mine', label: 'Mine', count: stats.mine },
+    { value: 'all', label: 'All', count: stats.total },
+  ];
+
+  return (
+    <PageShell eyebrow="Resolution Center" title="Support & Disputes" subtitle="Important tickets are sorted first, with quick filters for support, safety, payment, ban review, and room approval issues.">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
+        <MetricCard label="Needs action" value={stats.attention} icon={Inbox} tone="amber" />
+        <MetricCard label="Urgent or high" value={stats.urgent} icon={AlertTriangle} tone="red" />
+        <MetricCard label="Escrow frozen" value={stats.escrow} icon={ShieldCheck} tone="violet" />
+        <MetricCard label="My tickets" value={stats.mine} icon={UserCheck} tone="cyan" />
+      </div>
+
+      <Card title="Support Inbox" subtitle="Select one ticket, read the full message, then take it up or resolve it.">
+        <div className="space-y-3">
+          <div className="flex flex-wrap items-center gap-2">
+            {queueTabs.map((tab) => (
+              <button
+                key={tab.value}
+                type="button"
+                onClick={() => setQueueFilter(tab.value)}
+                className={`inline-flex min-h-10 items-center gap-2 rounded-full border px-3 text-xs font-black transition ${
+                  queueFilter === tab.value
+                    ? 'border-cyan-400 bg-cyan-500 text-white shadow-lg shadow-cyan-500/20'
+                    : 'border-light-border bg-white text-slate-700 hover:border-cyan-300 dark:border-dark-border dark:bg-slate-950 dark:text-slate-200'
+                }`}
+              >
+                {tab.label}
+                <span className={`rounded-full px-2 py-0.5 text-[10px] ${queueFilter === tab.value ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'}`}>{tab.count}</span>
+              </button>
+            ))}
+            <button
+              type="button"
+              onClick={() => refreshTickets()}
+              disabled={refreshing}
+              className="ml-auto inline-flex min-h-10 items-center gap-2 rounded-full border border-light-border bg-white px-3 text-xs font-black text-slate-700 disabled:opacity-60 dark:border-dark-border dark:bg-slate-950 dark:text-slate-200"
+            >
+              <Clock3 className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+              Refresh
+            </button>
+          </div>
+
+          <div className="grid gap-2 lg:grid-cols-[minmax(0,1fr)_12rem_12rem]">
+            <label className="relative block">
+              <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-cyan-500" />
+              <input
+                value={searchTerm}
+                onChange={(event) => setSearchTerm(event.target.value)}
+                className="input-field pl-11"
+                placeholder="Search user, email, room, message..."
+              />
+            </label>
+            <label className="relative block">
+              <Filter className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-cyan-500" />
+              <select value={priorityFilter} onChange={(event) => setPriorityFilter(event.target.value)} className="input-field pl-11">
+                <option value="all">All priority</option>
+                <option value="urgent">Urgent</option>
+                <option value="high">High</option>
+                <option value="medium">Medium</option>
+                <option value="low">Low</option>
+              </select>
+            </label>
+            <select value={categoryFilter} onChange={(event) => setCategoryFilter(event.target.value)} className="input-field">
+              <option value="all">All issue types</option>
+              {Object.entries(categoryLabels).map(([value, label]) => (
+                <option key={value} value={value}>{label}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="grid gap-3 lg:grid-cols-[minmax(18rem,0.9fr)_minmax(0,1.35fr)]">
+            <div className="order-2 max-h-[72vh] space-y-2 overflow-y-auto pr-1 lg:order-1">
+              {filteredTickets.length ? filteredTickets.map((ticket) => (
+                <TicketListItem
+                  key={ticket._id}
+                  ticket={ticket}
+                  selected={selectedTicket?._id === ticket._id}
+                  onSelect={() => setSelectedTicketId(ticket._id)}
+                />
+              )) : (
+                <EmptyState title="No matching tickets" description="Try another filter or search term." />
+              )}
+            </div>
+            <div className="order-1 lg:order-2 lg:sticky lg:top-24 lg:self-start">
+              <TicketDetailPanel ticket={selectedTicket} onUpdate={handleUpdateTicket} currentAdmin={user} />
             </div>
           </div>
-        )) : <EmptyState title="No support tickets" description="Support tickets will appear here when users report issues." />}
-      </div>
-    </Card>
-  </PageShell>
-);
+        </div>
+      </Card>
+    </PageShell>
+  );
+};
 
 const LogsPanel = ({ data }) => (
   <PageShell eyebrow="System" title="Audit Logs" subtitle="Track sensitive admin actions such as approvals, role changes, bans, deletes, and settings updates.">

@@ -5,6 +5,8 @@ const Message = require('../models/Message');
 const asyncHandler = require('express-async-handler');
 const PlatformSetting = require('../models/PlatformSetting');
 const Transaction = require('../models/Transaction');
+const Review = require('../models/Review');
+const GuestReview = require('../models/GuestReview');
 const mongoose = require('mongoose');
 const { toOptionalDate } = require('../utils/dateUtils');
 const { normalizeOptionalIndianMobile, requireValidIndianMobile } = require('../utils/phoneUtils');
@@ -182,6 +184,7 @@ const confirmApplicationRange = async (application, session) => {
                 'unavailableRanges.$.status': 'confirmed',
                 status: 'Booked',
                 booking: bookingPayload,
+                availableFrom: endDate,
             },
         },
         { new: true }
@@ -207,6 +210,7 @@ const confirmApplicationRange = async (application, session) => {
                 $set: {
                     status: 'Booked',
                     booking: bookingPayload,
+                    availableFrom: endDate,
                 },
             },
             { new: true }
@@ -363,6 +367,60 @@ const blockCancelledDates = async (application, session) => {
         },
         $set: { status: 'Published', booking: null },
     }), session);
+};
+
+const getDayStart = (value = new Date()) => {
+    const date = toOptionalDate(value) || new Date();
+    date.setHours(0, 0, 0, 0);
+    return date;
+};
+
+const applyApprovedStayChangeInventory = async (application, session) => {
+    const roomId = getRoomId(application);
+    const { startDate, endDate } = getApplicationDateRange(application);
+    const today = getDayStart();
+    const isAlreadyMovedOut = endDate.getTime() <= today.getTime();
+    const bookingPayload = isAlreadyMovedOut
+        ? null
+        : {
+            student: application.student,
+            checkInDate: application.checkInDate,
+            paymentMethod: application.paymentMethod === 'cash' ? 'Cash' : 'Online',
+            paymentStatus: application.paymentStatus === 'paid' ? 'Paid' : 'Pending',
+            bookedAt: application.confirmedAt || new Date(),
+        };
+
+    const room = await withSession(Room.findOne(
+        {
+            _id: roomId,
+            isDeleted: { $ne: true },
+            unavailableRanges: {
+                $not: {
+                    $elemMatch: {
+                        application: { $ne: application._id },
+                        status: { $in: LOCKED_INVENTORY_STATUSES },
+                        startDate: { $lt: endDate },
+                        endDate: { $gt: startDate },
+                    },
+                },
+            },
+        }
+    ), session);
+
+    if (!room) {
+        throw makeHttpError(409, 'The requested date conflicts with another booking. Please choose another date.');
+    }
+
+    room.unavailableRanges = (room.unavailableRanges || []).filter((range) => (
+        range.application?.toString() !== application._id.toString()
+    ));
+    room.unavailableRanges.push(getRangeForApplication(application, 'confirmed'));
+    room.status = isAlreadyMovedOut ? 'Published' : 'Booked';
+    room.booking = bookingPayload;
+    room.availableFrom = endDate;
+    await saveWithSession(room, session);
+
+    return room;
 };
 
 const createBookingTransaction = async (application, session) => {
@@ -734,21 +792,52 @@ const createApplication = asyncHandler(async (req, res) => {
 const getStudentApplications = asyncHandler(async (req, res) => {
     await expirePendingApplications({ student: req.user._id });
     const applications = await Application.find({ student: req.user._id })
-        .populate('room', 'title rent securityDeposit imageUrl images location status averageRating paymentPreference offlinePaymentAllowed')
+        .populate('room', 'title rent securityDeposit imageUrl images location status averageRating numReviews paymentPreference offlinePaymentAllowed')
         .populate('landlord', 'name avatarUrl profilePicture verificationLevel trustScore')
-        .sort({ createdAt: -1 });
+        .sort({ createdAt: -1 })
+        .lean();
 
-    res.status(200).json(applications);
+    const applicationIds = applications.map((application) => application._id);
+    const [roomReviews, guestReviews] = await Promise.all([
+        Review.find({ booking: { $in: applicationIds } }).select('_id booking rating comment createdAt').lean(),
+        GuestReview.find({ booking: { $in: applicationIds } }).select('_id booking rating comment createdAt').lean(),
+    ]);
+    const roomReviewByBooking = new Map(roomReviews.map((review) => [review.booking.toString(), review]));
+    const guestReviewByBooking = new Map(guestReviews.map((review) => [review.booking.toString(), review]));
+
+    res.status(200).json(applications.map((application) => {
+        const bookingKey = application._id.toString();
+        const review = roomReviewByBooking.get(bookingKey) || null;
+        const guestReview = guestReviewByBooking.get(bookingKey) || null;
+        return {
+            ...application,
+            hasReview: Boolean(review),
+            review,
+            guestReview,
+        };
+    }));
 });
 
 const getLandlordApplications = asyncHandler(async (req, res) => {
     await expirePendingApplications({ landlord: req.user._id });
     const applications = await Application.find({ landlord: req.user._id })
-        .populate('student', 'name avatarUrl profilePicture verificationLevel trustScore')
-        .populate('room', 'title rent securityDeposit imageUrl images location status averageRating paymentPreference offlinePaymentAllowed')
-        .sort({ createdAt: -1 });
+        .populate('student', 'name avatarUrl profilePicture verificationLevel trustScore guestAverageRating guestReviewsCount')
+        .populate('room', 'title rent securityDeposit imageUrl images location status averageRating numReviews paymentPreference offlinePaymentAllowed')
+        .sort({ createdAt: -1 })
+        .lean();
 
-    res.status(200).json(applications);
+    const applicationIds = applications.map((application) => application._id);
+    const guestReviews = await GuestReview.find({ booking: { $in: applicationIds } }).select('_id booking rating comment createdAt').lean();
+    const guestReviewByBooking = new Map(guestReviews.map((review) => [review.booking.toString(), review]));
+
+    res.status(200).json(applications.map((application) => {
+        const guestReview = guestReviewByBooking.get(application._id.toString()) || null;
+        return {
+            ...application,
+            hasGuestReview: Boolean(guestReview),
+            guestReview,
+        };
+    }));
 });
 
 const getCalendarStats = asyncHandler(async (req, res) => {
@@ -976,6 +1065,118 @@ const cancelConfirmedByHost = asyncHandler(async (req, res) => {
     res.status(200).json({ message: 'Confirmed booking cancelled by host. Penalty recorded and dates blocked.', application, penalty });
 });
 
+const requestStayChange = asyncHandler(async (req, res) => {
+    const { requestedCheckOutDate, message = '' } = req.body || {};
+    const nextCheckOut = toOptionalDate(requestedCheckOutDate);
+
+    if (!nextCheckOut) throw makeHttpError(400, 'Please choose a valid move-out or extension date.');
+
+    const application = await Application.findById(req.params.id).populate('room');
+    if (!application) throw makeHttpError(404, 'Application not found');
+    if (application.student.toString() !== req.user._id.toString()) throw makeHttpError(401, 'Only the tenant can request a stay change.');
+    if (application.status !== 'confirmed') throw makeHttpError(400, 'Stay changes are available only after the booking is confirmed.');
+
+    const currentCheckOut = toOptionalDate(application.checkOutDate);
+    const checkInDate = toOptionalDate(application.checkInDate);
+    if (!currentCheckOut || !checkInDate) throw makeHttpError(400, 'This booking does not have valid stay dates.');
+    if (nextCheckOut.getTime() <= checkInDate.getTime()) throw makeHttpError(400, 'Move-out date must be after move-in date.');
+    if (nextCheckOut.toDateString() === currentCheckOut.toDateString()) throw makeHttpError(400, 'Choose a different date from the current move-out date.');
+    if (application.stayChangeRequest?.status === 'pending') throw makeHttpError(409, 'A stay change request is already waiting for landlord response.');
+
+    const requestType = nextCheckOut.getTime() > currentCheckOut.getTime() ? 'extend' : 'move_out';
+    application.stayChangeRequest = {
+        status: 'pending',
+        type: requestType,
+        originalCheckOutDate: currentCheckOut,
+        requestedCheckOutDate: nextCheckOut,
+        message: String(message || '').trim().slice(0, 700),
+        requestedBy: req.user._id,
+        requestedAt: new Date(),
+        responseNote: '',
+        respondedBy: undefined,
+        respondedAt: undefined,
+    };
+
+    await application.save();
+
+    const title = application.room?.title || 'your room';
+    const actionLabel = requestType === 'extend' ? 'extend the stay' : 'move out earlier';
+    await postSystemMessage({
+        landlordId: application.landlord,
+        studentId: application.student,
+        roomId: getRoomId(application),
+        text: `${req.user.name || 'Tenant'} requested to ${actionLabel} for "${title}". Requested move-out: ${nextCheckOut.toLocaleDateString('en-IN')}. Please approve or reject from Applications.`,
+        senderId: req.user._id,
+    });
+
+    emitBookingStatus(application, 'stay_change_requested');
+    res.status(200).json({ message: 'Stay change request sent to landlord.', application });
+});
+
+const respondStayChange = asyncHandler(async (req, res) => {
+    const { action, responseNote = '' } = req.body || {};
+    const isApproved = action === 'approve' || action === 'approved';
+    const isRejected = action === 'reject' || action === 'rejected';
+    if (!isApproved && !isRejected) throw makeHttpError(400, 'Action must be approve or reject.');
+
+    let application;
+    const originalDateLabel = {};
+
+    await runWithOptionalTransaction(async (session) => {
+        application = await withSession(Application.findById(req.params.id).populate('room'), session);
+        if (!application) throw makeHttpError(404, 'Application not found');
+        if (application.landlord.toString() !== req.user._id.toString()) throw makeHttpError(401, 'Only the landlord can respond to this request.');
+        if (application.status !== 'confirmed') throw makeHttpError(400, 'Only confirmed bookings can be changed.');
+        if (application.stayChangeRequest?.status !== 'pending') throw makeHttpError(400, 'No pending stay change request found.');
+
+        const requestedDate = toOptionalDate(application.stayChangeRequest.requestedCheckOutDate);
+        if (!requestedDate) throw makeHttpError(400, 'Requested date is invalid.');
+
+        originalDateLabel.value = application.checkOutDate;
+
+        application.stayChangeRequest.responseNote = String(responseNote || '').trim().slice(0, 500);
+        application.stayChangeRequest.respondedBy = req.user._id;
+        application.stayChangeRequest.respondedAt = new Date();
+
+        if (isApproved) {
+            const checkInDate = toOptionalDate(application.checkInDate);
+            if (!checkInDate) throw makeHttpError(400, 'This booking does not have a valid move-in date.');
+            application.checkOutDate = requestedDate;
+            application.durationMonths = Math.max(1, Math.ceil((requestedDate.getTime() - checkInDate.getTime()) / (30 * 24 * 60 * 60 * 1000)));
+            application.amountBreakdown = {
+                ...(application.amountBreakdown || {}),
+                durationMonths: application.durationMonths,
+            };
+            application.stayChangeRequest.status = 'approved';
+            application.checkInStatus = requestedDate.getTime() <= getDayStart().getTime() ? 'checked_out' : application.checkInStatus;
+            await applyApprovedStayChangeInventory(application, session);
+        } else {
+            application.stayChangeRequest.status = 'rejected';
+        }
+
+        await saveWithSession(application, session);
+    });
+
+    await syncBookingRequestMessage(application);
+    const requestedDate = toOptionalDate(application.stayChangeRequest?.requestedCheckOutDate);
+    const currentDate = toOptionalDate(originalDateLabel.value);
+    await postSystemMessage({
+        landlordId: application.landlord,
+        studentId: application.student,
+        roomId: getRoomId(application),
+        text: isApproved
+            ? `Stay change approved. Move-out changed from ${currentDate?.toLocaleDateString('en-IN') || 'the original date'} to ${requestedDate?.toLocaleDateString('en-IN') || 'the requested date'}. Agreement is updated.`
+            : `Stay change request was declined. Original move-out date remains ${currentDate?.toLocaleDateString('en-IN') || 'unchanged'}.${application.stayChangeRequest?.responseNote ? ` Note: ${application.stayChangeRequest.responseNote}` : ''}`,
+        senderId: req.user._id,
+    });
+
+    emitBookingStatus(application, isApproved ? 'stay_change_approved' : 'stay_change_rejected');
+    res.status(200).json({
+        message: isApproved ? 'Stay change approved and calendar updated.' : 'Stay change request rejected.',
+        application,
+    });
+});
+
 const confirmPayment = asyncHandler(async (req, res) => {
     const requestBody = req.body || {};
     let application = await Application.findById(req.params.id).populate('room');
@@ -1118,6 +1319,8 @@ module.exports = {
     rejectApplication,
     cancelApplication,
     cancelConfirmedByHost,
+    requestStayChange,
+    respondStayChange,
     confirmPayment,
     updateApplication
 };

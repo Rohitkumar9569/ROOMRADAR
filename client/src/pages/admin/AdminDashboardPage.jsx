@@ -8,12 +8,17 @@ import {
   ArrowRight,
   CheckCircle,
   CreditCard,
+  Download,
+  Eye,
   FileCheck,
   FileClock,
   FileText,
   Headphones,
   Home,
+  Monitor,
+  Radio,
   ShieldCheck,
+  Smartphone,
   TrendingUp,
   UserCheck,
   UserPlus,
@@ -173,6 +178,31 @@ const AdminDashboardPage = () => {
     return (tickets?.statusBreakdown || []).find((item) => item._id === 'open')?.count || 0;
   }, [tickets]);
 
+  const usageTrendData = useMemo(() => {
+    const rows = analytics?.usage?.daily || [];
+    const byDate = new Map();
+
+    rows.forEach((row) => {
+      const key = row.date || row.label || 'Unknown';
+      const current = byDate.get(key) || {
+        dateKey: key,
+        date: row.label || key,
+        sessions: 0,
+        pageViews: 0,
+        installs: 0,
+        appOpens: 0,
+      };
+
+      if (row.eventType === 'session_start') current.sessions += row.count || 0;
+      if (row.eventType === 'page_view') current.pageViews += row.count || 0;
+      if (row.eventType === 'pwa_install') current.installs += row.count || 0;
+      if (row.eventType === 'app_open') current.appOpens += row.count || 0;
+      byDate.set(key, current);
+    });
+
+    return Array.from(byDate.values()).sort((a, b) => a.dateKey.localeCompare(b.dateKey));
+  }, [analytics]);
+
   const handleApproveRoom = async (roomId) => {
     confirmToast({
       title: 'Approve this room?',
@@ -266,9 +296,37 @@ const AdminDashboardPage = () => {
           <StatCard title="Published" value={stats?.publishedRoomsCount ?? 0} icon={FileCheck} tone="green" linkTo="/admin/rooms?status=Published" caption="Live rooms" />
           <StatCard title="Pending" value={stats?.pendingRoomsCount ?? 0} icon={FileClock} tone="amber" linkTo="/admin/rooms?status=Pending" caption="Need review" />
           <StatCard title="Applications" value={stats?.totalApplications ?? 0} icon={FileText} tone="red" linkTo="/admin/analytics" caption="Booking flow" />
+          <StatCard title="Live Now" value={stats?.usage?.liveNow ?? 0} icon={Radio} tone="green" linkTo="/admin/analytics" caption={`${stats?.usage?.liveLoggedInUsers ?? 0} signed in`} />
+          <StatCard title="Today Sessions" value={stats?.usage?.todaySessions ?? 0} icon={Activity} tone="cyan" linkTo="/admin/analytics" caption="Web + app users" />
+          <StatCard title="Page Views" value={stats?.usage?.todayPageViews ?? 0} icon={Eye} tone="violet" linkTo="/admin/analytics" caption="Today traffic" />
+          <StatCard title="App Installs" value={stats?.usage?.totalAppInstalls ?? 0} icon={Download} tone="amber" linkTo="/admin/analytics" caption="PWA downloads" />
         </div>
 
-        <div className="grid gap-4 sm:gap-6 xl:grid-cols-3">
+        <div className="grid gap-4 sm:gap-6 xl:grid-cols-4">
+          <SectionCard
+            title="Usage & App"
+            subtitle="Live traffic, mobile usage, and installs"
+            action={<Link to="/admin/analytics" className="text-xs font-bold text-cyan-500">Details</Link>}
+          >
+            <div className="grid grid-cols-2 gap-2 sm:gap-3">
+              <Link to="/admin/analytics" className="rounded-2xl bg-light-bg p-3 transition hover:-translate-y-0.5 hover:bg-cyan-50 hover:shadow-md dark:bg-dark-input dark:hover:bg-cyan-950/20 sm:p-4">
+                <Smartphone className="mb-3 h-5 w-5 text-cyan-500" />
+                <p className="text-[10px] font-bold uppercase tracking-wide text-light-muted dark:text-dark-muted sm:text-xs">Mobile today</p>
+                <p className="mt-1 text-2xl font-black">{stats?.usage?.mobileSessionsToday ?? 0}</p>
+              </Link>
+              <Link to="/admin/analytics" className="rounded-2xl bg-light-bg p-3 transition hover:-translate-y-0.5 hover:bg-cyan-50 hover:shadow-md dark:bg-dark-input dark:hover:bg-cyan-950/20 sm:p-4">
+                <Monitor className="mb-3 h-5 w-5 text-violet-500" />
+                <p className="text-[10px] font-bold uppercase tracking-wide text-light-muted dark:text-dark-muted sm:text-xs">Desktop today</p>
+                <p className="mt-1 text-2xl font-black">{stats?.usage?.desktopSessionsToday ?? 0}</p>
+              </Link>
+              <Link to="/admin/analytics" className="col-span-2 rounded-2xl bg-emerald-500/10 p-3 text-emerald-700 transition hover:-translate-y-0.5 hover:bg-emerald-500/15 hover:shadow-md dark:text-emerald-300 sm:p-4">
+                <p className="text-[10px] font-black uppercase tracking-wide">App opens today</p>
+                <p className="mt-1 text-3xl font-black">{stats?.usage?.appOpensToday ?? 0}</p>
+                <p className="mt-1 text-xs font-semibold opacity-80">Counts only installed PWA opens.</p>
+              </Link>
+            </div>
+          </SectionCard>
+
           <SectionCard
             title="Financial Health"
             subtitle="Real booking value and platform fee aggregation"
@@ -321,6 +379,69 @@ const AdminDashboardPage = () => {
               </p>
             </Link>
           </SectionCard>
+        </div>
+
+        <div className="grid gap-4 sm:gap-6 xl:grid-cols-5">
+          <div className="xl:col-span-3">
+            <SectionCard title="Website & App Usage" subtitle="Sessions, page views, and install signals from real visitors">
+              {usageTrendData.length > 0 ? (
+                <ResponsiveContainer width="100%" height={270}>
+                  <AreaChart data={usageTrendData} margin={{ top: 10, right: 18, left: -14, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="adminUsageSessions" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#06b6d4" stopOpacity={0.3} />
+                        <stop offset="95%" stopColor="#06b6d4" stopOpacity={0} />
+                      </linearGradient>
+                      <linearGradient id="adminUsageViews" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.25} />
+                        <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.22)" />
+                    <XAxis dataKey="date" tick={{ fill: 'currentColor', fontSize: 11 }} />
+                    <YAxis allowDecimals={false} tick={{ fill: 'currentColor', fontSize: 11 }} />
+                    <Tooltip />
+                    <Area type="monotone" dataKey="pageViews" name="Page views" stroke="#8b5cf6" strokeWidth={2.5} fill="url(#adminUsageViews)" />
+                    <Area type="monotone" dataKey="sessions" name="Sessions" stroke="#06b6d4" strokeWidth={2.5} fill="url(#adminUsageSessions)" />
+                  </AreaChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="flex h-[270px] items-center justify-center rounded-2xl border border-dashed border-light-border text-center text-sm font-semibold text-light-muted dark:border-dark-border dark:text-dark-muted">
+                  Usage analytics will appear after the new tracking build is live.
+                </div>
+              )}
+            </SectionCard>
+          </div>
+          <div className="xl:col-span-2">
+            <SectionCard title="Top Pages" subtitle="Most opened screens in the last 7 days">
+              <div className="space-y-2.5">
+                {(analytics?.usage?.topPages || []).length > 0 ? analytics.usage.topPages.map((page) => (
+                  <Link
+                    key={page._id}
+                    to={page._id || '/'}
+                    className="flex items-center justify-between gap-3 rounded-2xl bg-light-bg p-3 transition hover:-translate-y-0.5 hover:bg-cyan-50 hover:shadow-md dark:bg-dark-input dark:hover:bg-cyan-950/20"
+                  >
+                    <span className="min-w-0 truncate text-sm font-black">{page._id || '/'}</span>
+                    <span className="shrink-0 rounded-full bg-cyan-500/10 px-3 py-1 text-xs font-black text-cyan-600 dark:text-cyan-300">{page.views} views</span>
+                  </Link>
+                )) : (
+                  <div className="rounded-2xl border border-dashed border-light-border p-8 text-center text-sm font-semibold text-light-muted dark:border-dark-border dark:text-dark-muted">
+                    No page-view data yet.
+                  </div>
+                )}
+              </div>
+              {(analytics?.usage?.deviceBreakdown || []).length > 0 && (
+                <div className="mt-4 grid grid-cols-3 gap-2">
+                  {analytics.usage.deviceBreakdown.slice(0, 3).map((device) => (
+                    <div key={device._id || 'unknown'} className="rounded-2xl bg-light-bg p-3 text-center dark:bg-dark-input">
+                      <p className="text-[10px] font-black uppercase tracking-wide text-light-muted dark:text-dark-muted">{device._id || 'unknown'}</p>
+                      <p className="mt-1 text-xl font-black">{device.count}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </SectionCard>
+          </div>
         </div>
 
         <div className="grid gap-4 sm:gap-6 xl:grid-cols-5">

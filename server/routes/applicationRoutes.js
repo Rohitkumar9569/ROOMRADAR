@@ -14,6 +14,8 @@ const {
     confirmPayment,
     cancelApplication,
     cancelConfirmedByHost,
+    requestStayChange,
+    respondStayChange,
     updateApplication, 
 } = require('../controllers/applicationController');
 
@@ -47,6 +49,8 @@ router.patch('/:id', protect, restrictTo('student'), updateApplication);
 
 router.patch('/:id/cancel', bookingRateLimiter, protect, cancelApplication);
 router.patch('/:id/host-cancel', bookingRateLimiter, protect, restrictTo('Landlord'), cancelConfirmedByHost);
+router.post('/:id/stay-change', bookingRateLimiter, protect, restrictTo('student'), requestStayChange);
+router.patch('/:id/stay-change/respond', bookingRateLimiter, protect, restrictTo('Landlord'), respondStayChange);
 
 
 module.exports = router;

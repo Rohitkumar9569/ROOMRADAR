@@ -1,10 +1,10 @@
-import React, { useMemo, useState } from 'react';
+import React, { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { AlertTriangle, CheckCircle2, FileText, LifeBuoy, LogOut, Mail, RefreshCw, ShieldAlert } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, FileText, LifeBuoy, LogOut, MessageSquare, RefreshCw, ShieldAlert } from 'lucide-react';
 import api from '../api';
 import { useAuth } from '../context/AuthContext';
-import { useSettings } from '../context/SettingsContext';
+import SupportTicketModal from '../components/support/SupportTicketModal';
 import { getAccessScopeForPath, getRoleRestriction, getScopeHomePath, getScopeLabel, isAccountRestricted, isScopeRestricted, normalizeRoleScope } from '../utils/roleRestrictions';
 
 const fallbackReason = 'RoomRadar Trust & Safety restricted this account after an admin review. Check your recent listings, bookings, messages, and verification details before requesting review.';
@@ -34,14 +34,12 @@ const AccountRestrictedPage = ({ restrictionScope }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, logout, refreshUser, updateUser } = useAuth();
-  const { settings } = useSettings();
   const effectiveScope = normalizeRoleScope(
     restrictionScope
     || (isAccountRestricted(user) ? 'account' : getAccessScopeForPath(location.pathname))
     || 'account'
   );
   const restriction = getRoleRestriction(user, effectiveScope);
-  const supportEmail = settings?.supportEmail || 'support@roomradar.in';
   const roleLabel = effectiveScope === 'account' ? 'RoomRadar account' : `${getScopeLabel(effectiveScope)} access`;
   const isPending = restriction.appealStatus === 'pending';
   const alternativeAccess = effectiveScope === 'student' && user?.roles?.includes('Landlord') && !isScopeRestricted(user, 'landlord')
@@ -54,12 +52,7 @@ const AccountRestrictedPage = ({ restrictionScope }) => {
   );
   const [submitting, setSubmitting] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-
-  const mailHref = useMemo(() => {
-    const subject = encodeURIComponent(`RoomRadar ${getScopeLabel(effectiveScope)} review - ${user?.email || 'user'}`);
-    const body = encodeURIComponent(`Hello RoomRadar Trust & Safety,\n\nMy ${roleLabel} is restricted and I want to request a review.\n\nName: ${user?.name || ''}\nEmail: ${user?.email || ''}\nScope: ${roleLabel}\n\nReason shown: ${restriction.reason || fallbackReason}\n\nDetails:\n`);
-    return `mailto:${supportEmail}?subject=${subject}&body=${body}`;
-  }, [effectiveScope, restriction.reason, roleLabel, supportEmail, user?.email, user?.name]);
+  const [supportOpen, setSupportOpen] = useState(false);
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -190,9 +183,9 @@ const AccountRestrictedPage = ({ restrictionScope }) => {
                 <button type="button" onClick={handleRefresh} disabled={refreshing} className="rr-restricted-action inline-flex items-center justify-center gap-2 rounded-2xl border border-light-border bg-white px-4 py-3 text-sm font-black shadow-sm transition hover:border-cyan-300 disabled:opacity-60 dark:border-dark-border dark:bg-dark-card">
                   <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} /> Refresh status
                 </button>
-                <a href={mailHref} className="rr-restricted-action inline-flex items-center justify-center gap-2 rounded-2xl border border-light-border bg-white px-4 py-3 text-sm font-black shadow-sm transition hover:border-cyan-300 dark:border-dark-border dark:bg-dark-card">
-                  <Mail className="h-4 w-4" /> Email support
-                </a>
+                <button type="button" onClick={() => setSupportOpen(true)} className="rr-restricted-action inline-flex items-center justify-center gap-2 rounded-2xl border border-light-border bg-white px-4 py-3 text-sm font-black shadow-sm transition hover:border-cyan-300 dark:border-dark-border dark:bg-dark-card">
+                  <MessageSquare className="h-4 w-4" /> Message support
+                </button>
                 {alternativeAccess && (
                   <button type="button" onClick={() => navigate(alternativeAccess.path, { replace: true })} className="rr-restricted-action inline-flex items-center justify-center gap-2 rounded-2xl border border-light-border bg-white px-4 py-3 text-sm font-black shadow-sm transition hover:border-cyan-300 dark:border-dark-border dark:bg-dark-card">
                     {alternativeAccess.label}
@@ -242,6 +235,15 @@ const AccountRestrictedPage = ({ restrictionScope }) => {
             </button>
           </div>
         </form>
+        <SupportTicketModal
+          open={supportOpen}
+          onClose={() => setSupportOpen(false)}
+          defaultCategory="account"
+          defaultPriority="high"
+          defaultSubject={`RoomRadar ${getScopeLabel(effectiveScope)} review - ${user?.email || 'user'}`}
+          defaultMessage={`My ${roleLabel} is restricted and I want to request a review.\n\nReason shown: ${restriction.reason || fallbackReason}\n\nDetails:\n`}
+          context={{ scope: effectiveScope, path: location.pathname }}
+        />
       </div>
     </main>
   );

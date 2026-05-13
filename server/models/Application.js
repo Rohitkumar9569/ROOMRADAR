@@ -148,6 +148,32 @@ const applicationSchema = new mongoose.Schema(
       default: 'not_started',
       index: true,
     },
+    stayChangeRequest: {
+      status: {
+        type: String,
+        enum: ['none', 'pending', 'approved', 'rejected', 'cancelled'],
+        default: 'none',
+        index: true,
+      },
+      type: {
+        type: String,
+        enum: ['move_out', 'extend'],
+      },
+      originalCheckOutDate: { type: Date, set: toOptionalDate },
+      requestedCheckOutDate: { type: Date, set: toOptionalDate },
+      message: { type: String, trim: true, maxLength: 700 },
+      responseNote: { type: String, trim: true, maxLength: 500 },
+      requestedBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+      },
+      respondedBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+      },
+      requestedAt: { type: Date, set: toOptionalDate },
+      respondedAt: { type: Date, set: toOptionalDate },
+    },
     paymentMethod: {
       type: String,
       enum: ['card', 'upi', 'netbanking', 'cash', 'manual', 'other'],
@@ -194,6 +220,7 @@ const applicationSchema = new mongoose.Schema(
 applicationSchema.index({ landlord: 1, status: 1, requestExpiresAt: 1 });
 applicationSchema.index({ student: 1, status: 1, createdAt: -1 });
 applicationSchema.index({ room: 1, checkInDate: 1, checkOutDate: 1, status: 1 });
+applicationSchema.index({ landlord: 1, 'stayChangeRequest.status': 1, updatedAt: -1 });
 
 const Application = mongoose.model('Application', applicationSchema);
 module.exports = Application;

@@ -9,7 +9,7 @@ import RoomCardSkeleton from '../../components/common/RoomCardSkeleton';
 import { useAuth } from '../../context/AuthContext';
 import { readTabCache, setTabCache } from '../../utils/tabDataCache';
 import { formatListingTitle } from '../../utils/listingDisplay';
-import { getMobileAutoLocation } from '../../utils/mobileLocationAutofill';
+import { clearCachedLocation, createManualLocationSignal, getLocationLabel, getLocationSearchParams, getMobileAutoLocation, readCachedLocation, saveSearchedLocation } from '../../utils/mobileLocationAutofill';
 import {
   ArrowRight,
   BadgeCheck,
@@ -28,8 +28,10 @@ import {
 import backgroundImage from '../../assets/background_img.jpg';
 
 const FilterModal = lazy(() => import('../../components/features/rooms/FilterModal'));
-const HOME_LANDING_CACHE_KEY = 'student:home:landing';
-const HOME_CATEGORY_CACHE_PREFIX = 'student:home:category';
+const HOME_LANDING_CACHE_KEY = 'student:home:landing:v2';
+const HOME_CATEGORY_CACHE_PREFIX = 'student:home:category:v2';
+const HOME_RAIL_ROOM_LIMIT = '4';
+const HOME_CATEGORY_ROOM_LIMIT = '12';
 
 const categories = [
   { id: 'All', label: 'All', Icon: Home },
@@ -51,6 +53,112 @@ const isRenderableRoomCard = (room = {}) => (
 );
 
 const realRoomList = (rooms) => (Array.isArray(rooms) ? rooms.filter(isRenderableRoomCard) : []);
+
+const normalizeLocationTerm = (value = '') => String(value || '')
+  .trim()
+  .toLowerCase()
+  .replace(/[^a-z0-9\s-]/g, ' ')
+  .replace(/\s+/g, ' ')
+  .trim();
+
+const isUsefulLocationTerm = (value = '') => {
+  const term = normalizeLocationTerm(value);
+  return Boolean(term && term.length >= 3 && !['india', 'current location', 'my location', 'near me', 'your location'].includes(term));
+};
+
+const getLocationTerms = (locationSignal) => {
+  const props = locationSignal?.place?.properties || locationSignal?.properties || {};
+  const rawTerms = [
+    props.city,
+    props.address_line1,
+    props.locality,
+    props.county,
+    props.state_district,
+    locationSignal?.query,
+  ];
+
+  return [...new Set(rawTerms
+    .flatMap((value) => String(value || '').split(','))
+    .map(normalizeLocationTerm)
+    .filter(isUsefulLocationTerm))];
+};
+
+const roomMatchesLocationTerms = (room = {}, terms = []) => {
+  if (!terms.length) return true;
+  const locationText = [
+    room.location?.city,
+    room.location?.locality,
+    room.location?.landmark,
+    room.location?.state,
+    room.location?.pincode,
+    room.location?.postalCode,
+    room.location?.fullAddress,
+    room.city,
+    room.locality,
+    room.landmark,
+  ].map(normalizeLocationTerm).filter(Boolean);
+
+  return terms.some((term) => locationText.some((text) => text === term || text.includes(term)));
+};
+
+const filterRoomsForLocation = (rooms, terms) => {
+  const list = realRoomList(rooms);
+  if (!terms?.length) return list;
+  return list.filter((room) => roomMatchesLocationTerms(room, terms));
+};
+
+const excludeRoomsById = (rooms, excludedRooms = []) => {
+  const excludedIds = new Set(realRoomList(excludedRooms).map((room) => String(room._id)));
+  return realRoomList(rooms).filter((room) => !excludedIds.has(String(room._id)));
+};
+
+const buildLocationAwareRoomUrl = (baseEntries, locationQuery) => {
+  const params = new URLSearchParams(baseEntries);
+  if (locationQuery) {
+    new URLSearchParams(locationQuery).forEach((value, key) => params.set(key, value));
+    params.set('page', '1');
+    params.set('strictLocation', 'true');
+  }
+  return `/rooms?${params.toString()}`;
+};
+
+const createCityLocationSignal = (city, source = 'profile') => {
+  const cleanCity = String(city || '').trim();
+  if (!cleanCity) return null;
+  return {
+    source,
+    query: cleanCity,
+    place: {
+      properties: {
+        place_id: `${source}-city-${cleanCity.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
+        address_line1: cleanCity,
+        address_line2: 'India',
+        city: cleanCity,
+        formatted: `${cleanCity}, India`,
+      },
+    },
+  };
+};
+
+const getUserCitySignal = (user) => createCityLocationSignal(
+  user?.roleProfiles?.student?.city
+  || user?.city
+  || user?.roleProfiles?.landlord?.city
+  || '',
+  'profile'
+);
+
+const createDefaultSearchCriteria = (locationSignal = null) => ({
+  location: locationSignal?.place || null,
+  locationQuery: locationSignal?.query || '',
+  moveInDate: null,
+  radius: 5,
+  adults: 1,
+  children: 0,
+  infants: 0,
+  gender: 'Any',
+  maxOccupants: 1,
+});
 
 const SectionHeader = ({ eyebrow, title, action }) => (
   <div className="mb-3 flex items-end justify-between gap-3 sm:mb-5">
@@ -97,35 +205,58 @@ const RoomsGrid = React.memo(function RoomsGrid({ rooms, loading, priorityCount 
 function HomePage() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const cachedLandingData = readTabCache(HOME_LANDING_CACHE_KEY)?.value;
+  const cachedLocationSignal = useMemo(() => readCachedLocation(), []);
+  const initialLocationQuery = useMemo(
+    () => (cachedLocationSignal ? getLocationSearchParams(cachedLocationSignal, { radius: 12 }).toString() : ''),
+    [cachedLocationSignal]
+  );
+  const cachedLandingData = readTabCache(initialLocationQuery ? `${HOME_LANDING_CACHE_KEY}:${initialLocationQuery}` : HOME_LANDING_CACHE_KEY)?.value
+    || readTabCache(HOME_LANDING_CACHE_KEY)?.value;
   const [stats, setStats] = useState(() => cachedLandingData?.stats || { totalRooms: 0, totalCities: 0, totalUsers: 0, verifiedRooms: 0 });
   const [cities, setCities] = useState(() => cachedLandingData?.cities || []);
   const [popularRooms, setPopularRooms] = useState(() => realRoomList(cachedLandingData?.popularRooms || []));
   const [recommendedRooms, setRecommendedRooms] = useState(() => realRoomList(cachedLandingData?.recommendedRooms || []));
-  const [categoryRooms, setCategoryRooms] = useState(() => realRoomList(readTabCache(`${HOME_CATEGORY_CACHE_PREFIX}:All`)?.value?.rooms || []));
+  const [categoryRooms, setCategoryRooms] = useState(() => realRoomList(readTabCache(`${HOME_CATEGORY_CACHE_PREFIX}:All:published`)?.value?.rooms || []));
   const [activeCategory, setActiveCategory] = useState('All');
   const [loading, setLoading] = useState(() => !cachedLandingData);
   const [categoryLoading, setCategoryLoading] = useState(false);
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
   const [isMobileSearchCollapsed, setIsMobileSearchCollapsed] = useState(false);
   const [isMobileSearchPinned, setIsMobileSearchPinned] = useState(false);
-  const [searchCriteria, setSearchCriteria] = useState({
-    location: null,
-    locationQuery: '',
-    moveInDate: null,
-    radius: 5,
-    adults: 1,
-    children: 0,
-    infants: 0,
-    gender: 'Any',
-    maxOccupants: 1,
-  });
+  const [personalizedLocation, setPersonalizedLocation] = useState(() => cachedLocationSignal);
+  const [locationClearedByUser, setLocationClearedByUser] = useState(false);
+  const [searchCriteria, setSearchCriteria] = useState(() => createDefaultSearchCriteria());
 
   const trustStats = useMemo(() => [
     { key: 'verified', label: 'Verified rooms', value: formatCount(stats.verifiedRooms || stats.totalRooms), Icon: ShieldCheck },
     { key: 'published', label: 'Published listings', value: formatCount(stats.totalRooms), Icon: Building2 },
     { key: 'cities', label: 'Active cities', value: formatCount(stats.totalCities), Icon: MapPin },
   ], [stats]);
+  const personalizedLocationQuery = useMemo(
+    () => (personalizedLocation ? getLocationSearchParams(personalizedLocation, { radius: 12 }).toString() : ''),
+    [personalizedLocation]
+  );
+  const personalizedLocationLabel = useMemo(
+    () => (personalizedLocation ? getLocationLabel(personalizedLocation) : ''),
+    [personalizedLocation]
+  );
+  const personalizedLocationTerms = useMemo(() => getLocationTerms(personalizedLocation), [personalizedLocation]);
+  const userCitySignal = useMemo(() => getUserCitySignal(user), [user]);
+  const visibleCategoryRooms = useMemo(
+    () => realRoomList(categoryRooms),
+    [categoryRooms]
+  );
+  const visiblePopularRooms = useMemo(
+    () => filterRoomsForLocation(popularRooms, personalizedLocationTerms),
+    [popularRooms, personalizedLocationTerms]
+  );
+  const visibleRecommendedRooms = useMemo(() => {
+    const exactRecommendations = filterRoomsForLocation(recommendedRooms, personalizedLocationTerms);
+    const recommendationBase = exactRecommendations.length || !personalizedLocationTerms.length
+      ? exactRecommendations
+      : visiblePopularRooms.slice(0, Number(HOME_RAIL_ROOM_LIMIT));
+    return excludeRoomsById(recommendationBase, visiblePopularRooms);
+  }, [personalizedLocationTerms, recommendedRooms, visiblePopularRooms]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return undefined;
@@ -164,20 +295,14 @@ function HomePage() {
   }, [isMobileSearchPinned]);
 
   useEffect(() => {
+    if (locationClearedByUser) return undefined;
     let cancelled = false;
 
     const fillMobileLocation = async () => {
       try {
         const autoLocation = await getMobileAutoLocation();
-        if (!autoLocation || cancelled) return;
-        setSearchCriteria((current) => {
-          if (current.location || current.locationQuery) return current;
-          return {
-            ...current,
-            location: autoLocation.place,
-            locationQuery: autoLocation.query,
-          };
-        });
+        if (!autoLocation || cancelled || locationClearedByUser) return;
+        setPersonalizedLocation(autoLocation);
       } catch {
         // Manual search remains available when location permission is dismissed.
       }
@@ -187,7 +312,12 @@ function HomePage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [locationClearedByUser]);
+
+  useEffect(() => {
+    if (personalizedLocation || !userCitySignal || locationClearedByUser) return;
+    setPersonalizedLocation(userCitySignal);
+  }, [locationClearedByUser, personalizedLocation, userCitySignal]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return undefined;
@@ -206,7 +336,10 @@ function HomePage() {
     let active = true;
 
     const fetchLandingData = async () => {
-      const cached = readTabCache(HOME_LANDING_CACHE_KEY)?.value;
+      const landingCacheKey = personalizedLocationQuery
+        ? `${HOME_LANDING_CACHE_KEY}:${personalizedLocationQuery}`
+        : HOME_LANDING_CACHE_KEY;
+      const cached = readTabCache(landingCacheKey)?.value;
       if (cached) {
         setStats(cached.stats || {});
         setCities(cached.cities || []);
@@ -221,8 +354,11 @@ function HomePage() {
         const [statsRes, citiesRes, popularRes, recommendedRes] = await Promise.all([
           api.get('/stats'),
           api.get('/stats/cities'),
-          api.get('/rooms?sort=views&limit=8'),
-          api.get('/rooms/recommended?limit=8'),
+          api.get(buildLocationAwareRoomUrl({ sort: 'views', limit: HOME_RAIL_ROOM_LIMIT }, personalizedLocationQuery)),
+          api.get(`/rooms/recommended?${new URLSearchParams({
+            limit: HOME_RAIL_ROOM_LIMIT,
+            ...(personalizedLocationQuery ? { ...Object.fromEntries(new URLSearchParams(personalizedLocationQuery)), strictLocation: 'true' } : {}),
+          }).toString()}`),
         ]);
 
         const nextLandingData = {
@@ -232,7 +368,7 @@ function HomePage() {
           recommendedRooms: realRoomList(recommendedRes.data.data || recommendedRes.data || []),
         };
 
-        setTabCache(HOME_LANDING_CACHE_KEY, nextLandingData);
+        setTabCache(landingCacheKey, nextLandingData);
         if (!active) return;
 
         setStats(nextLandingData.stats);
@@ -253,13 +389,13 @@ function HomePage() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [personalizedLocationQuery]);
 
   useEffect(() => {
     let active = true;
 
     const fetchCategoryRooms = async () => {
-      const cacheKey = `${HOME_CATEGORY_CACHE_PREFIX}:${activeCategory}`;
+      const cacheKey = `${HOME_CATEGORY_CACHE_PREFIX}:${activeCategory}:published`;
       const cached = readTabCache(cacheKey)?.value;
       if (cached) {
         setCategoryRooms(realRoomList(cached.rooms || []));
@@ -269,8 +405,9 @@ function HomePage() {
       }
 
       try {
-        const typeParam = activeCategory === 'All' ? '' : `&type=${encodeURIComponent(activeCategory)}`;
-        const { data } = await api.get(`/rooms?sort=views&limit=8${typeParam}`);
+        const baseParams = { sort: 'views', limit: HOME_CATEGORY_ROOM_LIMIT };
+        if (activeCategory !== 'All') baseParams.type = activeCategory;
+        const { data } = await api.get(`/rooms?${new URLSearchParams(baseParams).toString()}`);
         const rooms = realRoomList(data.data || data || []);
         setTabCache(cacheKey, { rooms });
         if (active) setCategoryRooms(rooms);
@@ -288,6 +425,13 @@ function HomePage() {
   }, [activeCategory]);
 
   const handleCriteriaChange = (newCriteria) => {
+    if (newCriteria.location) {
+      setLocationClearedByUser(false);
+      setPersonalizedLocation({
+        place: newCriteria.location,
+        query: newCriteria.locationQuery || getLocationLabel(newCriteria.location),
+      });
+    }
     setSearchCriteria((prev) => ({ ...prev, ...newCriteria }));
   };
 
@@ -295,18 +439,31 @@ function HomePage() {
     const nextCriteria = { ...searchCriteria, ...overrides };
     const params = new URLSearchParams();
     const typedLocation = nextCriteria.locationQuery?.trim();
+    let searchedLocation = null;
     if (nextCriteria.location?.properties) {
-      const props = nextCriteria.location.properties;
-      if (props.city || props.address_line1) params.set('city', props.city || props.address_line1);
-      if (props.lat) params.set('latitude', props.lat);
-      if (props.lon) params.set('longitude', props.lon);
+      searchedLocation = {
+        place: nextCriteria.location,
+        query: typedLocation || getLocationLabel(nextCriteria.location),
+        source: 'search',
+      };
+      const locationParams = getLocationSearchParams(
+        searchedLocation,
+        { radius: nextCriteria.radius || 8 }
+      );
+      locationParams.forEach((value, key) => params.set(key, value));
     } else if (typedLocation) {
+      searchedLocation = createManualLocationSignal(typedLocation);
       params.set('city', typedLocation);
     } else {
       toast.error('Please enter a location first.');
       return;
     }
-    if (nextCriteria.radius) params.set('radius', nextCriteria.radius);
+    if (searchedLocation) {
+      saveSearchedLocation(searchedLocation);
+      setLocationClearedByUser(false);
+      setPersonalizedLocation(searchedLocation);
+    }
+    if (params.has('latitude') && params.has('longitude') && nextCriteria.radius) params.set('radius', nextCriteria.radius);
     const adults = Math.max(1, Number(nextCriteria.adults || nextCriteria.maxOccupants || 1));
     const children = Math.max(0, Number(nextCriteria.children || 0));
     const infants = Math.max(0, Number(nextCriteria.infants || 0));
@@ -319,20 +476,14 @@ function HomePage() {
   };
 
   const handleClearSearch = () => {
-    setSearchCriteria({
-      location: null,
-      locationQuery: '',
-      moveInDate: null,
-      radius: 5,
-      adults: 1,
-      children: 0,
-      infants: 0,
-      gender: 'Any',
-      maxOccupants: 1,
-    });
+    clearCachedLocation();
+    setLocationClearedByUser(true);
+    setPersonalizedLocation(null);
+    setSearchCriteria(createDefaultSearchCriteria());
   };
 
   const handleCityClick = (cityName) => {
+    saveSearchedLocation(cityName);
     navigate(`/rooms?city=${encodeURIComponent(cityName)}`);
   };
 
@@ -356,7 +507,7 @@ function HomePage() {
     navigate('/rooms');
   };
 
-  const heroRoom = popularRooms[0] || categoryRooms[0] || recommendedRooms[0];
+  const heroRoom = visiblePopularRooms[0] || visibleCategoryRooms[0] || visibleRecommendedRooms[0] || popularRooms[0] || categoryRooms[0] || recommendedRooms[0];
   const heroImage = heroRoom?.images?.[0]?.url || heroRoom?.images?.[0] || heroRoom?.imageUrl || backgroundImage;
   const heroRoomCity = heroRoom?.location?.city || heroRoom?.city || '';
   const heroRoomTitle = heroRoom ? formatListingTitle(heroRoom.title, '') : '';
@@ -394,7 +545,7 @@ function HomePage() {
           decoding="async"
           fetchpriority="high"
         />
-        <div className="absolute inset-0 hidden bg-[radial-gradient(circle_at_50%_16%,rgba(255,255,255,0.10),transparent_26%),linear-gradient(180deg,rgba(0,0,0,0.62)_0%,rgba(0,0,0,0.30)_38%,rgba(0,0,0,0.72)_100%)] sm:block" />
+        <div className="absolute inset-0 hidden bg-[radial-gradient(ellipse_at_center,rgba(2,6,23,0.74)_0%,rgba(2,6,23,0.52)_36%,rgba(2,6,23,0.24)_58%,rgba(2,6,23,0.10)_78%),linear-gradient(180deg,rgba(0,0,0,0.68)_0%,rgba(0,0,0,0.36)_38%,rgba(0,0,0,0.76)_100%)] sm:block" />
         <div className="pointer-events-none absolute inset-x-0 top-0 hidden h-40 bg-gradient-to-b from-black/56 via-black/18 to-transparent sm:block" />
         <div className="pointer-events-none absolute inset-x-0 bottom-0 hidden h-72 bg-gradient-to-b from-transparent via-slate-950/26 to-light-bg dark:via-dark-bg/58 dark:to-dark-bg sm:block" />
 
@@ -411,7 +562,10 @@ function HomePage() {
               <span className="block sm:inline">Find Your Perfect</span>
               <span className="block sm:inline sm:ml-3">Room</span>
             </h1>
-            <p className="mt-3 hidden max-w-[30ch] text-center text-[clamp(13px,3.7vw,17px)] font-semibold leading-[1.45] text-white/82 sm:mt-5 sm:block sm:max-w-[38ch]">
+            <p
+              className="mt-3 hidden max-w-[30ch] text-center text-[clamp(13px,3.7vw,17px)] font-bold leading-[1.45] text-white drop-shadow-[0_2px_16px_rgba(0,0,0,0.82)] sm:mt-5 sm:block sm:max-w-[38ch]"
+              style={{ color: '#ffffff' }}
+            >
               Search verified listings, compare real prices, and request safely from one clean view.
             </p>
 
@@ -495,8 +649,8 @@ function HomePage() {
 
         <section className="mt-10">
           <SectionHeader
-            eyebrow="Browse by category"
-            title={`${activeCategoryLabel} available now`}
+            eyebrow="Marketplace listings"
+            title={`${activeCategoryLabel} on RoomRadar`}
             action={(
               <button onClick={() => navigate(activeCategory === 'All' ? '/rooms' : `/rooms?type=${encodeURIComponent(activeCategory)}`)} className="inline-flex min-h-9 items-center gap-1.5 rounded-full border border-light-border bg-light-card px-3 text-xs font-semibold text-light-text transition hover:border-cyan-400 hover:text-cyan-600 dark:border-dark-border dark:bg-dark-card dark:text-dark-text">
                 View all
@@ -504,18 +658,24 @@ function HomePage() {
               </button>
             )}
           />
-          <RoomsGrid rooms={categoryRooms} loading={categoryLoading || loading} priorityCount={4} />
+          <RoomsGrid rooms={visibleCategoryRooms} loading={categoryLoading || loading} priorityCount={4} />
         </section>
 
         <section className="mt-12">
-          <SectionHeader eyebrow="Popular near you" title="Most viewed verified rooms" />
-          <RoomsGrid rooms={popularRooms} loading={loading} />
+          <SectionHeader
+            eyebrow={personalizedLocationLabel ? `Popular near ${personalizedLocationLabel}` : 'Popular near you'}
+            title={personalizedLocationLabel ? `Most viewed verified rooms around ${personalizedLocationLabel}` : 'Most viewed verified rooms'}
+          />
+          <RoomsGrid rooms={visiblePopularRooms} loading={loading} />
         </section>
 
-        {user && (
+        {user && visibleRecommendedRooms.length > 0 && (
           <section className="mt-10 sm:mt-12">
-            <SectionHeader eyebrow="Recommended for you" title="Rooms matched from current demand" />
-            <RoomsGrid rooms={recommendedRooms} loading={loading} />
+            <SectionHeader
+              eyebrow="Recommended for you"
+              title={personalizedLocationLabel ? `Personalized around ${personalizedLocationLabel}` : 'Rooms matched from current demand'}
+            />
+            <RoomsGrid rooms={visibleRecommendedRooms} loading={loading} />
           </section>
         )}
 

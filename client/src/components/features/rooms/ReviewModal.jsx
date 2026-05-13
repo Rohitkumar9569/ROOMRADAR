@@ -34,8 +34,34 @@ const StarRating = ({ rating, setRating }) => {
   );
 };
 
+const categoryLabels = [
+  ['cleanliness', 'Cleanliness'],
+  ['accuracy', 'Accuracy'],
+  ['checkIn', 'Check-in'],
+  ['communication', 'Communication'],
+  ['location', 'Location'],
+  ['value', 'Value'],
+];
+
+const CompactRating = ({ value, onChange }) => (
+  <div className="flex items-center gap-1">
+    {[1, 2, 3, 4, 5].map((ratingValue) => (
+      <button
+        key={ratingValue}
+        type="button"
+        onClick={() => onChange(ratingValue)}
+        className="rounded-full p-0.5 transition hover:scale-105"
+        aria-label={`${ratingValue} stars`}
+      >
+        <FaStar color={ratingValue <= value ? '#f59e0b' : '#d1d5db'} size={18} />
+      </button>
+    ))}
+  </div>
+);
+
 function ReviewModal({ isOpen, onClose, booking, onSuccess }) {
   const [rating, setRating] = useState(0);
+  const [categoryRatings, setCategoryRatings] = useState({});
   const [comment, setComment] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -59,8 +85,16 @@ function ReviewModal({ isOpen, onClose, booking, onSuccess }) {
 
     setLoading(true);
     try {
-      await createReview(booking.room._id, { rating, comment });
+      await createReview(booking.room._id, {
+        rating,
+        comment,
+        bookingId: booking._id,
+        categoryRatings,
+      });
       toast.success('Thank you! Your review has been submitted.');
+      setRating(0);
+      setCategoryRatings({});
+      setComment('');
       onSuccess();
       onClose();
     } catch (err) {
@@ -85,6 +119,18 @@ function ReviewModal({ isOpen, onClose, booking, onSuccess }) {
         <form onSubmit={handleSubmit}>
           <div className="mb-6">
             <StarRating rating={rating} setRating={setRating} />
+          </div>
+
+          <div className="mb-6 grid gap-3 rounded-2xl bg-light-bg p-4 dark:bg-dark-input">
+            {categoryLabels.map(([key, label]) => (
+              <div key={key} className="flex items-center justify-between gap-3">
+                <span className="text-sm font-bold text-light-text dark:text-dark-text">{label}</span>
+                <CompactRating
+                  value={categoryRatings[key] || 0}
+                  onChange={(nextRating) => setCategoryRatings((current) => ({ ...current, [key]: nextRating }))}
+                />
+              </div>
+            ))}
           </div>
 
           <div className="mb-6">

@@ -7,6 +7,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { CalendarDaysIcon, MagnifyingGlassIcon, MapPinIcon, MinusIcon, PlusIcon, UsersIcon, XCircleIcon } from '@heroicons/react/24/solid';
 import api from '../../../api';
 import { indianCities } from '../../../data/indianCities';
+import { saveSearchedLocation } from '../../../utils/mobileLocationAutofill';
 
 const toDateInputValue = (date) => {
     if (!date) return '';
@@ -182,6 +183,7 @@ function SearchBar({ criteria, onCriteriaChange, onSearch, onClear, inputId = 'h
 
     const handleSelectSuggestion = (place) => {
         const placeQuery = getPlaceQuery(place);
+        saveSearchedLocation({ place, query: placeQuery, source: 'search' });
         onCriteriaChange({ location: place, locationQuery: placeQuery });
         setQuery(placeQuery);
         setSuggestions([]);
@@ -197,7 +199,8 @@ function SearchBar({ criteria, onCriteriaChange, onSearch, onClear, inputId = 'h
     };
 
     const handleClear = (event) => {
-        event.stopPropagation();
+        event?.preventDefault?.();
+        event?.stopPropagation?.();
         setQuery('');
         setSuggestions([]);
         setActivePopover(null);

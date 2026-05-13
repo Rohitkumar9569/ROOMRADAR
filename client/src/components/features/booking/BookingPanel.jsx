@@ -5,6 +5,13 @@ import { ArrowRight, CalendarDays, CheckCircle2, MessageCircle, ShieldCheck, Spa
 
 const money = (value) => `\u20B9${Number(value || 0).toLocaleString('en-IN')}`;
 
+const formatMoveInLabel = (availableFrom, fallback = 'Available now') => {
+    if (!availableFrom) return fallback;
+    const date = new Date(availableFrom);
+    if (Number.isNaN(date.getTime())) return fallback;
+    return date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+};
+
 const BookingPanel = ({ room, onContactLandlord }) => {
     const navigate = useNavigate();
     const [isHovered, setIsHovered] = useState(false);
@@ -12,6 +19,7 @@ const BookingPanel = ({ room, onContactLandlord }) => {
     const securityDeposit = Number(String(room.securityDeposit || '').replace(/[^\d.]/g, '')) || rentPerMonth;
     const discount = room.originalRent ? Math.round(((room.originalRent - room.rent) / room.originalRent) * 100) : 0;
     const isBooked = ['Booked', 'Confirmed'].includes(room.status);
+    const moveInLabel = formatMoveInLabel(room.availableFrom, isBooked ? 'Ask host' : 'Available now');
 
     return (
         <>
@@ -35,13 +43,21 @@ const BookingPanel = ({ room, onContactLandlord }) => {
                     )}
                 </div>
 
-                <div className="mt-5 rounded-2xl border border-cyan-100 bg-cyan-50 p-4 dark:border-cyan-500/20 dark:bg-cyan-500/10">
+                <div className={`mt-5 rounded-2xl border p-4 ${
+                    isBooked
+                        ? 'border-slate-200 bg-slate-50 dark:border-secondary-700 dark:bg-secondary-900'
+                        : 'border-cyan-100 bg-cyan-50 dark:border-cyan-500/20 dark:bg-cyan-500/10'
+                }`}>
                     <div className="flex items-start gap-3">
-                        <ShieldCheck className="mt-0.5 h-5 w-5 flex-shrink-0 text-cyan-600 dark:text-cyan-300" />
+                        <ShieldCheck className={`mt-0.5 h-5 w-5 flex-shrink-0 ${isBooked ? 'text-slate-500 dark:text-secondary-300' : 'text-cyan-600 dark:text-cyan-300'}`} />
                         <div>
-                            <p className="text-sm font-black text-cyan-900 dark:text-cyan-100">Two-side confirmation</p>
-                            <p className="mt-1 text-xs font-semibold leading-5 text-cyan-700 dark:text-cyan-200">
-                                Request first, get landlord approval, then confirm to lock the room.
+                            <p className={`text-sm font-black ${isBooked ? 'text-slate-900 dark:text-white' : 'text-cyan-900 dark:text-cyan-100'}`}>
+                                {isBooked ? 'Currently booked' : 'Two-side confirmation'}
+                            </p>
+                            <p className={`mt-1 text-xs font-semibold leading-5 ${isBooked ? 'text-slate-600 dark:text-secondary-300' : 'text-cyan-700 dark:text-cyan-200'}`}>
+                                {isBooked
+                                    ? `This listing stays visible for trust and planning. Message the host about the next move-in window${moveInLabel !== 'Ask host' ? ` from ${moveInLabel}` : ''}.`
+                                    : 'Request first, get landlord approval, then confirm to lock the room.'}
                             </p>
                         </div>
                     </div>
@@ -51,7 +67,7 @@ const BookingPanel = ({ room, onContactLandlord }) => {
                     <div className="rounded-2xl bg-slate-50 p-4 dark:bg-secondary-900">
                         <CalendarDays className="h-5 w-5 text-cyan-600 dark:text-cyan-300" />
                         <p className="mt-3 text-xs font-black uppercase text-slate-500">Move-in</p>
-                        <p className="mt-1 text-sm font-black text-slate-950 dark:text-white">Flexible</p>
+                        <p className="mt-1 text-sm font-black text-slate-950 dark:text-white">{moveInLabel}</p>
                     </div>
                     <div className="rounded-2xl bg-slate-50 p-4 dark:bg-secondary-900">
                         <Users className="h-5 w-5 text-cyan-600 dark:text-cyan-300" />

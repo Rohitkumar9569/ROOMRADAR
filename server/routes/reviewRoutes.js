@@ -4,7 +4,9 @@ const router = express.Router();
 // Review Controller 
 const { 
     createReview, 
-    getReviewsForRoom 
+    getReviewsForRoom,
+    createGuestReview,
+    getGuestReviewsForUser,
 } = require('../controllers/reviewController');
 
 // Middleware import
@@ -21,6 +23,9 @@ router.route('/:roomId').post(protect, createReview);
 // @desc    
 // @access  Public
 router.route('/:roomId').get(getReviewsForRoom);
+
+router.route('/guest/:applicationId').post(protect, createGuestReview);
+router.route('/guest/user/:userId').get(getGuestReviewsForUser);
 
 
 module.exports = router;

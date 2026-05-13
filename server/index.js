@@ -28,6 +28,7 @@ const statsRoutes = require('./routes/statsRoutes');
 const chatbotRoutes = require('./routes/chatbotRoutes');
 const settingsRoutes = require('./routes/settingsRoutes');
 const supportRoutes = require('./routes/supportRoutes');
+const usageRoutes = require('./routes/usageRoutes');
 const { notFound, errorHandler } = require('./middleware/errorMiddleware');
 
 const app = express();
@@ -94,11 +95,14 @@ app.use('/api/stats', statsRoutes);
 app.use('/api/chatbot', chatbotRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/support', supportRoutes);
+app.use('/api/usage', usageRoutes);
 
 app.use(notFound);
 app.use(errorHandler);
 
 let onlineUsers = [];
+
+app.set('getOnlineUsers', () => onlineUsers);
 
 const addUser = (userId, socketId) => {
   const normalizedUserId = userId?.toString();

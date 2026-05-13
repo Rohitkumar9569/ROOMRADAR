@@ -8,7 +8,7 @@ import RoomCardSkeleton from '../../components/common/RoomCardSkeleton';
 import { getFiltersFromConfig } from '../../utils/roomFieldUtils';
 import { readTabCache, setTabCache } from '../../utils/tabDataCache';
 import { formatPreferenceLabel } from '../../utils/listingDisplay';
-import { getMobileAutoLocation } from '../../utils/mobileLocationAutofill';
+import { clearCachedLocation, getLocationSearchParams, getLocationSignalFromParams, getMobileAutoLocation, saveSearchedLocation } from '../../utils/mobileLocationAutofill';
 import {
   Check,
   ChevronLeft,
@@ -40,6 +40,21 @@ const numberFilters = filterFields.filter((field) => field.type === 'number' && 
 const quickBooleanFilters = filterFields.filter((field) => field.type === 'boolean' && field.sectionId !== 'amenities');
 
 const money = (value) => `\u20B9${Number(value || 0).toLocaleString('en-IN')}`;
+
+const formatFilterOptionLabel = (field, option) => {
+  if (field.key === 'gender') return formatPreferenceLabel(option);
+  if (field.key === 'pricingMode') {
+    if (option === 'monthly') return 'Monthly rent';
+    if (option === 'daily') return 'Daily rent';
+    if (option === 'nightly') return 'Nightly rent';
+  }
+  if (field.key === 'stayType') {
+    if (option === 'long_term') return 'Long-term stay';
+    if (option === 'short_term') return 'Short-term stay';
+    if (option === 'flexible') return 'Flexible stay';
+  }
+  return option;
+};
 
 const createEmptyFilters = () => {
   const filters = {
@@ -103,7 +118,7 @@ const buildInitialSearchCriteria = (searchParams) => {
   const maxOccupants = Math.max(1, Number(searchParams.get('maxOccupants') || 1) || 1);
   return {
     ...createEmptySearchCriteria(),
-    locationQuery: searchParams.get('city') || searchParams.get('search') || '',
+    locationQuery: searchParams.get('city') || searchParams.get('search') || (searchParams.get('latitude') && searchParams.get('longitude') ? 'Current location' : ''),
     moveInDate: parseMoveInDate(searchParams.get('availableFrom')),
     radius: Number(searchParams.get('radius') || 5) || 5,
     adults: maxOccupants,
@@ -228,7 +243,7 @@ const FilterPanel = ({ filters, setFilters, priceRange, onApply, onClear, isShee
                   <option value="">Any</option>
                   {field.options.map((option) => (
                     <option key={option} value={option}>
-                      {field.key === 'gender' ? formatPreferenceLabel(option) : option}
+                      {formatFilterOptionLabel(field, option)}
                     </option>
                   ))}
                 </select>
@@ -323,6 +338,12 @@ function SearchPage() {
   const [isFilterSheetOpen, setIsFilterSheetOpen] = useState(false);
   const [isMobileSearchDockOpen, setIsMobileSearchDockOpen] = useState(false);
   const [searchMeta, setSearchMeta] = useState(null);
+  const searchParamsKey = searchParams.toString();
+
+  useEffect(() => {
+    const searchedLocation = getLocationSignalFromParams(searchParams);
+    if (searchedLocation) saveSearchedLocation(searchedLocation);
+  }, [searchParamsKey]);
 
   useEffect(() => {
     let cancelled = false;
@@ -332,7 +353,7 @@ function SearchPage() {
       try {
         const autoLocation = await getMobileAutoLocation();
         if (!autoLocation || cancelled) return;
-        const props = autoLocation.place?.properties || {};
+        const locationParams = getLocationSearchParams(autoLocation, { radius: 8 });
         setSearchCriteria((current) => (
           current.location || current.locationQuery
             ? current
@@ -340,12 +361,14 @@ function SearchPage() {
         ));
         setFilters((current) => {
           if (current.city || current.latitude) return current;
+          const latitudeValue = locationParams.get('latitude') || '';
+          const longitudeValue = locationParams.get('longitude') || '';
           return {
             ...current,
-            city: props.city || props.address_line1 || autoLocation.query,
-            latitude: props.lat || props.lat === 0 ? String(props.lat) : '',
-            longitude: props.lon || props.lon === 0 ? String(props.lon) : '',
-            radius: current.radius || '5',
+            city: locationParams.get('city') || '',
+            latitude: latitudeValue,
+            longitude: longitudeValue,
+            radius: latitudeValue && longitudeValue ? (locationParams.get('radius') || current.radius || '8') : current.radius,
           };
         });
       } catch {
@@ -407,6 +430,30 @@ function SearchPage() {
         });
         return;
       }
+      if (key === 'listingCategory' && value) {
+        chips.push({
+          key,
+          label: value,
+          clear: () => setFilters((prev) => ({ ...prev, listingCategory: '' })),
+        });
+        return;
+      }
+      if ((key === 'pricingMode' || key === 'stayType') && value) {
+        chips.push({
+          key,
+          label: formatFilterOptionLabel({ key }, value),
+          clear: () => setFilters((prev) => ({ ...prev, [key]: '' })),
+        });
+        return;
+      }
+      if (key === 'instantBook' && value) {
+        chips.push({
+          key,
+          label: 'Instant book',
+          clear: () => setFilters((prev) => ({ ...prev, instantBook: '' })),
+        });
+        return;
+      }
       if (value) chips.push({ key, label: String(value), clear: () => setFilters((prev) => ({ ...prev, [key]: '' })) });
     });
     return chips;
@@ -425,6 +472,8 @@ function SearchPage() {
       }
     });
 
+    const searchedLocation = getLocationSignalFromParams(params);
+    if (searchedLocation) saveSearchedLocation(searchedLocation);
     setSearchParams(params, { replace: true });
     const cacheKey = `${SEARCH_ROOMS_CACHE_PREFIX}:${params.toString()}`;
     const cached = readTabCache(cacheKey)?.value;
@@ -515,6 +564,7 @@ function SearchPage() {
       const locationQuery = String(event.detail?.locationQuery || '').trim();
       if (!locationQuery) return;
 
+      saveSearchedLocation(locationQuery);
       setSearchCriteria((prev) => ({
         ...prev,
         location: null,
@@ -543,6 +593,7 @@ function SearchPage() {
   };
 
   const clearFilters = () => {
+    clearCachedLocation();
     setFilters(createEmptyFilters());
     setSearchCriteria(createEmptySearchCriteria());
     setPage(1);
@@ -554,6 +605,7 @@ function SearchPage() {
   };
 
   const handleLocationClear = () => {
+    clearCachedLocation();
     setSearchCriteria(createEmptySearchCriteria());
     setFilters((prev) => ({
       ...prev,
@@ -594,12 +646,27 @@ function SearchPage() {
     };
 
     if (locationProps) {
-      nextFilters.city = locationProps.city || locationProps.address_line1 || typedLocation || '';
-      if (locationProps.lat || locationProps.lat === 0) nextFilters.latitude = String(locationProps.lat);
-      if (locationProps.lon || locationProps.lon === 0) nextFilters.longitude = String(locationProps.lon);
+      const locationParams = getLocationSearchParams(
+        { place: nextCriteria.location, query: typedLocation },
+        { radius: nextCriteria.radius || 8 }
+      );
+      nextFilters.city = locationParams.get('city') || '';
+      nextFilters.latitude = locationParams.get('latitude') || '';
+      nextFilters.longitude = locationParams.get('longitude') || '';
+      nextFilters.radius = nextFilters.latitude && nextFilters.longitude
+        ? (locationParams.get('radius') || nextFilters.radius)
+        : '';
     } else {
       nextFilters.city = typedLocation;
+      nextFilters.radius = '';
     }
+
+    const searchedLocation = getLocationSignalFromParams(new URLSearchParams({
+      city: nextFilters.city,
+      ...(nextFilters.latitude ? { latitude: nextFilters.latitude } : {}),
+      ...(nextFilters.longitude ? { longitude: nextFilters.longitude } : {}),
+    }));
+    if (searchedLocation) saveSearchedLocation(searchedLocation);
 
     if (nextCriteria.moveInDate) {
       const moveInDate = nextCriteria.moveInDate instanceof Date
@@ -630,6 +697,7 @@ function SearchPage() {
       const { data } = await api.post('/search/smart', { query });
       const smartFilters = data.filters || {};
       const nextOccupants = Math.max(1, Number(smartFilters.maxOccupants || 1) || 1);
+      if (smartFilters.city) saveSearchedLocation(smartFilters.city);
       setFilters((prev) => ({
         ...prev,
         city: smartFilters.city || '',
@@ -674,6 +742,8 @@ function SearchPage() {
     }
   };
 
+  const locationHeadingLabel = filters.city || (filters.latitude && filters.longitude ? 'your location' : '');
+
   return (
     <div className="min-h-screen bg-light-bg text-light-text dark:bg-dark-bg dark:text-dark-text">
       <Header />
@@ -716,10 +786,10 @@ function SearchPage() {
             <p className="text-[10px] font-black uppercase tracking-[0.1em] text-brand sm:text-xs">Search & browse</p>
             <h1 className="mt-1 text-lg font-black tracking-tight sm:text-2xl">
               {searchMeta?.fallback?.type === 'location_expanded' || searchMeta?.fallback?.type === 'location_primary'
-                ? `Showing ${total} rooms${filters.city ? ` near ${filters.city}` : ''}`
+                ? `Showing ${total} rooms${locationHeadingLabel ? ` near ${locationHeadingLabel}` : ''}`
                 : searchMeta?.fallback
                   ? 'Showing closest rooms'
-                  : `Showing ${total} rooms${filters.city ? ` in ${filters.city}` : ''}`}
+                  : `Showing ${total} rooms${locationHeadingLabel ? ` near ${locationHeadingLabel}` : ''}`}
             </h1>
           </div>
           <div className="grid grid-cols-2 gap-2 md:flex md:flex-wrap md:justify-end">
@@ -771,7 +841,7 @@ function SearchPage() {
 
         {searchMeta?.fallback && (
           <div className="mb-5 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold leading-6 text-amber-900 dark:border-amber-500/25 dark:bg-amber-500/10 dark:text-amber-100">
-            {searchMeta.fallback.message || 'No exact match found. Showing closest available rooms.'}
+            {searchMeta.fallback.message || 'No exact match found. Showing closest matching rooms.'}
           </div>
         )}
 

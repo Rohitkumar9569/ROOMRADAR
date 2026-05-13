@@ -9,7 +9,7 @@ const isMobileViewport = () => (
   && window.matchMedia?.('(max-width: 639px)').matches
 );
 
-const readCachedLocation = () => {
+export const readCachedLocation = () => {
   if (typeof window === 'undefined') return null;
   try {
     const cached = JSON.parse(window.localStorage.getItem(LOCATION_CACHE_KEY) || 'null');
@@ -20,9 +20,100 @@ const readCachedLocation = () => {
   }
 };
 
-const saveCachedLocation = (location) => {
+export const saveCachedLocation = (location) => {
   if (typeof window === 'undefined' || !location?.query || !location?.place) return;
   window.localStorage.setItem(LOCATION_CACHE_KEY, JSON.stringify({ ...location, savedAt: Date.now() }));
+};
+
+export const clearCachedLocation = () => {
+  if (typeof window === 'undefined') return;
+  window.localStorage.removeItem(LOCATION_CACHE_KEY);
+};
+
+const isUsefulLocationText = (value = '') => {
+  const normalized = String(value || '').trim().toLowerCase();
+  return Boolean(normalized && !['current location', 'my location', 'near me'].includes(normalized));
+};
+
+export const createManualLocationSignal = (query, extraProperties = {}, source = 'search') => {
+  const cleanQuery = String(query || '').trim();
+  const hasCoordinates = extraProperties.lat !== undefined || extraProperties.latitude !== undefined;
+  if (!cleanQuery || (!isUsefulLocationText(cleanQuery) && !hasCoordinates)) return null;
+  const city = extraProperties.city || cleanQuery.split(',')[0]?.trim() || cleanQuery;
+
+  return {
+    source,
+    query: cleanQuery,
+    place: {
+      properties: {
+        place_id: extraProperties.place_id || `${source}-${cleanQuery.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
+        address_line1: extraProperties.address_line1 || city,
+        address_line2: extraProperties.address_line2 || extraProperties.state || 'India',
+        city,
+        formatted: extraProperties.formatted || `${city}, India`,
+        ...extraProperties,
+      },
+    },
+  };
+};
+
+export const saveSearchedLocation = (locationOrQuery, extraProperties = {}) => {
+  const location = typeof locationOrQuery === 'string'
+    ? createManualLocationSignal(locationOrQuery, extraProperties)
+    : locationOrQuery;
+
+  if (!location?.query || !location?.place) return null;
+  saveCachedLocation(location);
+  return location;
+};
+
+export const getLocationSignalFromParams = (paramsLike) => {
+  const params = paramsLike instanceof URLSearchParams ? paramsLike : new URLSearchParams(paramsLike || '');
+  const city = params.get('city') || params.get('search') || params.get('location') || '';
+  const latitude = params.get('latitude') || '';
+  const longitude = params.get('longitude') || '';
+
+  if (isUsefulLocationText(city)) {
+    return createManualLocationSignal(city, {
+      city: city.split(',')[0]?.trim() || city,
+      formatted: `${city}, India`,
+      ...(latitude ? { lat: latitude } : {}),
+      ...(longitude ? { lon: longitude } : {}),
+    });
+  }
+
+  if (latitude && longitude) {
+    return createManualLocationSignal('Current location', {
+      city: 'Current location',
+      address_line1: 'Current location',
+      formatted: 'Current location',
+      lat: latitude,
+      lon: longitude,
+    });
+  }
+
+  return null;
+};
+
+export const getLocationLabel = (location) => {
+  const props = location?.place?.properties || location?.properties || {};
+  return [props.city, props.address_line1, location?.query]
+    .find(isUsefulLocationText) || 'your location';
+};
+
+export const getLocationSearchParams = (location, { radius = 8, includeCity = true } = {}) => {
+  const props = location?.place?.properties || location?.properties || {};
+  const params = new URLSearchParams();
+  const city = [props.city, props.address_line1, location?.query].find(isUsefulLocationText);
+  const lat = props.lat ?? props.latitude;
+  const lon = props.lon ?? props.lng ?? props.longitude;
+
+  if (includeCity && city) params.set('city', city);
+  if (lat !== undefined && lat !== null && lat !== '') params.set('latitude', String(lat));
+  if (lon !== undefined && lon !== null && lon !== '') params.set('longitude', String(lon));
+  if (params.has('latitude') && params.has('longitude')) params.set('radius', String(radius));
+
+  return params;
 };
 
 const getPosition = () => new Promise((resolve, reject) => {
@@ -89,12 +180,13 @@ export const getMobileAutoLocation = async ({ force = false } = {}) => {
     const location = {
       place,
       query: place.properties.city || place.properties.address_line1 || 'Current location',
+      source: 'auto',
     };
     saveCachedLocation(location);
     return location;
   } catch {
     const place = buildPlace(null, coords);
-    const location = { place, query: 'Current location' };
+    const location = { place, query: 'Current location', source: 'auto' };
     saveCachedLocation(location);
     return location;
   }

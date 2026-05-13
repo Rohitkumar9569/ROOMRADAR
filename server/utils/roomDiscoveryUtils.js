@@ -12,7 +12,7 @@ const LOCATION_FIELDS = [
   'title',
 ];
 
-const ROOM_DISCOVERY_SELECT = 'title rent location roomType gender familyStatus tenantPreferences beds maxOccupants bathrooms washroomType attachedWashroom furnishingStatus facilities securityDeposit maintenanceCharge electricityBilling availableFrom paymentPreference offlinePaymentAllowed rentNegotiable minimumStay imageUrl images averageRating numReviews views createdAt _id landlord';
+const ROOM_DISCOVERY_SELECT = 'title rent location roomType listingCategory pricingMode stayType pricePerNight maxGuests bedrooms instantBook gender familyStatus tenantPreferences beds maxOccupants bathrooms washroomType attachedWashroom furnishingStatus facilities securityDeposit maintenanceCharge electricityBilling availableFrom paymentPreference offlinePaymentAllowed rentNegotiable minimumStay imageUrl images averageRating numReviews views status createdAt _id landlord';
 
 const LOCATION_STOP_WORDS = new Set([
   'room', 'rooms', 'pg', 'flat', 'flats', 'bhk', 'rk', 'hostel', 'studio',
@@ -77,7 +77,10 @@ const LOCATION_ALIAS_GROUPS = [
 
 const escapeRegex = (value = '') => String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-const activePublishedQuery = () => ({ status: { $in: ['Published', 'published'] }, isDeleted: { $ne: true } });
+const activePublishedQuery = () => ({
+  status: { $in: ['Published', 'Available', 'Booked', 'Confirmed', 'published', 'available', 'booked', 'confirmed'] },
+  isDeleted: { $ne: true },
+});
 
 const toSearchText = (value = '') => String(value || '')
   .toLowerCase()
@@ -246,6 +249,38 @@ const normalizeFamilyStatus = (value = '') => {
   return value;
 };
 
+const normalizeListingCategory = (value = '') => {
+  const normalized = String(value || '').trim();
+  const lower = normalized.toLowerCase();
+  if (!lower || lower === 'all' || lower === 'any') return '';
+  if (lower.includes('pg') || lower.includes('paying guest')) return 'PG';
+  if (lower.includes('hostel')) return 'Hostel';
+  if (lower.includes('co') && lower.includes('living')) return 'Co-living';
+  if (lower.includes('studio')) return 'Studio';
+  if (lower.includes('apartment')) return 'Apartment';
+  if (lower.includes('flat') || lower.includes('bhk') || lower.includes('rk')) return 'Flat';
+  if (lower.includes('room')) return 'Room';
+  return ['PG', 'Hostel', 'Flat', 'Apartment', 'Studio', 'Co-living', 'Room', 'Other'].includes(normalized)
+    ? normalized
+    : '';
+};
+
+const normalizePricingMode = (value = '') => {
+  const normalized = String(value || '').trim().toLowerCase();
+  if (!normalized || normalized === 'all' || normalized === 'any') return '';
+  if (['daily', 'day'].includes(normalized)) return 'daily';
+  if (['nightly', 'night'].includes(normalized)) return 'nightly';
+  return 'monthly';
+};
+
+const normalizeStayType = (value = '') => {
+  const normalized = String(value || '').trim().toLowerCase().replace(/[\s-]+/g, '_');
+  if (!normalized || normalized === 'all' || normalized === 'any') return '';
+  if (['short_term', 'short'].includes(normalized)) return 'short_term';
+  if (['flexible', 'flex'].includes(normalized)) return 'flexible';
+  return 'long_term';
+};
+
 const normalizeRoomType = (value = '') => toSearchText(value).replace(/\s+/g, '');
 
 const roomTypeMatches = (roomType, wanted) => {
@@ -259,6 +294,32 @@ const roomTypeMatches = (roomType, wanted) => {
   if (target.includes('single')) return room.includes('single') || room.includes('independent') || room.includes('private');
   if (target.includes('shared')) return room.includes('shared') || room.includes('sharing');
   return false;
+};
+
+const listingCategoryMatches = (room = {}, wanted) => {
+  const target = normalizeListingCategory(wanted);
+  if (!target) return true;
+  const explicit = normalizeListingCategory(room.listingCategory);
+  if (explicit === target) return true;
+  const combined = `${room.roomType || ''} ${room.title || ''}`;
+  const derived = normalizeListingCategory(combined);
+  if (derived === target) return true;
+  if (target === 'Apartment') return derived === 'Flat';
+  return false;
+};
+
+const pricingModeMatches = (room = {}, wanted) => {
+  const target = normalizePricingMode(wanted);
+  if (!target) return true;
+  const roomMode = normalizePricingMode(room.pricingMode || 'monthly');
+  return roomMode === target;
+};
+
+const stayTypeMatches = (room = {}, wanted) => {
+  const target = normalizeStayType(wanted);
+  if (!target) return true;
+  const roomStayType = normalizeStayType(room.stayType || 'long_term');
+  return roomStayType === target;
 };
 
 const normalizeAmenityKey = (value = '') => {
@@ -302,7 +363,7 @@ const normalizeAmenities = (value) => {
 const normalizeDiscoveryFilters = (input = {}) => {
   const maxRent = toNumber(input.maxRent ?? input.max_price ?? input.budget);
   const minRent = toNumber(input.minRent ?? input.min_price);
-  const occupants = toNumber(input.maxOccupants ?? input.occupants ?? input.people);
+  const occupants = toNumber(input.maxGuests ?? input.maxOccupants ?? input.occupants ?? input.people);
   const latitude = toNumber(input.latitude ?? input.lat);
   const longitude = toNumber(input.longitude ?? input.lon ?? input.lng);
   const radius = toNumber(input.radius);
@@ -312,6 +373,9 @@ const normalizeDiscoveryFilters = (input = {}) => {
   return {
     city: String(input.city || input.keyword || input.search || input.location || '').trim(),
     roomType: type ? String(type).trim() : '',
+    listingCategory: normalizeListingCategory(input.listingCategory || input.category || ''),
+    pricingMode: normalizePricingMode(input.pricingMode || input.priceMode || ''),
+    stayType: normalizeStayType(input.stayType || input.stay || ''),
     maxRent,
     minRent,
     occupants,
@@ -388,7 +452,7 @@ const familyMatches = (room, wanted) => {
   return values.some((value) => value === normalizedWanted || value === 'Any');
 };
 
-const getCapacity = (room) => Math.max(Number(room.maxOccupants || 0), Number(room.beds || 0));
+const getCapacity = (room) => Math.max(Number(room.maxGuests || 0), Number(room.maxOccupants || 0), Number(room.beds || 0));
 
 const getSingleLocationScore = (room, city) => {
   const locationText = getRoomLocationText(room);
@@ -492,6 +556,18 @@ const scoreRoomAgainstFilters = (room, rawFilters = {}) => {
 
   if (filters.roomType) {
     addDimension('roomType', 'room type', roomTypeMatches(room.roomType, filters.roomType), 70, 0);
+  }
+
+  if (filters.listingCategory) {
+    addDimension('listingCategory', 'listing category', listingCategoryMatches(room, filters.listingCategory), 55, 0);
+  }
+
+  if (filters.pricingMode) {
+    addDimension('pricingMode', 'pricing mode', pricingModeMatches(room, filters.pricingMode), 35, 0);
+  }
+
+  if (filters.stayType) {
+    addDimension('stayType', 'stay type', stayTypeMatches(room, filters.stayType), 35, 0);
   }
 
   if (filters.gender && filters.gender !== 'Any') {
@@ -626,6 +702,9 @@ const getRequestedFilterLabels = (rawFilters = {}) => {
   return [
     filters.city || (filters.latitude !== undefined && filters.longitude !== undefined) ? 'location' : '',
     filters.roomType ? 'room type' : '',
+    filters.listingCategory ? 'listing category' : '',
+    filters.pricingMode ? 'pricing mode' : '',
+    filters.stayType ? 'stay type' : '',
     filters.gender && filters.gender !== 'Any' ? `${filters.gender.toLowerCase()} preference` : '',
     filters.familyStatus && filters.familyStatus !== 'Any' ? 'stay type' : '',
     filters.occupants ? 'capacity' : '',

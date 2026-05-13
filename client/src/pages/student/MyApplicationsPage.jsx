@@ -4,6 +4,7 @@ import { format } from 'date-fns';
 import toast from 'react-hot-toast';
 import {
     CheckCircle2,
+    CalendarClock,
     Edit3,
     FileText,
     Home,
@@ -11,11 +12,13 @@ import {
     MessageCircle,
     Search,
     ShieldCheck,
+    Star,
     Timer,
     XCircle,
 } from 'lucide-react';
-import { cancelApplication, getStudentApplications } from '../../api';
+import { cancelApplication, getStudentApplications, requestStayChange } from '../../api';
 import BookingRequestModal from '../../components/features/booking/BookingRequestModal';
+import ReviewModal from '../../components/features/rooms/ReviewModal';
 import fallbackRoomImage from '../../assets/background_img.jpg';
 import { confirmToast } from '../../utils/confirmToast';
 import { readTabCache, setTabCache } from '../../utils/tabDataCache';
@@ -75,6 +78,100 @@ const SkeletonLoader = () => (
     </div>
 );
 
+const StayChangeModal = ({ application, onClose, onSuccess }) => {
+    const currentCheckOut = application?.checkOutDate ? format(new Date(application.checkOutDate), 'yyyy-MM-dd') : '';
+    const [requestedCheckOutDate, setRequestedCheckOutDate] = useState(currentCheckOut);
+    const [message, setMessage] = useState('Please review this stay date change request.');
+    const [submitting, setSubmitting] = useState(false);
+    const roomTitle = formatListingTitle(application?.room?.title, 'this room');
+    const currentDate = application?.checkOutDate ? format(new Date(application.checkOutDate), 'dd MMM yyyy') : 'Not set';
+    const selectedDate = requestedCheckOutDate ? new Date(`${requestedCheckOutDate}T00:00:00`) : null;
+    const currentDateObj = application?.checkOutDate ? new Date(application.checkOutDate) : null;
+    const changeType = selectedDate && currentDateObj && selectedDate > currentDateObj ? 'Extension request' : 'Move-out request';
+
+    const handleSubmit = async (event) => {
+        event.preventDefault();
+        if (!requestedCheckOutDate || requestedCheckOutDate === currentCheckOut) {
+            toast.error('Choose a new move-out date.');
+            return;
+        }
+
+        setSubmitting(true);
+        try {
+            const { data } = await requestStayChange(application._id, {
+                requestedCheckOutDate,
+                message,
+            });
+            toast.success(data?.message || 'Stay change request sent.');
+            onSuccess?.(data.application);
+        } catch (error) {
+            toast.error(error.response?.data?.message || 'Could not send request.');
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
+    if (!application) return null;
+
+    return (
+        <div className="fixed inset-0 z-[90] flex items-end justify-center bg-slate-950/45 px-3 py-3 backdrop-blur-sm sm:items-center sm:p-6">
+            <form onSubmit={handleSubmit} className="w-full max-w-lg overflow-hidden rounded-[1.75rem] bg-white shadow-[0_24px_80px_rgba(15,23,42,0.28)] dark:bg-slate-950">
+                <div className="bg-[linear-gradient(135deg,#0f766e_0%,#0f172a_58%,#0891b2_100%)] p-5 text-white">
+                    <div className="flex items-start justify-between gap-4">
+                        <div>
+                            <p className="text-[10px] font-black uppercase tracking-[0.16em] text-white/70">{changeType}</p>
+                            <h2 className="mt-1 text-xl font-black">Manage stay dates</h2>
+                            <p className="mt-1 text-xs font-semibold leading-5 text-white/78">{roomTitle}</p>
+                        </div>
+                        <button type="button" onClick={onClose} className="flex h-10 w-10 items-center justify-center rounded-full bg-white/14 text-white">×</button>
+                    </div>
+                </div>
+                <div className="space-y-4 p-5">
+                    {application.stayChangeRequest?.status === 'pending' && (
+                        <div className="rounded-2xl border border-amber-300 bg-amber-50 p-3 text-xs font-bold leading-5 text-amber-800 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-200">
+                            A stay change request is already pending with the landlord.
+                        </div>
+                    )}
+                    <div className="grid grid-cols-2 gap-3">
+                        <div className="rounded-2xl bg-slate-50 p-3 dark:bg-slate-900">
+                            <p className="text-[10px] font-black uppercase text-slate-500">Current move-out</p>
+                            <p className="mt-1 text-sm font-black">{currentDate}</p>
+                        </div>
+                        <label className="block rounded-2xl bg-cyan-50 p-3 dark:bg-cyan-500/10">
+                            <span className="text-[10px] font-black uppercase text-cyan-700 dark:text-cyan-200">New move-out</span>
+                            <input
+                                type="date"
+                                value={requestedCheckOutDate}
+                                onChange={(event) => setRequestedCheckOutDate(event.target.value)}
+                                className="mt-1 w-full rounded-xl border border-cyan-200 bg-white px-2 py-2 text-sm font-black outline-none dark:border-cyan-400/20 dark:bg-slate-950"
+                            />
+                        </label>
+                    </div>
+                    <label className="block">
+                        <span className="text-xs font-black uppercase tracking-[0.1em] text-slate-500">Message to landlord</span>
+                        <textarea
+                            value={message}
+                            onChange={(event) => setMessage(event.target.value)}
+                            rows={4}
+                            maxLength={700}
+                            className="mt-2 w-full resize-none rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold leading-6 outline-none focus:border-cyan-400 focus:ring-4 focus:ring-cyan-500/10 dark:border-slate-700 dark:bg-slate-900"
+                        />
+                    </label>
+                    <p className="rounded-2xl bg-slate-50 p-3 text-xs font-semibold leading-5 text-slate-500 dark:bg-slate-900 dark:text-slate-400">
+                        Landlord approval is required. If approved, your agreement and room availability calendar update automatically. Rent/refund difference should be confirmed in chat or support.
+                    </p>
+                    <div className="grid grid-cols-2 gap-2">
+                        <button type="button" onClick={onClose} className="min-h-12 rounded-2xl border border-slate-200 text-sm font-black dark:border-slate-700">Cancel</button>
+                        <button type="submit" disabled={submitting || application.stayChangeRequest?.status === 'pending'} className="min-h-12 rounded-2xl bg-brand text-sm font-black text-white disabled:opacity-60">
+                            {submitting ? 'Sending...' : 'Send request'}
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    );
+};
+
 const EmptyState = ({ hasSearch, activeFilter }) => (
     <div className="rr-smooth-card rounded-3xl border border-dashed border-slate-300 bg-white p-10 text-center shadow-sm dark:border-secondary-700 dark:bg-secondary-800">
         <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-cyan-50 text-cyan-600 dark:bg-cyan-500/15 dark:text-cyan-300">
@@ -94,7 +191,7 @@ const EmptyState = ({ hasSearch, activeFilter }) => (
     </div>
 );
 
-const StudentApplicationCard = ({ application, onCancel, onEdit }) => {
+const StudentApplicationCard = ({ application, onCancel, onEdit, onReview, onStayChange }) => {
     const navigate = useNavigate();
     const status = (application.status || 'pending').toLowerCase();
     const meta = statusMeta[status] || statusMeta.pending;
@@ -102,6 +199,7 @@ const StudentApplicationCard = ({ application, onCancel, onEdit }) => {
     const room = application.room || {};
     const canCancel = ['pending', 'approved'].includes(status);
     const canEdit = status === 'pending';
+    const canReview = status === 'confirmed' && !application.hasReview && !application.review;
     const conversationPath = application.conversation ? `/profile/inbox/${application.conversation}` : '/profile/inbox';
     const city = room.location?.city || 'Location';
     const displayTitle = formatListingTitle(room.title, 'Room listing');
@@ -164,10 +262,15 @@ const StudentApplicationCard = ({ application, onCancel, onEdit }) => {
                         <button type="button" onClick={() => navigate(`/profile/payment/${application._id}`)} className="min-h-8 min-w-0 rounded-xl bg-cyan-500 px-1.5 text-[10px] font-black text-white transition hover:bg-cyan-600 sm:px-2 sm:text-[11px]">
                             Confirm
                         </button>
-                    ) : status === 'confirmed' ? (
-                        <button type="button" onClick={() => navigate(`/profile/agreement/${application._id}`)} className="min-h-8 min-w-0 rounded-xl bg-emerald-600 px-1 text-[10px] font-black text-white transition hover:bg-emerald-700 sm:px-2 sm:text-[11px]">
-                            Agreement
+                    ) : canReview ? (
+                        <button type="button" onClick={() => onReview(application)} className="inline-flex min-h-8 min-w-0 items-center justify-center gap-1 rounded-xl bg-amber-500 px-1 text-[10px] font-black text-white transition hover:bg-amber-600 sm:px-2 sm:text-[11px]">
+                            <Star className="h-3.5 w-3.5 fill-current" />
+                            Review
                         </button>
+                    ) : status === 'confirmed' ? (
+                        <span className="inline-flex min-h-8 min-w-0 items-center justify-center rounded-xl bg-emerald-500/10 px-1.5 text-center text-[10px] font-black text-emerald-700 dark:text-emerald-300 sm:px-2 sm:text-[11px]">
+                            Room booked
+                        </span>
                     ) : canEdit ? (
                         <button type="button" onClick={() => onEdit(application)} className="inline-flex min-h-8 min-w-0 items-center justify-center gap-1 rounded-xl bg-cyan-500/10 px-1.5 text-[10px] font-black text-cyan-700 transition hover:bg-cyan-500 hover:text-white dark:text-cyan-300 sm:px-2 sm:text-[11px]">
                             <Edit3 className="h-3.5 w-3.5" />
@@ -179,6 +282,32 @@ const StudentApplicationCard = ({ application, onCancel, onEdit }) => {
                         </span>
                     )}
                 </div>
+
+                {status === 'confirmed' && application.review && (
+                    <div className="mt-1.5 inline-flex min-h-7 w-full items-center justify-center gap-1 rounded-xl bg-amber-500/10 px-2 text-[10px] font-black text-amber-700 dark:text-amber-300">
+                        <Star className="h-3.5 w-3.5 fill-current" />
+                        Stay reviewed
+                    </div>
+                )}
+
+                {status === 'confirmed' && (
+                    <div className="mt-1.5 grid grid-cols-2 gap-1.5" onClick={stop}>
+                        <button type="button" onClick={() => navigate(`/profile/agreement/${application._id}`)} className="inline-flex min-h-8 items-center justify-center gap-1 rounded-xl bg-emerald-600 px-1 text-[10px] font-black text-white transition hover:bg-emerald-700 sm:px-2 sm:text-[11px]">
+                            <FileText className="h-3.5 w-3.5" />
+                            Agreement
+                        </button>
+                        <button type="button" onClick={() => onStayChange(application)} className="inline-flex min-h-8 items-center justify-center gap-1 rounded-xl bg-cyan-500/10 px-1 text-[10px] font-black text-cyan-700 transition hover:bg-cyan-500 hover:text-white dark:text-cyan-300 sm:px-2 sm:text-[11px]">
+                            <CalendarClock className="h-3.5 w-3.5" />
+                            Manage
+                        </button>
+                    </div>
+                )}
+
+                {status === 'confirmed' && application.stayChangeRequest?.status === 'pending' && (
+                    <p className="mt-1.5 rounded-xl bg-amber-500/10 px-2 py-1 text-center text-[10px] font-black text-amber-700 dark:text-amber-300">
+                        Date change pending
+                    </p>
+                )}
 
                 {canCancel && (
                     <button type="button" onClick={(event) => { stop(event); onCancel(application._id); }} className="mt-1.5 inline-flex min-h-8 w-full items-center justify-center gap-1 rounded-xl border border-rose-200 bg-rose-50 px-2 text-[11px] font-black text-rose-700 transition hover:bg-rose-100 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-200">
@@ -196,6 +325,8 @@ const MyApplicationsPage = () => {
     const [applications, setApplications] = useState(() => cachedApplications?.applications || []);
     const [loading, setLoading] = useState(() => !cachedApplications);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+    const [reviewApplication, setReviewApplication] = useState(null);
+    const [stayChangeApplication, setStayChangeApplication] = useState(null);
     const [selectedApplication, setSelectedApplication] = useState(null);
     const {
         applicationSearchTerm: searchTerm,
@@ -285,6 +416,40 @@ const MyApplicationsPage = () => {
         fetchApps({ forceLoading: true });
     };
 
+    const handleReviewSuccess = () => {
+        setApplications((prev) => {
+            const nextApplications = prev.map((app) => (
+                app._id === reviewApplication?._id
+                    ? { ...app, hasReview: true, review: { rating: true } }
+                    : app
+            ));
+            setTabCache(APPLICATIONS_CACHE_KEY, { applications: nextApplications });
+            return nextApplications;
+        });
+        setReviewApplication(null);
+        fetchApps({ forceLoading: true });
+    };
+
+    const handleStayChangeSuccess = (updatedApplication) => {
+        setApplications((prev) => {
+            const nextApplications = prev.map((app) => (
+                app._id === updatedApplication?._id
+                    ? {
+                        ...app,
+                        ...updatedApplication,
+                        hasReview: app.hasReview,
+                        review: app.review,
+                        guestReview: app.guestReview,
+                    }
+                    : app
+            ));
+            setTabCache(APPLICATIONS_CACHE_KEY, { applications: nextApplications });
+            return nextApplications;
+        });
+        setStayChangeApplication(null);
+        fetchApps({ forceLoading: true });
+    };
+
     return (
         <div className="min-h-screen bg-slate-50 p-4 dark:bg-secondary-900 md:p-8">
             <div className="mx-auto max-w-7xl">
@@ -325,6 +490,8 @@ const MyApplicationsPage = () => {
                                 application={application}
                                 onCancel={handleCancel}
                                 onEdit={handleEditApplication}
+                                onReview={setReviewApplication}
+                                onStayChange={setStayChangeApplication}
                             />
                         ))}
                     </div>
@@ -340,6 +507,18 @@ const MyApplicationsPage = () => {
                     onSuccess={handleEditSuccess}
                 />
             )}
+
+            <ReviewModal
+                isOpen={Boolean(reviewApplication)}
+                booking={reviewApplication}
+                onClose={() => setReviewApplication(null)}
+                onSuccess={handleReviewSuccess}
+            />
+            <StayChangeModal
+                application={stayChangeApplication}
+                onClose={() => setStayChangeApplication(null)}
+                onSuccess={handleStayChangeSuccess}
+            />
         </div>
     );
 };

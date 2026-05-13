@@ -2,9 +2,10 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { format } from 'date-fns';
 import toast from 'react-hot-toast';
-import { CalendarDays, CheckCircle2, MessageCircle, Search, Timer, XCircle } from 'lucide-react';
+import { CalendarClock, CalendarDays, CheckCircle2, MessageCircle, Search, Star, Timer, XCircle } from 'lucide-react';
 import api from '../../api';
 import Spinner from '../../components/common/Spinner';
+import GuestReviewModal from '../../components/features/reviews/GuestReviewModal';
 
 const statusMeta = {
   pending: { label: 'Pending', Icon: Timer, badge: 'bg-amber-500/10 text-amber-600 dark:text-amber-300' },
@@ -22,6 +23,7 @@ function LandlordApplicationsPage() {
   const [applications, setApplications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
+  const [reviewApplication, setReviewApplication] = useState(null);
   const activeStatus = searchParams.get('status') || 'all';
 
   const fetchApplications = async () => {
@@ -71,11 +73,49 @@ function LandlordApplicationsPage() {
     try {
       const { data } = await api.patch(`/applications/${applicationId}/${action}`);
       const updatedApplication = data.application || data;
-      setApplications((prev) => prev.map((application) => (application._id === applicationId ? updatedApplication : application)));
+      setApplications((prev) => prev.map((application) => (
+        application._id === applicationId
+          ? {
+              ...application,
+              ...updatedApplication,
+              hasGuestReview: application.hasGuestReview,
+              guestReview: application.guestReview,
+            }
+          : application
+      )));
       toast.success(`Request ${action === 'approve' ? 'approved' : 'rejected'}.`, { id: toastId });
     } catch (error) {
       toast.error(error.response?.data?.message || 'Could not update request.', { id: toastId });
     }
+  };
+
+  const handleStayChangeResponse = async (applicationId, action) => {
+    const toastId = toast.loading(action === 'approve' ? 'Approving date change...' : 'Rejecting date change...');
+    try {
+      const { data } = await api.patch(`/applications/${applicationId}/stay-change/respond`, { action });
+      const updatedApplication = data.application || data;
+      setApplications((prev) => prev.map((application) => (application._id === applicationId ? updatedApplication : application)));
+      toast.success(data.message || 'Stay change updated.', { id: toastId });
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Could not update stay change.', { id: toastId });
+    }
+  };
+
+  const handleGuestReviewSuccess = (review, stats) => {
+    setApplications((prev) => prev.map((application) => {
+      if (application._id !== reviewApplication?._id) return application;
+      return {
+        ...application,
+        hasGuestReview: true,
+        guestReview: review,
+        student: {
+          ...(application.student || {}),
+          guestAverageRating: stats?.guestAverageRating ?? application.student?.guestAverageRating,
+          guestReviewsCount: stats?.guestReviewsCount ?? application.student?.guestReviewsCount,
+        },
+      };
+    }));
+    setReviewApplication(null);
   };
 
   if (loading) {
@@ -163,12 +203,23 @@ function LandlordApplicationsPage() {
                           {application.room?.title || 'Room'}
                         </Link>
                         <p className="mt-1 truncate text-sm font-semibold text-light-muted dark:text-dark-muted">{application.student?.name || 'Applicant'}</p>
+                        {Number(application.student?.guestAverageRating || 0) > 0 && (
+                          <p className="mt-1 inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2 py-0.5 text-[11px] font-black text-amber-700 dark:text-amber-300">
+                            <Star className="h-3 w-3 fill-current" />
+                            {Number(application.student.guestAverageRating).toFixed(1)}
+                            <span className="font-bold opacity-70">({application.student.guestReviewsCount || 0})</span>
+                          </p>
+                        )}
                       </div>
                     </div>
-                    <div className="grid flex-1 grid-cols-2 gap-3 text-sm md:grid-cols-4">
+                    <div className="grid flex-1 grid-cols-2 gap-3 text-sm md:grid-cols-5">
                       <div>
                         <p className="text-xs font-bold uppercase tracking-wider text-light-muted dark:text-dark-muted">Move-in</p>
                         <p className="mt-1 font-bold">{application.checkInDate ? format(new Date(application.checkInDate), 'dd MMM yyyy') : 'Not set'}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold uppercase tracking-wider text-light-muted dark:text-dark-muted">Move-out</p>
+                        <p className="mt-1 font-bold">{application.checkOutDate ? format(new Date(application.checkOutDate), 'dd MMM yyyy') : 'Not set'}</p>
                       </div>
                       <div>
                         <p className="text-xs font-bold uppercase tracking-wider text-light-muted dark:text-dark-muted">Occupants</p>
@@ -181,17 +232,53 @@ function LandlordApplicationsPage() {
                           {meta.label}
                         </span>
                       </div>
-                      <div className="flex items-end justify-start gap-2 md:justify-end">
+                      <div className="flex flex-wrap items-end justify-start gap-2 md:justify-end">
                         {application.status === 'pending' ? (
                           <>
                             <button type="button" onClick={(event) => { event.stopPropagation(); updateApplicationStatus(application._id, 'approve'); }} className="rr-approve-action rounded-xl bg-emerald-600 px-3 py-2 text-xs font-black text-white transition hover:bg-emerald-700">Approve</button>
                             <button type="button" onClick={(event) => { event.stopPropagation(); updateApplicationStatus(application._id, 'reject'); }} className="rounded-xl bg-brand px-3 py-2 text-xs font-black text-white transition hover:bg-red-600">Reject</button>
                           </>
                         ) : (
-                          <Link onClick={(event) => event.stopPropagation()} to={application.conversation ? `/landlord/inbox/${application.conversation}` : '/landlord/inbox'} className="btn-outline inline-flex items-center gap-2 px-3 py-2 text-xs">
-                            <MessageCircle className="h-4 w-4" />
-                            Chat
-                          </Link>
+                          <>
+                            {application.status === 'confirmed' && application.stayChangeRequest?.status === 'pending' && (
+                              <div className="w-full rounded-2xl border border-amber-300 bg-amber-50 p-3 text-amber-800 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-200 md:min-w-[15rem]">
+                                <p className="flex items-center gap-1 text-[11px] font-black uppercase tracking-wide">
+                                  <CalendarClock className="h-4 w-4" />
+                                  {application.stayChangeRequest.type === 'extend' ? 'Extension request' : 'Move-out request'}
+                                </p>
+                                <p className="mt-1 text-xs font-bold">
+                                  New date: {application.stayChangeRequest.requestedCheckOutDate ? format(new Date(application.stayChangeRequest.requestedCheckOutDate), 'dd MMM yyyy') : 'Not set'}
+                                </p>
+                                {application.stayChangeRequest.message && (
+                                  <p className="mt-1 line-clamp-2 text-xs font-semibold opacity-80">{application.stayChangeRequest.message}</p>
+                                )}
+                                <div className="mt-2 grid grid-cols-2 gap-1.5">
+                                  <button type="button" onClick={(event) => { event.stopPropagation(); handleStayChangeResponse(application._id, 'approve'); }} className="rounded-xl bg-emerald-600 px-2 py-2 text-[11px] font-black text-white">
+                                    Approve
+                                  </button>
+                                  <button type="button" onClick={(event) => { event.stopPropagation(); handleStayChangeResponse(application._id, 'reject'); }} className="rounded-xl bg-white px-2 py-2 text-[11px] font-black text-rose-600 ring-1 ring-rose-200 dark:bg-slate-950 dark:ring-rose-400/20">
+                                    Reject
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+                            {application.status === 'confirmed' && !application.hasGuestReview && !application.guestReview && (
+                              <button type="button" onClick={(event) => { event.stopPropagation(); setReviewApplication(application); }} className="inline-flex items-center gap-1 rounded-xl bg-amber-500 px-3 py-2 text-xs font-black text-white transition hover:bg-amber-600">
+                                <Star className="h-4 w-4 fill-current" />
+                                Review guest
+                              </button>
+                            )}
+                            {application.status === 'confirmed' && (application.hasGuestReview || application.guestReview) && (
+                              <span className="inline-flex items-center gap-1 rounded-xl bg-emerald-500/10 px-3 py-2 text-xs font-black text-emerald-700 dark:text-emerald-300">
+                                <Star className="h-4 w-4 fill-current" />
+                                Reviewed
+                              </span>
+                            )}
+                            <Link onClick={(event) => event.stopPropagation()} to={application.conversation ? `/landlord/inbox/${application.conversation}` : '/landlord/inbox'} className="btn-outline inline-flex items-center gap-2 px-3 py-2 text-xs">
+                              <MessageCircle className="h-4 w-4" />
+                              Chat
+                            </Link>
+                          </>
                         )}
                       </div>
                     </div>
@@ -202,6 +289,12 @@ function LandlordApplicationsPage() {
           </div>
         )}
       </div>
+      <GuestReviewModal
+        isOpen={Boolean(reviewApplication)}
+        application={reviewApplication}
+        onClose={() => setReviewApplication(null)}
+        onSuccess={handleGuestReviewSuccess}
+      />
     </div>
   );
 }

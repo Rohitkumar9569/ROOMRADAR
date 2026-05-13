@@ -646,7 +646,7 @@ const AdminRoomReviewPage = () => {
             </div>
 
             <section id="reviews" className="rounded-[1.35rem] border border-slate-200/80 bg-white/86 p-4 shadow-sm dark:border-white/10 dark:bg-slate-900/74">
-              <ReviewsSection reviews={reviews} averageRating={room.averageRating} numReviews={room.numReviews} />
+              <ReviewsSection reviews={reviews} averageRating={room.averageRating} numReviews={room.numReviews} ratingBreakdown={room.ratingBreakdown} />
             </section>
           </main>
 

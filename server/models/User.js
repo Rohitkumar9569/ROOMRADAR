@@ -186,6 +186,14 @@ const UserSchema = new mongoose.Schema({
     verifiedEmails: [String],
     verifiedPhone: String,
     trustScore: { type: Number, default: 0, min: 0, max: 100 },
+    guestAverageRating: {
+        type: Number,
+        default: 0,
+        min: 0,
+        max: 5,
+        set: (val) => Math.round(Number(val || 0) * 100) / 100
+    },
+    guestReviewsCount: { type: Number, default: 0 },
     verificationLevel: {
         type: String,
         enum: ['unverified', 'basic', 'verified', 'premium'],

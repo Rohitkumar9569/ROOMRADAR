@@ -9,11 +9,13 @@ import {
   CalendarDays,
   Check,
   CheckCircle2,
+  Clock,
   Home,
   ImagePlus,
   IndianRupee,
   Loader2,
   MapPin,
+  Ruler,
   ShieldCheck,
   Sparkles,
   Trash2,
@@ -37,6 +39,15 @@ const iconMap = {
   city: MapPin,
   state: MapPin,
   pincode: MapPin,
+  entryTiming: Clock,
+  visitorTiming: Clock,
+  quietHours: Clock,
+  distanceCollege: Ruler,
+  distanceHospital: Ruler,
+  distanceMetro: Ruler,
+  distanceBusStand: Ruler,
+  distanceRailway: Ruler,
+  distanceMarket: Ruler,
 };
 
 const buildInitialForm = () => {
@@ -48,6 +59,7 @@ const buildInitialForm = () => {
       else if (field.key === 'familyStatus') values[field.key] = 'Any';
       else if (field.key === 'gender') values[field.key] = 'Any';
       else values[field.key] = '';
+      if (field.valueUnit) values[`${field.key}Unit`] = field.unit || '';
     });
   });
   return {
@@ -69,6 +81,21 @@ const familyToApiValue = (value) => {
   return value || 'Any';
 };
 
+const formatRoomOptionLabel = (field, option) => {
+  if (field.key === 'gender') return formatPreferenceLabel(option);
+  if (field.key === 'pricingMode') {
+    if (option === 'monthly') return 'Monthly rent';
+    if (option === 'daily') return 'Daily rent';
+    if (option === 'nightly') return 'Nightly rent';
+  }
+  if (field.key === 'stayType') {
+    if (option === 'long_term') return 'Long-term stay';
+    if (option === 'short_term') return 'Short-term stay';
+    if (option === 'flexible') return 'Flexible stay';
+  }
+  return option;
+};
+
 const toNumericInputValue = (value) => {
   const rawValue = value && typeof value === 'object' ? value.value : value;
   if (rawValue === undefined || rawValue === null || rawValue === '') return '';
@@ -76,8 +103,26 @@ const toNumericInputValue = (value) => {
   return Number.isFinite(numericValue) ? numericValue : '';
 };
 
+const toTimeInputValue = (value) => {
+  if (!value) return '';
+  const rawValue = String(value).trim();
+  const time24 = rawValue.match(/^([01]?\d|2[0-3]):([0-5]\d)$/);
+  if (time24) return `${time24[1].padStart(2, '0')}:${time24[2]}`;
+
+  const time12 = rawValue.match(/^(\d{1,2})(?::([0-5]\d))?\s*(am|pm)$/i);
+  if (!time12) return '';
+  let hours = Number(time12[1]);
+  const minutes = time12[2] || '00';
+  const period = time12[3].toLowerCase();
+  if (hours < 1 || hours > 12) return '';
+  if (period === 'pm' && hours !== 12) hours += 12;
+  if (period === 'am' && hours === 12) hours = 0;
+  return `${String(hours).padStart(2, '0')}:${minutes}`;
+};
+
 const toFieldInputValue = (field, value) => {
   if (field.type === 'number') return toNumericInputValue(value);
+  if (field.type === 'time') return toTimeInputValue(value);
   if (field.type === 'date') {
     if (!value) return '';
     const date = new Date(value);
@@ -93,10 +138,33 @@ const toImageUrl = (image) => {
   return image.url || image.secure_url || image.imageUrl || '';
 };
 
+const createExistingPhotoItem = (url, index = 0) => ({
+  id: `existing-${index}-${url}`,
+  preview: url,
+  file: null,
+});
+
+const createFilePhotoItem = (file, index = 0) => ({
+  id: `new-${Date.now()}-${index}-${file.name}-${file.lastModified}`,
+  preview: URL.createObjectURL(file),
+  file,
+});
+
 const requiredFieldsForStep = (section) => section.fields.filter((field) => field.required);
 const valueUnitFields = getRoomFields().filter((field) => field.valueUnit);
 const numberFields = getRoomFields().filter((field) => field.type === 'number');
 const dateFields = getRoomFields().filter((field) => field.type === 'date');
+const getValueUnitKey = (field) => `${field.key}Unit`;
+const getValueUnitOptions = (field) => (Array.isArray(field.unitOptions) && field.unitOptions.length
+  ? field.unitOptions
+  : field.unit
+    ? [field.unit]
+    : []);
+const formatValueUnitOption = (unit) => {
+  if (unit === 'm') return 'm';
+  if (unit === 'km') return 'km';
+  return unit;
+};
 
 const stepIconMap = {
   basicDetails: Home,
@@ -127,8 +195,8 @@ function AddRoomPage() {
   const [formData, setFormData] = useState(() => buildInitialForm());
   const [step, setStep] = useState(0);
   const [errors, setErrors] = useState({});
-  const [imageFiles, setImageFiles] = useState([]);
-  const [imagePreviews, setImagePreviews] = useState([]);
+  const [photoItems, setPhotoItems] = useState([]);
+  const [draggedPhotoIndex, setDraggedPhotoIndex] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [loading, setLoading] = useState(isEditMode);
   const [isDirty, setIsDirty] = useState(false);
@@ -141,6 +209,7 @@ function AddRoomPage() {
   const stepProgress = Math.round(((step + 1) / steps.length) * 100);
   const CurrentStepIcon = stepIconMap[currentStep.id] || ShieldCheck;
   const currentStepCopy = stepCopyMap[currentStep.id] || 'Complete this listing section with accurate details.';
+  const imagePreviews = useMemo(() => photoItems.map((item) => item.preview).filter(Boolean), [photoItems]);
   const selectedMapLocation = useMemo(() => {
     const lat = Number(formData.latitude);
     const lng = Number(formData.longitude);
@@ -188,7 +257,11 @@ function AddRoomPage() {
               return;
             }
             if (field.valueUnit) {
-              next[field.key] = toNumericInputValue(room[field.key] ?? next[field.key]);
+              const sourceValue = room[field.key] ?? next[field.key];
+              next[field.key] = toNumericInputValue(sourceValue);
+              next[getValueUnitKey(field)] = sourceValue && typeof sourceValue === 'object'
+                ? sourceValue.unit || field.unit || ''
+                : field.unit || next[getValueUnitKey(field)] || '';
               return;
             }
             if (field.type === 'number') {
@@ -210,7 +283,7 @@ function AddRoomPage() {
         const existingImages = (room.images?.length ? room.images : room.imageUrl ? [room.imageUrl] : [])
           .map(toImageUrl)
           .filter(Boolean);
-        setImagePreviews(existingImages);
+        setPhotoItems(existingImages.map(createExistingPhotoItem));
       } catch (error) {
         toast.error('Could not load this room for editing.');
         navigate('/landlord/my-rooms');
@@ -327,43 +400,75 @@ function AddRoomPage() {
       return;
     }
     setIsDirty(true);
-    setImageFiles((prev) => [...prev, ...files]);
-    setImagePreviews((prev) => [...prev, ...files.map((file) => URL.createObjectURL(file))]);
+    setPhotoItems((prev) => [...prev, ...files.map(createFilePhotoItem)]);
+    event.target.value = '';
   };
 
   const removeImage = (index) => {
     setIsDirty(true);
-    const preview = imagePreviews[index];
-    setImagePreviews((prev) => prev.filter((_, itemIndex) => itemIndex !== index));
-    if (preview?.startsWith('blob:')) {
-      URL.revokeObjectURL(preview);
-      setImageFiles((prev) => prev.filter((_, itemIndex) => itemIndex !== index));
+    const item = photoItems[index];
+    if (item?.preview?.startsWith('blob:')) {
+      URL.revokeObjectURL(item.preview);
     }
+    setPhotoItems((prev) => prev.filter((_, itemIndex) => itemIndex !== index));
   };
 
-  const uploadImages = async () => {
-    if (!imageFiles.length) return [];
-    const uploaded = [];
-    for (const file of imageFiles) {
-      const payload = new FormData();
-      payload.append('image', file);
-      const { data } = await api.post('/upload', payload, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
-      uploaded.push(data.imageUrl);
-    }
-    return uploaded;
+  const movePhoto = (fromIndex, toIndex) => {
+    if (fromIndex === toIndex || fromIndex < 0 || toIndex < 0) return;
+    setIsDirty(true);
+    setPhotoItems((prev) => {
+      if (fromIndex >= prev.length || toIndex >= prev.length) return prev;
+      const next = [...prev];
+      const [item] = next.splice(fromIndex, 1);
+      next.splice(toIndex, 0, item);
+      return next;
+    });
+  };
+
+  const makeCoverPhoto = (index) => {
+    if (index === 0) return;
+    movePhoto(index, 0);
+  };
+
+  const handlePhotoDragStart = (event, index) => {
+    setDraggedPhotoIndex(index);
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('text/plain', String(index));
+  };
+
+  const handlePhotoDragOver = (event) => {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'move';
+  };
+
+  const handlePhotoDrop = (event, index) => {
+    event.preventDefault();
+    const rawIndex = event.dataTransfer.getData('text/plain');
+    const fromIndex = rawIndex === '' ? draggedPhotoIndex : Number(rawIndex);
+    if (Number.isFinite(fromIndex)) movePhoto(fromIndex, index);
+    setDraggedPhotoIndex(null);
+  };
+
+  const uploadPhotoItem = async (item) => {
+    if (!item?.file) return toImageUrl(item?.preview);
+    const payload = new FormData();
+    payload.append('image', item.file);
+    const { data } = await api.post('/upload', payload, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return data.imageUrl;
   };
 
   const buildPayload = async () => {
-    const uploaded = await uploadImages();
-    const existing = imagePreviews
-      .map(toImageUrl)
-      .filter((image) => image && !image.startsWith('blob:'));
-    const finalImages = [...existing, ...uploaded];
+    const finalImages = [];
+    for (const item of photoItems) {
+      const imageUrl = await uploadPhotoItem(item);
+      if (imageUrl && !imageUrl.startsWith('blob:')) finalImages.push(imageUrl);
+    }
     const normalizedData = { ...formData };
 
     numberFields.forEach((field) => {
+      if (field.valueUnit) return;
       if (normalizedData[field.key] !== '' && normalizedData[field.key] !== null && normalizedData[field.key] !== undefined) {
         normalizedData[field.key] = Number(normalizedData[field.key]);
       } else {
@@ -385,14 +490,16 @@ function AddRoomPage() {
     });
 
     valueUnitFields.forEach((field) => {
-      const value = normalizedData[field.key];
+      const unitKey = getValueUnitKey(field);
+      const value = toNumericInputValue(formData[field.key]);
+      delete normalizedData[unitKey];
       if (value === '' || value === null || value === undefined || Number.isNaN(Number(value))) {
         delete normalizedData[field.key];
         return;
       }
       normalizedData[field.key] = {
         value: Number(value),
-        unit: field.unit || '',
+        unit: formData[unitKey] || field.unit || '',
       };
     });
 
@@ -410,6 +517,11 @@ function AddRoomPage() {
           if (field.type === 'number') {
             const numericValue = toNumericInputValue(value);
             if (numericValue !== '') rules[field.key] = Number(numericValue);
+            return;
+          }
+          if (field.type === 'time') {
+            const timeValue = toTimeInputValue(value);
+            if (timeValue) rules[field.key] = timeValue;
             return;
           }
           rules[field.key] = value;
@@ -531,6 +643,51 @@ function AddRoomPage() {
       );
     }
 
+    if (field.valueUnit) {
+      const unitKey = getValueUnitKey(field);
+      const unitOptions = getValueUnitOptions(field);
+      const selectedUnit = formData[unitKey] || field.unit || unitOptions[0] || '';
+
+      return (
+        <div key={field.key}>
+          {commonLabel}
+          <div className="mt-2 flex h-12 overflow-hidden rounded-[1.15rem] border border-slate-200/80 bg-white shadow-sm focus-within:border-cyan-400 focus-within:ring-4 focus-within:ring-cyan-500/10 dark:border-slate-700/80 dark:bg-slate-950/50">
+            <div className="relative min-w-0 flex-1">
+              <Icon className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-cyan-600 dark:text-cyan-300 sm:h-5 sm:w-5" />
+              <input
+                id={field.key}
+                type="number"
+                min={0}
+                value={toFieldInputValue(field, formData[field.key])}
+                onChange={(event) => updateField(field.key, event.target.value)}
+                className="h-full w-full bg-transparent pl-11 pr-3 text-[15px] font-semibold text-slate-900 outline-none placeholder:text-slate-400 dark:text-white sm:pl-12"
+                inputMode="decimal"
+              />
+            </div>
+            {unitOptions.length > 1 ? (
+              <select
+                aria-label={`${field.label} unit`}
+                value={selectedUnit}
+                onChange={(event) => updateField(unitKey, event.target.value)}
+                className="h-full border-l border-slate-200 bg-slate-50 px-3 text-sm font-black text-slate-700 outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+              >
+                {unitOptions.map((unit) => (
+                  <option key={unit} value={unit}>
+                    {formatValueUnitOption(unit)}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <span className="flex h-full items-center border-l border-slate-200 bg-slate-50 px-3 text-sm font-black text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">
+                {formatValueUnitOption(selectedUnit)}
+              </span>
+            )}
+          </div>
+          {errors[field.key] && <p className="mt-1 text-sm font-semibold text-brand">{errors[field.key]}</p>}
+        </div>
+      );
+    }
+
     if (field.type === 'select') {
       return (
         <div key={field.key}>
@@ -544,7 +701,7 @@ function AddRoomPage() {
             <option value="">Select {field.label}</option>
             {field.options.map((option) => (
               <option key={option} value={option}>
-                {field.key === 'gender' ? formatPreferenceLabel(option) : option}
+                {formatRoomOptionLabel(field, option)}
               </option>
             ))}
           </select>
@@ -563,6 +720,7 @@ function AddRoomPage() {
             type={isPhoneField ? 'tel' : field.type}
             value={toFieldInputValue(field, formData[field.key])}
             min={field.type === 'number' ? 0 : undefined}
+            step={field.type === 'time' ? 300 : undefined}
             onChange={(event) => updateField(field.key, event.target.value)}
             className="input-field h-12 rounded-[1.15rem] pl-11 text-[15px] sm:pl-12"
             placeholder={isPhoneField ? '9876543210' : undefined}
@@ -738,12 +896,55 @@ function AddRoomPage() {
               <input id="room-photos" type="file" accept="image/png,image/jpeg,image/webp" multiple className="sr-only" onChange={handleFileChange} />
 
               <div className="mt-5 grid grid-cols-2 gap-3 md:grid-cols-4">
-                {imagePreviews.map((preview, index) => (
-                  <div key={preview} className="group relative aspect-[16/11] overflow-hidden rounded-[1.05rem] bg-slate-100 shadow-sm ring-1 ring-slate-200/80 dark:bg-slate-800 dark:ring-slate-700/80">
-                    <img src={preview} alt={`Room ${index + 1}`} className="h-full w-full object-cover" />
+                {photoItems.map((photo, index) => (
+                  <div
+                    key={photo.id}
+                    draggable
+                    onDragStart={(event) => handlePhotoDragStart(event, index)}
+                    onDragOver={handlePhotoDragOver}
+                    onDrop={(event) => handlePhotoDrop(event, index)}
+                    onDragEnd={() => setDraggedPhotoIndex(null)}
+                    className={`group relative aspect-[16/11] cursor-grab overflow-hidden rounded-[1.05rem] bg-slate-100 shadow-sm ring-1 ring-slate-200/80 transition active:cursor-grabbing dark:bg-slate-800 dark:ring-slate-700/80 ${
+                      draggedPhotoIndex === index ? 'scale-[0.98] opacity-55 ring-2 ring-cyan-400' : 'hover:-translate-y-0.5 hover:shadow-lg'
+                    }`}
+                    title="Drag to reorder. First photo is cover."
+                  >
+                    <img src={photo.preview} alt={`Room ${index + 1}`} className="h-full w-full object-cover" />
                     {index === 0 && (
                       <span className="absolute left-2 top-2 rounded-full bg-brand px-2.5 py-1 text-[10px] font-black text-white shadow-sm">Cover</span>
                     )}
+                    {index !== 0 && (
+                      <button
+                        type="button"
+                        onClick={() => makeCoverPhoto(index)}
+                        className="absolute left-2 top-2 rounded-full bg-white/92 px-2.5 py-1 text-[10px] font-black text-slate-900 shadow-sm backdrop-blur transition hover:bg-brand hover:text-white dark:bg-slate-950/80 dark:text-white"
+                      >
+                        Make cover
+                      </button>
+                    )}
+                    <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between gap-2 opacity-100 md:opacity-0 md:transition md:group-hover:opacity-100">
+                      <button
+                        type="button"
+                        onClick={() => movePhoto(index, index - 1)}
+                        disabled={index === 0}
+                        className="flex h-8 w-8 items-center justify-center rounded-full bg-white/92 text-slate-900 shadow-sm backdrop-blur disabled:cursor-not-allowed disabled:opacity-40 dark:bg-slate-950/80 dark:text-white"
+                        aria-label="Move image left"
+                      >
+                        <ArrowLeft className="h-4 w-4" />
+                      </button>
+                      <span className="rounded-full bg-slate-950/60 px-2.5 py-1 text-[10px] font-black text-white backdrop-blur">
+                        {index + 1}/{photoItems.length}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => movePhoto(index, index + 1)}
+                        disabled={index === photoItems.length - 1}
+                        className="flex h-8 w-8 items-center justify-center rounded-full bg-white/92 text-slate-900 shadow-sm backdrop-blur disabled:cursor-not-allowed disabled:opacity-40 dark:bg-slate-950/80 dark:text-white"
+                        aria-label="Move image right"
+                      >
+                        <ArrowRight className="h-4 w-4" />
+                      </button>
+                    </div>
                     <button
                       type="button"
                       onClick={() => removeImage(index)}

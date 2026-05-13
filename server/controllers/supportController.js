@@ -18,6 +18,44 @@ const writeAuditLog = async (req, action, targetType = 'SupportTicket', target =
   } catch (error) {}
 };
 
+const priorityRank = { low: 1, medium: 2, high: 3, urgent: 4 };
+
+const maxPriority = (...values) => values
+  .filter(Boolean)
+  .sort((a, b) => (priorityRank[b] || 0) - (priorityRank[a] || 0))[0] || 'medium';
+
+const autoTriageSupportTicket = ({ subject = '', issueDescription = '', category = 'other', issueType = 'general', priority = 'medium' }) => {
+  const text = `${subject} ${issueDescription}`.toLowerCase();
+  const triage = { category, issueType, priority };
+
+  const applySignal = (nextCategory, nextIssueType, nextPriority) => {
+    if (!triage.category || triage.category === 'other') triage.category = nextCategory;
+    if (!triage.issueType || triage.issueType === 'general') triage.issueType = nextIssueType;
+    triage.priority = maxPriority(triage.priority, nextPriority);
+  };
+
+  if (/\b(safety|unsafe|threat|fraud|scam|harass|abuse|police|danger|emergency)\b/.test(text)) {
+    applySignal('safety', 'dispute', 'urgent');
+  }
+  if (/\b(payment|paid|refund|money|deposit|escrow|upi|transaction|payout|freeze|frozen)\b/.test(text)) {
+    applySignal(text.includes('refund') ? 'refund' : 'payment', 'refund_request', 'high');
+  }
+  if (/\b(ban|banned|blocked|restricted|restriction|suspend|suspended|account paused|access paused)\b/.test(text)) {
+    applySignal('account', 'dispute', 'high');
+  }
+  if (/\b(damage|broken|repair|deduct|security deposit)\b/.test(text)) {
+    applySignal('damage', 'damage_claim', 'high');
+  }
+  if (/\b(room approval|approval|approve|listing|publish|published|reject|rejected|verification|kyc)\b/.test(text)) {
+    applySignal(text.includes('kyc') || text.includes('verification') ? 'verification' : 'listing', 'misrepresentation', 'medium');
+  }
+  if (/\b(booking|booked|check-in|check in|check-out|check out|cancel|extend|leave room)\b/.test(text)) {
+    applySignal('booking', 'dispute', 'medium');
+  }
+
+  return triage;
+};
+
 const isApplicationMember = (application, userId) => {
   const normalizedUserId = userId.toString();
   return (
@@ -71,6 +109,8 @@ exports.createSupportTicket = asyncHandler(async (req, res) => {
     throw new Error('Subject and issue description are required.');
   }
 
+  const triage = autoTriageSupportTicket({ subject, issueDescription, category, issueType, priority });
+
   let application = null;
   if (applicationId) {
     application = await Application.findById(applicationId);
@@ -84,19 +124,24 @@ exports.createSupportTicket = asyncHandler(async (req, res) => {
     }
   }
 
+  const shouldFreezeEscrow = Boolean(
+    applicationId &&
+    ['dispute', 'damage_claim', 'refund_request', 'security_deposit', 'misrepresentation'].includes(triage.issueType)
+  );
+
   const ticket = await SupportTicket.create({
     user: req.user._id,
     application: applicationId || undefined,
     room: roomId || application?.room,
     subject,
     issueDescription,
-    category,
-    issueType,
-    priority,
+    category: triage.category,
+    issueType: triage.issueType,
+    priority: triage.priority,
     evidence,
     requestedAmount,
-    escrowAction: issueType === 'general' ? 'none' : 'freeze',
-    escrowFrozenAt: issueType === 'general' ? undefined : new Date(),
+    escrowAction: shouldFreezeEscrow ? 'freeze' : 'none',
+    escrowFrozenAt: shouldFreezeEscrow ? new Date() : undefined,
   });
 
   await maybeFreezeEscrow({
@@ -141,7 +186,10 @@ exports.updateSupportTicket = asyncHandler(async (req, res) => {
     req.params.id,
     { $set: updates },
     { new: true, runValidators: true }
-  ).populate('user application room', 'name email status title');
+  )
+    .populate('user assignedAdmin', 'name email roles')
+    .populate('application', 'status checkInDate checkOutDate amountBreakdown escrow')
+    .populate('room', 'title location rent');
 
   if (!ticket) {
     res.status(404);
