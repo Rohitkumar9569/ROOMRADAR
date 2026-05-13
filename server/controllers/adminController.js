@@ -39,6 +39,8 @@ const emitToUser = (req, userId, event, payload) => {
     }
 };
 
+const DEFAULT_ACCOUNT_RESTRICTION_REASON = 'RoomRadar Trust & Safety restricted this account after an admin review. Please check your recent listings, bookings, messages, and verification details before requesting a review.';
+
 const toRoomNumber = (value, fallback = 0) => {
     const rawValue = value && typeof value === 'object' && !Array.isArray(value) ? value.value : value;
     if (rawValue === undefined || rawValue === null || rawValue === '') return fallback;
@@ -450,11 +452,18 @@ exports.deleteRoom = asyncHandler(async (req, res) => {
  */
 exports.updateUserStatus = asyncHandler(async (req, res) => {
     const { status } = req.body;
+    const reason = String(req.body?.reason || '').trim();
+    const note = String(req.body?.note || '').trim();
     const user = await User.findById(req.params.id);
 
     if (!user) {
         res.status(404);
         throw new Error('User not found');
+    }
+
+    if (!['Active', 'Banned'].includes(status)) {
+        res.status(400);
+        throw new Error('Invalid account status.');
     }
 
     if (user.roles.includes('Admin')) {
@@ -463,14 +472,51 @@ exports.updateUserStatus = asyncHandler(async (req, res) => {
     }
 
     user.status = status;
+    if (status === 'Banned') {
+        user.accountRestriction = {
+            ...(user.accountRestriction?.toObject?.() || user.accountRestriction || {}),
+            reason: reason || DEFAULT_ACCOUNT_RESTRICTION_REASON,
+            note,
+            bannedAt: new Date(),
+            bannedBy: req.user?._id,
+            appealStatus: 'none',
+            appealMessage: '',
+            appealSubmittedAt: null,
+            supportTicket: null,
+            resolvedAt: null,
+        };
+    } else {
+        user.accountRestriction = {
+            ...(user.accountRestriction?.toObject?.() || user.accountRestriction || {}),
+            appealStatus: 'resolved',
+            resolvedAt: new Date(),
+        };
+    }
     const updatedUser = await user.save();
     await writeAuditLog(req, 'USER_STATUS_UPDATED', 'User', updatedUser._id, {
         status,
         email: updatedUser.email,
+        reason: status === 'Banned' ? updatedUser.accountRestriction?.reason : undefined,
     });
+
+    const notification = await Notification.create({
+        user: updatedUser._id,
+        title: status === 'Banned' ? 'Account restricted' : 'Account restored',
+        message: status === 'Banned'
+            ? 'Your RoomRadar account has been restricted. Open the app to review the reason and request a Trust & Safety review.'
+            : 'Your RoomRadar account has been restored. You can use RoomRadar again.',
+        link: status === 'Banned' ? '/profile/overview' : '/',
+        type: status === 'Banned' ? 'account_restricted' : 'account_restored',
+        metadata: {
+            status,
+            reason: updatedUser.accountRestriction?.reason,
+        },
+    });
+    emitToUser(req, updatedUser._id, 'newNotification', notification);
     emitToUser(req, updatedUser._id, 'user_profile_updated', {
         reason: 'status_updated',
         userId: updatedUser._id,
+        status: updatedUser.status,
     });
 
     res.json({
@@ -479,6 +525,7 @@ exports.updateUserStatus = asyncHandler(async (req, res) => {
         email: updatedUser.email,
         roles: updatedUser.roles,
         status: updatedUser.status,
+        accountRestriction: updatedUser.accountRestriction,
     });
 });
 

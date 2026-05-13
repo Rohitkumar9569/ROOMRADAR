@@ -3,26 +3,112 @@ import { Link } from 'react-router-dom';
 import {
     Award,
     Bath,
+    CalendarDays,
+    Car,
     BedDouble,
     ChevronLeft,
     ChevronRight,
     Heart,
     Home,
     MapPin,
+    ReceiptText,
     ShieldCheck,
+    Sofa,
     Star,
     Trash2,
+    Utensils,
     User,
     Users,
     Users2,
+    WalletCards,
+    Wifi,
+    Wind,
+    Zap,
 } from 'lucide-react';
 import PropTypes from 'prop-types';
 import { useAuth } from '../../../context/AuthContext';
-import { formatRoomFieldValue, getVisibleCardFields } from '../../../utils/roomFieldUtils';
 import { formatListingTitle } from '../../../utils/listingDisplay';
 import fallbackRoomImage from '../../../assets/background_img.jpg';
 
 const money = (value) => `\u20B9${Number(value || 0).toLocaleString('en-IN')}`;
+
+const compactMoney = (value) => {
+    const amount = Number(String(value ?? '').replace(/[^\d.-]/g, ''));
+    if (!Number.isFinite(amount) || amount < 0) return '';
+    if (amount >= 100000) return `\u20B9${(amount / 100000).toFixed(amount % 100000 === 0 ? 0 : 1)}L`;
+    if (amount >= 1000) return `\u20B9${Math.round(amount / 1000)}k`;
+    return `\u20B9${amount.toLocaleString('en-IN')}`;
+};
+
+const normalizeRoomTypeLabel = (type = '') => {
+    const value = String(type || '').trim();
+    if (!value) return 'Room type';
+    const bhkMatch = value.match(/^(\d)\s*BHK$/i);
+    if (bhkMatch) return `${bhkMatch[1]} BHK`;
+    if (/^1rk$/i.test(value)) return '1 RK';
+    if (/pg/i.test(value)) return 'PG stay';
+    return value
+        .replace(/\broom\b/i, 'room')
+        .replace(/\bflat\b/i, 'flat')
+        .replace(/\bbhk\b/i, 'BHK')
+        .replace(/\brk\b/i, 'RK');
+};
+
+const normalizeFamilyStatus = (room = {}) => (
+    room.tenantPreferences?.familyStatus
+    || room.familyStatus
+    || 'Any'
+);
+
+const normalizeAllowedGender = (room = {}) => (
+    room.tenantPreferences?.allowedGender
+    || room.tenantPreferences?.gender
+    || room.gender
+    || 'Any'
+);
+
+const getTenantLabel = (room = {}) => {
+    const familyStatus = normalizeFamilyStatus(room);
+    const allowedGender = normalizeAllowedGender(room);
+    if (allowedGender === 'Female') return 'Women only';
+    if (allowedGender === 'Male') return 'Men only';
+    if (familyStatus === 'Family' || familyStatus === 'Family Only') return 'Family only';
+    if (familyStatus === 'Bachelors' || familyStatus === 'Bachelors Only') return 'Bachelors only';
+    return 'Any tenant';
+};
+
+const getWashroomLabel = (room = {}) => {
+    const washroomType = room.washroomType || (room.attachedWashroom || room.facilities?.attachedWashroom ? 'Attached' : '');
+    if (/attached/i.test(washroomType)) return 'Attached bath';
+    if (/shared/i.test(washroomType)) return 'Shared bath';
+    if (/common/i.test(washroomType)) return 'Common bath';
+    return '';
+};
+
+const getMoveInLabel = (value) => {
+    if (!value) return '';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '';
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    if (date <= today) return 'Available now';
+    return `Move-in ${date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}`;
+};
+
+const getElectricityLabel = (value = '') => {
+    if (/included/i.test(value)) return 'Electricity included';
+    if (/metered/i.test(value)) return 'Metered electricity';
+    if (/fixed/i.test(value)) return 'Fixed electricity';
+    if (/not included/i.test(value)) return 'Electricity extra';
+    return '';
+};
+
+const pushUniqueTag = (tags, tag) => {
+    if (!tag?.text) return;
+    const key = tag.key || tag.text.toLowerCase();
+    if (tags.some((item) => (item.key || item.text.toLowerCase()) === key)) return;
+    tags.push({ ...tag, key });
+};
 
 const supportsFineHover = () => (
     typeof window !== 'undefined'
@@ -30,11 +116,13 @@ const supportsFineHover = () => (
 );
 
 const IMAGE_AUTO_ADVANCE_MS = 3600;
+const MOBILE_IMAGE_AUTO_ADVANCE_MS = 2200;
 const ACTIVE_PREVIEW_EVENT = 'roomradar:active-room-card-preview';
 const mobilePreviewRegistry = new Map();
 let activeMobilePreviewId = null;
 let previewSyncFrame = null;
 let previewListenerCount = 0;
+let lastMobileTouchPoint = null;
 
 const getVisibleRatio = (rect) => {
     if (!rect.height || rect.bottom <= 0 || rect.top >= window.innerHeight) return 0;
@@ -47,11 +135,16 @@ const syncActiveMobilePreview = () => {
     if (typeof window === 'undefined') return;
     if (supportsFineHover()) return;
 
-    const viewportFocusY = window.innerHeight * 0.48;
+    const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
+    const touchPoint = lastMobileTouchPoint && now - lastMobileTouchPoint.time < 900
+        ? lastMobileTouchPoint
+        : null;
+    const viewportFocusY = touchPoint?.y ?? window.innerHeight * 0.48;
     let nextActiveId = null;
     let nextScore = -Infinity;
 
-    mobilePreviewRegistry.forEach((node, id) => {
+    mobilePreviewRegistry.forEach((entry, id) => {
+        const node = entry?.cardNode || entry;
         if (!node?.isConnected) return;
         const rect = node.getBoundingClientRect();
         const visibleRatio = getVisibleRatio(rect);
@@ -59,9 +152,19 @@ const syncActiveMobilePreview = () => {
 
         const centerY = rect.top + rect.height / 2;
         const centerX = rect.left + rect.width / 2;
-        const score = (visibleRatio * 1000)
-            - Math.abs(centerY - viewportFocusY)
-            - Math.abs(centerX - window.innerWidth / 2) * 0.08;
+        const containsTouch = touchPoint
+            && touchPoint.x >= rect.left - 12
+            && touchPoint.x <= rect.right + 12
+            && touchPoint.y >= rect.top - 12
+            && touchPoint.y <= rect.bottom + 12;
+        const touchDistance = touchPoint
+            ? Math.hypot(centerX - touchPoint.x, centerY - touchPoint.y)
+            : 0;
+        const score = containsTouch
+            ? 20000 + (visibleRatio * 1000) - touchDistance * 0.18
+            : (visibleRatio * 1000)
+                - Math.abs(centerY - viewportFocusY)
+                - Math.abs(centerX - (touchPoint?.x ?? window.innerWidth / 2)) * 0.08;
 
         if (score > nextScore) {
             nextScore = score;
@@ -83,6 +186,10 @@ const ensureMobilePreviewListeners = () => {
     if (typeof window === 'undefined') return;
     previewListenerCount += 1;
     if (previewListenerCount > 1) return;
+    document.addEventListener('touchstart', handleMobilePreviewTouch, { passive: true, capture: true });
+    document.addEventListener('touchmove', handleMobilePreviewTouch, { passive: true, capture: true });
+    document.addEventListener('touchend', handleMobilePreviewTouchEnd, { passive: true, capture: true });
+    document.addEventListener('touchcancel', handleMobilePreviewTouchEnd, { passive: true, capture: true });
     window.addEventListener('scroll', scheduleActiveMobilePreviewSync, { passive: true });
     window.addEventListener('resize', scheduleActiveMobilePreviewSync);
     window.addEventListener('orientationchange', scheduleActiveMobilePreviewSync);
@@ -93,6 +200,10 @@ const releaseMobilePreviewListeners = () => {
     if (typeof window === 'undefined') return;
     previewListenerCount = Math.max(0, previewListenerCount - 1);
     if (previewListenerCount > 0) return;
+    document.removeEventListener('touchstart', handleMobilePreviewTouch, true);
+    document.removeEventListener('touchmove', handleMobilePreviewTouch, true);
+    document.removeEventListener('touchend', handleMobilePreviewTouchEnd, true);
+    document.removeEventListener('touchcancel', handleMobilePreviewTouchEnd, true);
     window.removeEventListener('scroll', scheduleActiveMobilePreviewSync);
     window.removeEventListener('resize', scheduleActiveMobilePreviewSync);
     window.removeEventListener('orientationchange', scheduleActiveMobilePreviewSync);
@@ -102,6 +213,25 @@ const releaseMobilePreviewListeners = () => {
         previewSyncFrame = null;
     }
     activeMobilePreviewId = null;
+    lastMobileTouchPoint = null;
+};
+
+const handleMobilePreviewTouch = (event) => {
+    if (typeof window === 'undefined' || supportsFineHover()) return;
+    const touch = event.touches?.[0] || event.changedTouches?.[0];
+    if (!touch) return;
+    lastMobileTouchPoint = {
+        x: touch.clientX,
+        y: touch.clientY,
+        time: typeof performance !== 'undefined' ? performance.now() : Date.now(),
+    };
+    scheduleActiveMobilePreviewSync();
+};
+
+const handleMobilePreviewTouchEnd = (event) => {
+    handleMobilePreviewTouch(event);
+    if (typeof window === 'undefined') return;
+    window.setTimeout(scheduleActiveMobilePreviewSync, 220);
 };
 
 function RoomCard({ room, context = 'default', onRemove, imagePriority = false }) {
@@ -122,6 +252,7 @@ function RoomCard({ room, context = 'default', onRemove, imagePriority = false }
     const [isHovered, setIsHovered] = useState(false);
     const [isMediaVisible, setIsMediaVisible] = useState(false);
     const [isActiveMobilePreview, setIsActiveMobilePreview] = useState(false);
+    const cardRef = useRef(null);
     const mediaRef = useRef(null);
     const previewIdRef = useRef(null);
     if (!previewIdRef.current) {
@@ -132,10 +263,6 @@ function RoomCard({ room, context = 'default', onRemove, imagePriority = false }
     const isWishlisted = Boolean(user?.wishlist?.some((item) => String(item?._id || item) === String(roomId)));
     const rating = cardRoom.averageRating || cardRoom.rating;
     const isGuestFavourite = Number(rating || 0) >= 4.8;
-    const configCardFields = useMemo(() => getVisibleCardFields(cardRoom)
-        .filter(({ field }) => !['title', 'rent', 'beds', 'roomType', 'familyStatus', 'fullAddress', 'city', 'washroomType', 'attachedWashroom'].includes(field.key))
-        .slice(0, 3), [cardRoom]);
-
     const handleWishlistClick = useCallback((event) => {
         event.preventDefault();
         event.stopPropagation();
@@ -196,9 +323,10 @@ function RoomCard({ room, context = 'default', onRemove, imagePriority = false }
 
         const previewId = previewIdRef.current;
         const mediaNode = mediaRef.current;
-        if (!previewId || !mediaNode) return undefined;
+        const cardNode = cardRef.current;
+        if (!previewId || !mediaNode || !cardNode) return undefined;
 
-        mobilePreviewRegistry.set(previewId, mediaNode);
+        mobilePreviewRegistry.set(previewId, { cardNode, mediaNode });
         ensureMobilePreviewListeners();
 
         const handleActivePreviewChange = (event) => {
@@ -223,6 +351,7 @@ function RoomCard({ room, context = 'default', onRemove, imagePriority = false }
     const shouldAutoAdvanceImages = imageUrls.length > 1
         && isMediaVisible
         && (canPreviewOnHover ? isHovered : isActiveMobilePreview);
+    const activeSlideDuration = canPreviewOnHover ? IMAGE_AUTO_ADVANCE_MS : MOBILE_IMAGE_AUTO_ADVANCE_MS;
 
     useEffect(() => {
         if (!shouldAutoAdvanceImages) return undefined;
@@ -230,69 +359,77 @@ function RoomCard({ room, context = 'default', onRemove, imagePriority = false }
 
         const previewTimer = window.setInterval(() => {
             setCurrentImageIndex((prevIndex) => (prevIndex + 1) % imageUrls.length);
-        }, IMAGE_AUTO_ADVANCE_MS);
+        }, activeSlideDuration);
 
         return () => window.clearInterval(previewTimer);
-    }, [imageUrls.length, shouldAutoAdvanceImages]);
-
-    const roomTag = useMemo(() => {
-        const type = cardRoom.roomType || '';
-        let Icon = User;
-        let text = 'Private room';
-
-        if (type.includes('Single')) {
-            Icon = User;
-            text = 'Single';
-        } else if (type.includes('2 beds')) {
-            Icon = Users;
-            text = '2-bed';
-        } else if (type.includes('3+ beds')) {
-            Icon = Users;
-            text = '3+ share';
-        } else if (type.includes('BHK')) {
-            Icon = Home;
-            text = type;
-        }
-
-        return { Icon, text };
-    }, [cardRoom.roomType]);
-
-    const tenantTag = useMemo(() => {
-        const prefs = cardRoom.tenantPreferences || {};
-        const familyStatus = prefs.familyStatus || 'Any';
-        const allowedGender = prefs.allowedGender || 'Any';
-
-        if (familyStatus === 'Family') return { Icon: Users2, text: 'Family' };
-        if (familyStatus === 'Bachelors' && allowedGender === 'Male') return { Icon: User, text: 'Men' };
-        if (familyStatus === 'Bachelors' && allowedGender === 'Female') return { Icon: User, text: 'Women' };
-        if (familyStatus === 'Bachelors') return { Icon: Users, text: 'Bachelor' };
-        return { Icon: Users2, text: 'Any' };
-    }, [cardRoom.tenantPreferences]);
+    }, [activeSlideDuration, imageUrls.length, shouldAutoAdvanceImages]);
 
     const imageLoading = imagePriority ? 'eager' : 'lazy';
     const imageFetchPriority = imagePriority ? 'high' : 'auto';
     const indicatorCount = Math.min(imageUrls.length, 5);
     const activeIndicatorIndex = indicatorCount > 0 ? currentImageIndex % indicatorCount : 0;
-    const washroomText = cardRoom.washroomType || (cardRoom.attachedWashroom ? 'Attached' : '');
-    const detailTags = useMemo(() => [
-        roomTag,
-        tenantTag,
-        {
+    const detailTags = useMemo(() => {
+        const tags = [];
+        const facilities = cardRoom.facilities || {};
+        const tenantLabel = getTenantLabel(cardRoom);
+        const washroomLabel = getWashroomLabel(cardRoom);
+        const depositAmount = Number(String(cardRoom.securityDeposit ?? '').replace(/[^\d.-]/g, ''));
+        const moveInLabel = getMoveInLabel(cardRoom.availableFrom);
+        const electricityLabel = getElectricityLabel(cardRoom.electricityBilling);
+        const roomTypeLabel = cardRoom.roomType
+            ? normalizeRoomTypeLabel(cardRoom.roomType)
+            : `${cardRoom.beds || 1} bed room`;
+
+        pushUniqueTag(tags, { key: 'room-type', Icon: Home, text: roomTypeLabel, tone: 'accent' });
+        pushUniqueTag(tags, {
+            key: 'tenant',
+            Icon: tenantLabel.includes('Women') || tenantLabel.includes('Men') ? User : Users2,
+            text: tenantLabel,
+            tone: tenantLabel === 'Any tenant' ? 'muted' : 'accent',
+        });
+        pushUniqueTag(tags, washroomLabel && { key: 'washroom', Icon: Bath, text: washroomLabel, tone: 'accent' });
+        pushUniqueTag(tags, facilities.meals && { key: 'meals', Icon: Utensils, text: 'Meals included', tone: 'accent' });
+        pushUniqueTag(tags, Number.isFinite(depositAmount) && {
+            key: 'deposit',
+            Icon: ReceiptText,
+            text: depositAmount === 0 ? 'No deposit' : `Deposit ${compactMoney(depositAmount)}`,
+            tone: depositAmount === 0 ? 'accent' : 'muted',
+        });
+        pushUniqueTag(tags, electricityLabel && { key: 'electricity', Icon: Zap, text: electricityLabel, tone: /included/i.test(electricityLabel) ? 'accent' : 'muted' });
+        pushUniqueTag(tags, cardRoom.furnishingStatus && { key: 'furnishing', Icon: Sofa, text: cardRoom.furnishingStatus.replace('Semi Furnished', 'Semi furnished'), tone: 'muted' });
+        pushUniqueTag(tags, moveInLabel && { key: 'available', Icon: CalendarDays, text: moveInLabel, tone: 'muted' });
+        pushUniqueTag(tags, Number(cardRoom.maxOccupants || 0) > 1 && {
+            key: 'occupancy',
+            Icon: Users,
+            text: `Up to ${cardRoom.maxOccupants} people`,
+            tone: 'muted',
+        });
+        pushUniqueTag(tags, Number(cardRoom.beds || 0) > 0 && {
+            key: 'beds',
             Icon: BedDouble,
-            text: `${cardRoom.beds || 1} bed${Number(cardRoom.beds || 1) > 1 ? 's' : ''}`,
-            tone: 'accent',
-        },
-        washroomText && {
-            Icon: Bath,
-            text: washroomText,
-            tone: 'accent',
-        },
-        ...configCardFields.slice(0, 2).map(({ field, value }) => ({
-            Icon: Bath,
-            text: formatRoomFieldValue(field, value),
-            tone: 'accent',
-        })),
-    ].filter(Boolean), [cardRoom.beds, configCardFields, roomTag, tenantTag, washroomText]);
+            text: `${cardRoom.beds} bed${Number(cardRoom.beds) > 1 ? 's' : ''}`,
+            tone: 'muted',
+        });
+
+        [
+            ['wifi', Wifi, 'WiFi included'],
+            ['ac', Wind, 'AC room'],
+            ['parking', Car, 'Parking'],
+            ['powerBackup', Zap, 'Power backup'],
+            ['security', ShieldCheck, '24x7 security'],
+        ].forEach(([key, Icon, text]) => {
+            pushUniqueTag(tags, facilities[key] && { key, Icon, text, tone: 'muted' });
+        });
+
+        pushUniqueTag(tags, cardRoom.paymentPreference && {
+            key: 'payment',
+            Icon: WalletCards,
+            text: /offline/i.test(cardRoom.paymentPreference) ? 'Offline pay ok' : 'Online payment',
+            tone: 'muted',
+        });
+
+        return tags.slice(0, 4);
+    }, [cardRoom]);
 
     if (!roomId) return null;
 
@@ -320,6 +457,7 @@ function RoomCard({ room, context = 'default', onRemove, imagePriority = false }
 
     return (
         <article
+            ref={cardRef}
             className="room-card-pro rr-room-card group h-full cursor-pointer"
         >
             <Link to={`/room/${room._id}`} className="flex h-full flex-col">
@@ -411,7 +549,7 @@ function RoomCard({ room, context = 'default', onRemove, imagePriority = false }
                     )}
 
                     {imageUrls.length > 1 && (
-                        <div className="rr-image-progress-strip" style={{ '--rr-slide-duration': `${IMAGE_AUTO_ADVANCE_MS}ms` }}>
+                        <div className="rr-image-progress-strip" style={{ '--rr-slide-duration': `${activeSlideDuration}ms` }}>
                             {imageUrls.slice(0, indicatorCount).map((_, slideIndex) => (
                                 <span
                                     key={slideIndex}
@@ -467,9 +605,10 @@ function RoomCard({ room, context = 'default', onRemove, imagePriority = false }
                     </div>
 
                     <div className="rr-room-card-tags mb-1.5 grid min-w-0 grid-cols-2 gap-1.5 sm:mb-4 sm:flex sm:flex-wrap sm:gap-2.5">
-                        {detailTags.slice(0, 4).map(({ Icon, text, tone }, tagIndex) => (
+                        {detailTags.map(({ Icon, text, tone }, tagIndex) => (
                             <span
                                 key={`${text}-${tagIndex}`}
+                                title={text}
                                 className={`rr-feature-pill inline-flex min-w-0 items-center gap-1 rounded-lg px-1.5 py-1.5 text-[9.5px] font-bold leading-none sm:px-3 sm:py-2 sm:text-[11px] ${
                                     tone === 'accent'
                                         ? 'bg-cyan-50 text-cyan-700 dark:bg-cyan-500/15 dark:text-cyan-200'
@@ -521,9 +660,16 @@ RoomCard.propTypes = {
         rating: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
         averageRating: PropTypes.number,
         beds: PropTypes.number,
+        maxOccupants: PropTypes.number,
+        availableFrom: PropTypes.oneOfType([PropTypes.string, PropTypes.instanceOf(Date)]),
+        furnishingStatus: PropTypes.string,
+        securityDeposit: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+        electricityBilling: PropTypes.string,
+        paymentPreference: PropTypes.string,
         washroomType: PropTypes.string,
         attachedWashroom: PropTypes.bool,
         roomType: PropTypes.string,
+        facilities: PropTypes.objectOf(PropTypes.bool),
         landlordName: PropTypes.string,
         landlord: PropTypes.oneOfType([
             PropTypes.string,

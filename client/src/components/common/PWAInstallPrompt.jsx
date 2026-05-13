@@ -6,9 +6,12 @@ const DISMISS_UNTIL_KEY = 'roomradar_pwa_install_dismissed_until';
 const CANCEL_UNTIL_KEY = 'roomradar_pwa_install_cancelled_until';
 const INSTALLED_KEY = 'roomradar_pwa_installed';
 const SESSION_KEY = 'roomradar_pwa_install_seen_session';
+const PROMPT_VERSION_KEY = 'roomradar_pwa_install_version';
+const PROMPT_VERSION = 'mobile-fallback-v2';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
-const SHOW_AFTER_MS = 8000;
+const SHOW_AFTER_MS = 4500;
+const MOBILE_SHOW_AFTER_MS = 1800;
 const DISMISS_COOLDOWN_MS = 3 * DAY_MS;
 const CANCEL_COOLDOWN_MS = 7 * DAY_MS;
 
@@ -65,9 +68,20 @@ const migrateLegacyDismiss = () => {
   return until;
 };
 
+const syncPromptVersion = () => {
+  if (readStorage(PROMPT_VERSION_KEY) === PROMPT_VERSION) return;
+  removeStorage(DISMISS_KEY);
+  removeStorage(DISMISS_UNTIL_KEY);
+  removeStorage(CANCEL_UNTIL_KEY);
+  removeStorage(INSTALLED_KEY);
+  writeStorage(PROMPT_VERSION_KEY, PROMPT_VERSION);
+};
+
 const getSuppressedUntil = () => {
   if (!hasBrowser) return Number.POSITIVE_INFINITY;
-  if (readStorage(INSTALLED_KEY) === 'true' || isStandalone()) return Number.POSITIVE_INFINITY;
+  if (isStandalone()) return Number.POSITIVE_INFINITY;
+
+  syncPromptVersion();
 
   const now = Date.now();
   const legacyUntil = migrateLegacyDismiss();
@@ -80,6 +94,11 @@ const getSuppressedUntil = () => {
   }
 
   return until;
+};
+
+const getCapturedInstallPrompt = () => {
+  if (!hasBrowser) return null;
+  return window.roomRadarDeferredInstallPrompt || null;
 };
 
 const hasSeenThisSession = () => {
@@ -102,38 +121,70 @@ const markSeenThisSession = () => {
 };
 
 const PWAInstallPrompt = ({ hidden = false }) => {
-  const [deferredPrompt, setDeferredPrompt] = useState(null);
+  const [deferredPrompt, setDeferredPrompt] = useState(getCapturedInstallPrompt);
   const [suppressedUntil, setSuppressedUntil] = useState(getSuppressedUntil);
   const [visible, setVisible] = useState(false);
-  const [showIosHint, setShowIosHint] = useState(false);
+  const [showManualHint, setShowManualHint] = useState(false);
 
   const isIos = useMemo(() => (
     hasBrowser && /iphone|ipad|ipod/i.test(window.navigator.userAgent || '')
+  ), []);
+  const isAndroid = useMemo(() => (
+    hasBrowser && /android/i.test(window.navigator.userAgent || '')
+  ), []);
+  const isMobileBrowser = useMemo(() => (
+    hasBrowser
+    && !isStandalone()
+    && (
+      window.matchMedia?.('(max-width: 768px)').matches
+      || /android|iphone|ipad|ipod|mobile/i.test(window.navigator.userAgent || '')
+    )
   ), []);
 
   const canShow = visible
     && !hidden
     && Date.now() >= suppressedUntil
     && !isStandalone()
-    && (deferredPrompt || isIos);
+    && (deferredPrompt || isIos || isMobileBrowser);
+
+  const manualInstallText = isIos
+    ? 'iPhone par Share button dabao, phir Add to Home Screen choose karo.'
+    : isAndroid
+      ? 'Android par browser ke 3-dot menu se Install app ya Add to Home screen tap karo.'
+      : 'Browser menu open karke Install app ya Add to Home screen choose karo.';
 
   useEffect(() => {
+    const syncCapturedPrompt = () => {
+      const capturedPrompt = getCapturedInstallPrompt();
+      if (capturedPrompt) {
+        setDeferredPrompt(capturedPrompt);
+        setSuppressedUntil(getSuppressedUntil());
+      }
+    };
+
     const handleBeforeInstallPrompt = (event) => {
       event.preventDefault();
       setDeferredPrompt(event);
+      window.roomRadarDeferredInstallPrompt = event;
       setSuppressedUntil(getSuppressedUntil());
     };
 
     const handleInstalled = () => {
       writeStorage(INSTALLED_KEY, 'true');
+      window.roomRadarDeferredInstallPrompt = null;
       setDeferredPrompt(null);
       setVisible(false);
       setSuppressedUntil(Number.POSITIVE_INFINITY);
     };
 
+    syncCapturedPrompt();
+    window.addEventListener('roomradar:pwa-install-ready', syncCapturedPrompt);
+    window.addEventListener('roomradar:pwa-installed', handleInstalled);
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
     window.addEventListener('appinstalled', handleInstalled);
     return () => {
+      window.removeEventListener('roomradar:pwa-install-ready', syncCapturedPrompt);
+      window.removeEventListener('roomradar:pwa-installed', handleInstalled);
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
       window.removeEventListener('appinstalled', handleInstalled);
     };
@@ -149,7 +200,7 @@ const PWAInstallPrompt = ({ hidden = false }) => {
       || isStandalone()
       || hasSeenThisSession()
       || Date.now() < suppressedUntil
-      || (!deferredPrompt && !isIos)
+      || (!deferredPrompt && !isIos && !isMobileBrowser)
     ) {
       setVisible(false);
       return undefined;
@@ -162,7 +213,7 @@ const PWAInstallPrompt = ({ hidden = false }) => {
       setVisible(true);
     };
 
-    const delayTimer = window.setTimeout(showPrompt, SHOW_AFTER_MS);
+    const delayTimer = window.setTimeout(showPrompt, isMobileBrowser ? MOBILE_SHOW_AFTER_MS : SHOW_AFTER_MS);
     const showAfterEngagement = () => {
       if (interactionTimer) return;
       interactionTimer = window.setTimeout(showPrompt, 2200);
@@ -177,24 +228,24 @@ const PWAInstallPrompt = ({ hidden = false }) => {
       window.removeEventListener('scroll', showAfterEngagement);
       window.removeEventListener('pointerdown', showAfterEngagement);
     };
-  }, [deferredPrompt, hidden, isIos, suppressedUntil]);
+  }, [deferredPrompt, hidden, isIos, isMobileBrowser, suppressedUntil]);
 
   const suppressFor = (key, duration) => {
     const until = writeUntil(key, duration);
     setSuppressedUntil(until);
     setVisible(false);
-    setShowIosHint(false);
+    setShowManualHint(false);
   };
 
   const handleInstall = async () => {
-    if (isIos && !deferredPrompt) {
-      setShowIosHint((value) => !value);
+    if (!deferredPrompt) {
+      setShowManualHint((value) => !value);
       return;
     }
 
-    if (!deferredPrompt) return;
     deferredPrompt.prompt();
     const choice = await deferredPrompt.userChoice;
+    window.roomRadarDeferredInstallPrompt = null;
     setDeferredPrompt(null);
     setVisible(false);
 
@@ -217,9 +268,9 @@ const PWAInstallPrompt = ({ hidden = false }) => {
             <Smartphone className="h-5 w-5" />
           </span>
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-black leading-tight">Install RoomRadar</p>
+            <p className="text-sm font-black leading-tight">Download RoomRadar app</p>
             <p className="mt-0.5 text-[11px] font-semibold leading-4 text-slate-500 dark:text-slate-400">
-              Faster launch, smoother tabs, app-style navigation.
+              Mobile home screen se fast launch, smoother tabs, app-style navigation.
             </p>
           </div>
           <button
@@ -232,9 +283,9 @@ const PWAInstallPrompt = ({ hidden = false }) => {
           </button>
         </div>
 
-        {showIosHint && (
+        {showManualHint && (
           <p className="mt-2 rounded-2xl bg-cyan-500/10 px-3 py-2 text-[11px] font-bold leading-5 text-cyan-800 dark:text-cyan-200">
-            iPhone par Share button dabao, phir Add to Home Screen choose karo.
+            {manualInstallText}
           </p>
         )}
 
@@ -244,7 +295,7 @@ const PWAInstallPrompt = ({ hidden = false }) => {
           className="mt-3 inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-2xl bg-slate-950 px-4 text-sm font-black text-white transition active:scale-[0.98] dark:bg-white dark:text-slate-950"
         >
           <Download className="h-4 w-4" />
-          Install app
+          {deferredPrompt ? 'Install app' : 'Show install steps'}
         </button>
       </div>
     </div>

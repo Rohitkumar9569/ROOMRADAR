@@ -16,6 +16,43 @@ import { SettingsProvider } from './context/SettingsContext'
 import './input.css'
 import 'tippy.js/dist/tippy.css'
 
+const applyInitialThemeMode = () => {
+    try {
+        const savedTheme = window.localStorage.getItem('theme-preference') || window.localStorage.getItem('theme');
+        const themePreference = savedTheme === 'dark' || savedTheme === 'light' ? savedTheme : 'system';
+        const isDarkMode = themePreference === 'dark'
+            || (themePreference === 'system' && window.matchMedia?.('(prefers-color-scheme: dark)').matches);
+        document.documentElement.classList.toggle('dark', Boolean(isDarkMode));
+        document.documentElement.style.colorScheme = isDarkMode ? 'dark' : 'light';
+        document.querySelectorAll('meta[name="theme-color"]').forEach((meta) => {
+            meta.setAttribute('content', isDarkMode ? '#0f0f0f' : '#ffffff');
+        });
+    } catch {
+        document.documentElement.classList.remove('dark');
+        document.documentElement.style.colorScheme = 'light';
+    }
+};
+
+applyInitialThemeMode();
+
+const setupPWAInstallEventCapture = () => {
+    if (typeof window === 'undefined' || window.__roomRadarInstallCaptureReady) return;
+    window.__roomRadarInstallCaptureReady = true;
+
+    window.addEventListener('beforeinstallprompt', (event) => {
+        event.preventDefault();
+        window.roomRadarDeferredInstallPrompt = event;
+        window.dispatchEvent(new Event('roomradar:pwa-install-ready'));
+    });
+
+    window.addEventListener('appinstalled', () => {
+        window.roomRadarDeferredInstallPrompt = null;
+        window.dispatchEvent(new Event('roomradar:pwa-installed'));
+    });
+};
+
+setupPWAInstallEventCapture();
+
 // Set instant scroll behavior globally
 document.documentElement.style.scrollBehavior = 'auto';
 

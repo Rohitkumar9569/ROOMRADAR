@@ -9,6 +9,7 @@ const {
   getLandlordDashboardSummary,
   updateProfile,
   getCurrentUser,
+  requestAccountReview,
 } = require('../controllers/userController');
 
 const { protect, restrictTo } = require('../middleware/authMiddleware');
@@ -17,6 +18,7 @@ const { protect, restrictTo } = require('../middleware/authMiddleware');
 router.get('/wishlist', protect, getWishlist);
 router.get('/me', protect, getCurrentUser);
 router.put('/profile', protect, updateProfile);
+router.post('/account-review', protect, requestAccountReview);
 
 
 router.post('/wishlist', protect, addToWishlist);

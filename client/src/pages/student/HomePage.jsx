@@ -9,6 +9,7 @@ import RoomCardSkeleton from '../../components/common/RoomCardSkeleton';
 import { useAuth } from '../../context/AuthContext';
 import { readTabCache, setTabCache } from '../../utils/tabDataCache';
 import { formatListingTitle } from '../../utils/listingDisplay';
+import { getMobileAutoLocation } from '../../utils/mobileLocationAutofill';
 import {
   ArrowRight,
   BadgeCheck,
@@ -150,6 +151,32 @@ function HomePage() {
       if (frameId) window.cancelAnimationFrame(frameId);
     };
   }, [isMobileSearchPinned]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const fillMobileLocation = async () => {
+      try {
+        const autoLocation = await getMobileAutoLocation();
+        if (!autoLocation || cancelled) return;
+        setSearchCriteria((current) => {
+          if (current.location || current.locationQuery) return current;
+          return {
+            ...current,
+            location: autoLocation.place,
+            locationQuery: autoLocation.query,
+          };
+        });
+      } catch {
+        // Manual search remains available when location permission is dismissed.
+      }
+    };
+
+    fillMobileLocation();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     if (typeof window === 'undefined') return undefined;
@@ -368,12 +395,12 @@ function HomePage() {
               />
             </div>
 
-            <div className="relative z-10 mt-3 grid w-full max-w-md grid-cols-3 overflow-hidden rounded-[1.15rem] border border-light-border bg-white shadow-sm dark:border-dark-border dark:bg-dark-card sm:mx-auto sm:mt-8 sm:max-w-2xl sm:gap-4 sm:overflow-visible sm:border-0 sm:bg-transparent sm:shadow-none sm:backdrop-blur-0">
-              {trustStats.map(({ label, value, Icon }, index) => (
-                <div key={label} className={`min-w-0 p-2.5 text-center sm:rounded-2xl sm:border sm:border-white/10 sm:bg-white/95 sm:p-5 sm:shadow-lg sm:backdrop-blur-sm dark:sm:bg-dark-sidebar/95 ${index > 0 ? 'border-l border-light-border dark:border-dark-border sm:border-l-white/10' : ''}`}>
-                  <Icon className="mx-auto h-4 w-4 text-cyan-600 dark:text-cyan-300 sm:h-5 sm:w-5 sm:text-cyan-500" />
-                  <p className="mt-1 text-lg font-black text-light-text dark:text-dark-text sm:mt-3 sm:text-3xl sm:text-cyan-600 dark:sm:text-cyan-300">{value}</p>
-                  <p className="mt-0.5 text-[9px] font-bold leading-tight text-light-muted dark:text-dark-muted sm:mt-1 sm:text-sm sm:text-gray-600 dark:sm:text-gray-400">{label}</p>
+            <div className="relative z-10 mt-3 grid w-full max-w-md grid-cols-3 gap-2 overflow-visible border-0 bg-transparent shadow-none sm:mx-auto sm:mt-8 sm:max-w-2xl sm:gap-6">
+              {trustStats.map(({ label, value, Icon }) => (
+                <div key={label} className="min-w-0 px-1 py-2 text-center">
+                  <Icon className="mx-auto h-4 w-4 text-cyan-600 dark:text-cyan-300 sm:h-5 sm:w-5" />
+                  <p className="mt-1 text-lg font-black text-light-text dark:text-dark-text sm:mt-2 sm:text-3xl sm:text-white dark:sm:text-dark-text">{value}</p>
+                  <p className="mx-auto mt-0.5 max-w-[9ch] text-[9px] font-bold leading-tight text-light-muted dark:text-dark-muted sm:mt-1 sm:max-w-none sm:text-sm sm:text-white/78 dark:sm:text-dark-muted">{label}</p>
                 </div>
               ))}
             </div>

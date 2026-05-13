@@ -9,6 +9,7 @@ const buildAuthUserPayload = (user) => ({
     email: user.email,
     roles: user.roles,
     status: user.status,
+    accountRestriction: user.accountRestriction,
     wishlist: user.wishlist,
     profilePicture: user.profilePicture,
     avatarUrl: user.avatarUrl,
@@ -19,6 +20,7 @@ const buildAuthUserPayload = (user) => ({
     occupation: user.occupation,
     bio: user.bio,
     roleProfiles: user.roleProfiles,
+    isGoogleUser: user.isGoogleUser,
     isVerified: user.isVerified,
     kyc_status: user.kyc_status,
     trustScore: user.trustScore,
@@ -27,6 +29,32 @@ const buildAuthUserPayload = (user) => ({
     verifiedEmails: user.verifiedEmails,
     verifiedPhone: user.verifiedPhone,
 });
+
+const ensureAccountEmailVerified = async (user, { isGoogleUser = false, picture = '' } = {}) => {
+    if (!user) return user;
+    let changed = false;
+
+    if (!user.verifications) user.verifications = {};
+    if (user.email && !user.verifications.email) {
+        user.verifications.email = true;
+        changed = true;
+    }
+    if (user.email && !user.verifiedEmails?.includes(user.email)) {
+        user.verifiedEmails = [...(user.verifiedEmails || []), user.email];
+        changed = true;
+    }
+    if (isGoogleUser && !user.isGoogleUser) {
+        user.isGoogleUser = true;
+        changed = true;
+    }
+    if (picture && !user.profilePicture && !user.avatarUrl) {
+        user.profilePicture = picture;
+        user.avatarUrl = picture;
+        changed = true;
+    }
+
+    return changed ? user.save() : user;
+};
 
 // --- Register User (No changes) ---
 exports.registerUser = asyncHandler(async (req, res) => {
@@ -42,6 +70,8 @@ exports.registerUser = asyncHandler(async (req, res) => {
         name,
         email,
         password,
+        verifications: { email: true },
+        verifiedEmails: [email],
     });
 
     if (user) {
@@ -60,6 +90,7 @@ exports.loginUser = asyncHandler(async (req, res) => {
     const user = await User.findOne({ email });
 
     if (user && (await user.matchPassword(password))) {
+        await ensureAccountEmailVerified(user);
         res.json({
             ...buildAuthUserPayload(user),
             token: jwt.sign({ id: user._id, roles: user.roles }, process.env.JWT_SECRET, {
@@ -97,9 +128,14 @@ exports.googleAuth = asyncHandler(async (req, res) => {
             // Google users authenticate externally, so store a secure generated value.
             password: sub + process.env.JWT_SECRET, 
             profilePicture: picture,
+            avatarUrl: picture,
             roles: ['Student'], // Default role
-            isGoogleUser: true
+            isGoogleUser: true,
+            verifications: { email: true },
+            verifiedEmails: [email],
         });
+    } else {
+        await ensureAccountEmailVerified(user, { isGoogleUser: true, picture });
     }
 
     // 4. Generate Token & Send Response (Matching loginUser structure)

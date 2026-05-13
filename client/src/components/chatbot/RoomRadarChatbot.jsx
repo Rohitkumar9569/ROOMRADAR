@@ -70,7 +70,7 @@ const getRoomRating = (room) => {
 
 const detectLanguage = (text = '') => {
     if (/[\u0900-\u097F]/.test(text)) return 'hindi';
-    const hinglishWords = ['kya', 'hai', 'h', 'nahi', 'mujhe', 'chahiye', 'batao', 'kaun', 'sasta', 'andar', 'liye', 'mein', 'me', 'baare', 'bare', 'isake', 'iske', 'details', 'research', 'profile', 'member', 'team', 'bhai', 'yaar', 'khana', 'khaana', 'banata', 'banate', 'banati', 'banane', 'padhna', 'padhta', 'pasand', 'achhe', 'achha', 'kaafi', 'karta', 'karte'];
+    const hinglishWords = ['kya', 'hai', 'h', 'nahi', 'mujhe', 'chahiye', 'batao', 'kaun', 'sasta', 'saste', 'sasti', 'sabse', 'mahanga', 'mahinga', 'mehenga', 'mehanga', 'mehangi', 'andar', 'liye', 'mein', 'me', 'baare', 'bare', 'isake', 'iske', 'details', 'research', 'profile', 'member', 'team', 'bhai', 'yaar', 'khana', 'khaana', 'banata', 'banate', 'banati', 'banane', 'padhna', 'padhta', 'pasand', 'achhe', 'achha', 'accha', 'badhiya', 'badia', 'kaafi', 'karta', 'karte'];
     const lowerText = text.toLowerCase();
     const tokens = new Set(lowerText.match(/[a-z0-9]+/g) || []);
     return hinglishWords.some((word) => (word.includes(' ') ? lowerText.includes(word) : tokens.has(word))) ? 'hinglish' : 'english';
@@ -81,8 +81,8 @@ const isHinglish = (text = '') => detectLanguage(text) === 'hinglish';
 const developerCredit = 'Rohit Kumar, Shubhanshu, Kamal Kumar, and Samrat Prajapati';
 
 const teamProfiles = {
-    rohit: `SARATHI'S INSIGHT (The Direct Answer)
-Rohit Kumar Sarathi aur RoomRadar ke lead creator hain. Woh Gurukul Kangri Vishwavidyalaya, Haridwar me B.Tech CSE final-year student hain.
+    rohit: `ROOMRADAR INSIGHT (The Direct Answer)
+Rohit Kumar RoomRadar ke lead creator hain. Woh Gurukul Kangri Vishwavidyalaya, Haridwar me B.Tech CSE final-year student hain.
 
 The Core Idea
 Rohit ka focus technology aur education ko connect karna hai, taaki complex topics simple, clear aur motivating tareeke se samjhaye ja sakein.
@@ -93,7 +93,7 @@ Rohit Kumar 2022-2026 batch ke B.Tech CSE student hain. Woh GATE CSE aur GATE DA
 Major projects: RoomRadar, MockPanel, Study Hub, aur 3D Interactive Portfolio. Long-term goal: government job ki direction me grow karna. Rohit daily AI/ML discoveries explore karna pasand karte hain.
 
 Key Takeaways
-- Rohit Kumar RoomRadar ke lead developer aur Sarathi ke creator hain.
+- Rohit Kumar RoomRadar ke lead developer aur creator hain.
 - GATE CSE aur DA qualified hain.
 - MERN, TypeScript, Data Science, Cybersecurity aur AI/ML me strong interest rakhte hain.
 - Unka vision learning ko simple, accessible aur motivating banana hai.`,
@@ -124,9 +124,9 @@ const teamProfilesHindi = {
 
 const researchedTeamProfiles = {
     hinglish: {
-        rohit: `Research Snapshot: Rohit Kumar Sarathi
+        rohit: `Research Snapshot: Rohit Kumar
 
-Direct answer: Rohit Kumar RoomRadar ke lead creator aur Sarathi AI assistant ke core builder hain. Woh Gurukul Kangri Vishwavidyalaya, Haridwar me B.Tech CSE final-year student hain.
+Direct answer: Rohit Kumar RoomRadar ke lead creator aur AI assistant ke core builder hain. Woh Gurukul Kangri Vishwavidyalaya, Haridwar me B.Tech CSE final-year student hain.
 
 Profile research: Rohit GATE CSE aur GATE DA qualified hain, including DA AIR 7275. Unka engineering focus MERN Stack, TypeScript, Data Science, Cybersecurity, Cloud Computing, Python, C++, React Three Fiber aur AI/ML par hai.
 
@@ -184,9 +184,9 @@ Key takeaways:
 - Team me teaching mindset aur engineering discipline add karte hain.`
     },
     english: {
-        rohit: `Research Snapshot: Rohit Kumar Sarathi
+        rohit: `Research Snapshot: Rohit Kumar
 
-Direct answer: Rohit Kumar is the lead creator of RoomRadar and the core builder behind the Sarathi AI assistant. He is a final-year B.Tech CSE student at Gurukul Kangri Vishwavidyalaya, Haridwar.
+Direct answer: Rohit Kumar is the lead creator of RoomRadar and the core builder behind its AI assistant. He is a final-year B.Tech CSE student at Gurukul Kangri Vishwavidyalaya, Haridwar.
 
 Profile research: Rohit is GATE qualified in CSE and DA, including DA AIR 7275. His technical focus includes MERN Stack, TypeScript, Data Science, Cybersecurity, Cloud Computing, Python, C++, React Three Fiber, and AI/ML.
 
@@ -276,10 +276,10 @@ const getTeamProfileReply = (profileKey, text = '') => {
 
 const teamProfileVisuals = {
     rohit: {
-        eyebrow: "SARATHI'S INSIGHT",
-        title: 'Rohit Kumar Sarathi',
+        eyebrow: 'ROOMRADAR INSIGHT',
+        title: 'Rohit Kumar',
         subtitle: 'Lead creator of RoomRadar',
-        directAnswer: 'Rohit Kumar Sarathi RoomRadar ke lead creator hain. Woh Gurukul Kangri Vishwavidyalaya, Haridwar me B.Tech CSE final-year student hain.',
+        directAnswer: 'Rohit Kumar RoomRadar ke lead creator hain. Woh Gurukul Kangri Vishwavidyalaya, Haridwar me B.Tech CSE final-year student hain.',
         chips: ['RoomRadar creator', 'GATE CSE qualified', 'GATE DA qualified', 'AIR 7275'],
         sections: [
             {
@@ -309,7 +309,7 @@ const teamProfileVisuals = {
             }
         ],
         takeaways: [
-            'RoomRadar ke lead developer aur Sarathi ke creator.',
+            'RoomRadar ke lead developer aur creator.',
             'GATE CSE aur GATE DA qualified, including DA AIR 7275.',
             'AI/ML, MERN, TypeScript, Data Science aur Cybersecurity me strong interest.',
             'Vision: learning ko simple, accessible aur motivating banana.'
@@ -418,7 +418,7 @@ const createDeveloperCreditReply = (text = '') => (
 );
 
 const getTeamProfileKey = (text = '') => {
-    if (/\brohit\b|\brk\b|sarathi|sārathi/i.test(text)) return 'rohit';
+    if (/\brohit\b|\brk\b/i.test(text)) return 'rohit';
     if (/shubhanshu|subhanshu/i.test(text)) return 'shubhanshu';
     if (/\bkamal\b/i.test(text)) return 'kamal';
     if (/samrat|prajapati/i.test(text)) return 'samrat';
@@ -437,7 +437,7 @@ const createTeamOverviewReply = (text = '') => {
         return detailed
             ? `RoomRadar team research brief:
 
-1. Rohit Kumar Sarathi - Lead creator of RoomRadar and Sarathi. GATE CSE and GATE DA qualified, with strong focus on MERN Stack, TypeScript, Data Science, Cybersecurity, Cloud, Python, C++, React Three Fiber, and AI/ML.
+1. Rohit Kumar - Lead creator of RoomRadar. GATE CSE and GATE DA qualified, with strong focus on MERN Stack, TypeScript, Data Science, Cybersecurity, Cloud, Python, C++, React Three Fiber, and AI/ML.
 2. Shubhanshu - Software engineer on the RoomRadar team. TCS NQT qualified, cleared the interview, selected for TCS Digital, and currently works at TCS. He practices DSA, enjoys LinkedIn brain games, and likes real-world coding problems.
 3. Kamal Kumar - Software engineer, multi-talented builder, coding lover, DSA-focused, curious about AI/ML inventions, and also excellent at cooking.
 4. Samrat Prajapati - Teacher plus software engineer profile. He teaches students, practices DSA, enjoys cricket, reads books/novels, and follows AI/ML ideas.
@@ -449,7 +449,7 @@ Together, they bring product vision, industry engineering, implementation energy
     return detailed
         ? `RoomRadar team ka research-style brief:
 
-1. Rohit Kumar Sarathi - RoomRadar aur Sarathi ke lead creator. GATE CSE aur GATE DA qualified, MERN, TypeScript, Data Science, Cybersecurity, Cloud, Python, C++, React Three Fiber aur AI/ML me strong focus.
+1. Rohit Kumar - RoomRadar ke lead creator. GATE CSE aur GATE DA qualified, MERN, TypeScript, Data Science, Cybersecurity, Cloud, Python, C++, React Three Fiber aur AI/ML me strong focus.
 2. Shubhanshu - RoomRadar team ke software engineer. TCS NQT qualify kiya, interview clear kiya, TCS Digital role ke liye select hue, aur currently TCS me kaam karte hain. DSA, LinkedIn brain games aur real-world coding problems pasand hain.
 3. Kamal Kumar - Software engineer, multi-talented builder, coding lover, DSA focused, AI/ML inventions explore karte hain, aur cooking me bhi achhe hain.
 4. Samrat Prajapati - Teacher plus software engineer profile. Students ko teach karte hain, DSA practice karte hain, cricket pasand karte hain, books/novels padhte hain, aur AI/ML ideas follow karte hain.
@@ -490,6 +490,37 @@ const getDirectFallbackReply = (text = '') => {
     return '';
 };
 
+const priceAscIntentRegex = /(?:sabse\s+(?:sasta|saste|sasti|cheap|low(?:est)?|kam\s+(?:price|rent|budget))|cheapest|cheap(?:est)?\s*(?:room|rooms|pg|flat|listing|listings)?|lowest\s+(?:price|rent|budget)|low\s+(?:price|rent|budget)|minimum\s+rent|min\s+rent|kam\s+(?:budget|rent|price)|sasta|saste|sasti|affordable|budget\s*friendly|pocket\s*friendly|low\s*to\s*high|lowest\s*to\s*highest|saste\s+se|kam\s+se|price\s*(?:wise|view|order|ke\s*(?:hisab|hisaab))|rent\s*wise|cost\s*wise|budget\s*wise|by\s+price|according\s+to\s+price)/i;
+const priceDescIntentRegex = /(?:sabse\s+(?:maha?nga|mahi?nga|meha?nga|mehe?nga|mehe?ngi|costly|expensive|high(?:est|t)?\s+(?:price|rent|budget))|high(?:est|t)?\s+(?:price|rent|budget)|maximum\s+rent|max\s+rent|most\s+expensive|costliest|expensive|costly|maha?nga|mahi?nga|meha?nga|mehe?nga|mehe?ngi|price\s+high(?:est|t)?|high(?:est|t)?\s*to\s*low|highest\s*to\s*lowest|costly\s+first|expensive\s+first|luxury)/i;
+const ratingIntentRegex = /(?:sabse\s+(?:best|achha|accha|badhiya|badia)|best\s+(?:room|rooms|pg|flat|listing|listings|rated|option|options)?|top\s+(?:room|rooms|pg|flat|rated|option|options)?|recommended|recommendation|good\s+(?:room|rooms|pg|flat|option|options)|achha|accha|badhiya|badia|rating|rated|popular|trust(?:ed)?)/i;
+
+const getRoomSortIntent = (text = '') => {
+    const lower = text.toLowerCase();
+    if (priceDescIntentRegex.test(lower)) return 'price_desc';
+    if (priceAscIntentRegex.test(lower)) return 'price_asc';
+    if (ratingIntentRegex.test(lower)) return 'rating';
+    if (/(newest|latest|naya|recent)/i.test(lower)) return 'newest';
+    return '';
+};
+
+const hasExplicitLimit = (text = '') => (
+    /(?:show|give|list|find|display|dikhao|batao|de do|dedo)?\s*\d{1,2}\s*(?:room|rooms|pg|flats?|listings?)\b/i.test(text)
+    || /\b(?:top|best)\s*\d{1,2}\b/i.test(text)
+);
+
+const wantsSingleRankedRoom = (text = '') => {
+    if (hasExplicitLimit(text)) return false;
+    return /(?:sabse\s+(?:sasta|saste|sasti|maha?nga|mehe?nga|mehe?ngi|best|achha|accha|badhiya|badia)|cheapest\s+(?:room|pg|flat|listing)?|costliest\s+(?:room|pg|flat|listing)?|most\s+expensive\s+(?:room|pg|flat|listing)?|highest\s+(?:price|rent)\s+(?:room|pg|flat|listing)?|lowest\s+(?:price|rent)\s+(?:room|pg|flat|listing)?|\bbest\s+room\b|\btop\s+room\b)/i.test(text);
+};
+
+const applyLocalRoomIntent = (filters = {}, text = '') => {
+    const sortIntent = getRoomSortIntent(text);
+    const nextFilters = { ...filters };
+    if (sortIntent) nextFilters.sort = sortIntent;
+    if (sortIntent && !nextFilters.limit && wantsSingleRankedRoom(text)) nextFilters.limit = 1;
+    return nextFilters;
+};
+
 const extractLocalFilters = (text = '') => {
     const lower = text.toLowerCase();
     const filters = {};
@@ -522,13 +553,7 @@ const extractLocalFilters = (text = '') => {
     else if (/\bsingle\b/i.test(text)) filters.roomType = 'Single Room';
     if (/(^|[^a-z])(girls?|female|females|women|ladki|ladkiyon|mahila)([^a-z]|$)/i.test(text)) filters.gender = 'Female';
     else if (/(^|[^a-z])(boys?|male|males|men|ladka|ladke|ladko)([^a-z]|$)/i.test(text)) filters.gender = 'Male';
-    if (/(sabse sasta|sasta|cheapest|lowest|minimum|kam budget)/i.test(lower)) filters.sort = 'price_asc';
-    if (/(sabse costly|sabse mehenga|mahanga|expensive|costliest|highest|premium|luxury)/i.test(lower)) filters.sort = 'price_desc';
-    if (/(rating|rated|best rated|top rated|best room|best rooms|top room|top rooms|recommended|good room|good rooms|achha|accha)/i.test(lower)) filters.sort = 'rating';
-    if (/(price\s*(wise|view|order)|price\s*(?:point\s*)?of\s*view|price\s*ke\s*(?:hisab|hisaab)|rent\s*wise|cost\s*wise|budget\s*wise|by price|according to price|low to high|lowest to highest|saste se|kam se)/i.test(lower)) filters.sort = 'price_asc';
-    if (/(high to low|highest to lowest|price high|costly first|expensive first)/i.test(lower)) filters.sort = 'price_desc';
-
-    return filters;
+    return applyLocalRoomIntent(filters, text);
 };
 
 const searchRoomsLocally = async (text) => {
@@ -539,19 +564,34 @@ const searchRoomsLocally = async (text) => {
     });
     const { data } = await api.get(`/rooms?${params.toString()}`);
     let rooms = data.data || data || [];
+    if (['price_asc', 'price_desc'].includes(filters.sort)) rooms = rooms.filter((room) => Number(room.rent || 0) > 0);
     if (filters.sort === 'price_asc') rooms = [...rooms].sort((a, b) => Number(a.rent || 0) - Number(b.rent || 0));
     if (filters.sort === 'price_desc') rooms = [...rooms].sort((a, b) => Number(b.rent || 0) - Number(a.rent || 0));
     return { rooms, filters };
 };
 
-const fallbackReply = (text, rooms) => {
+const fallbackReply = (text, rooms, filters = extractLocalFilters(text)) => {
+    const sortNote = filters.sort === 'price_asc'
+        ? ' Price low to high rakha hai.'
+        : filters.sort === 'price_desc'
+            ? ' Price high to low rakha hai.'
+            : filters.sort === 'rating'
+                ? ' Best rated options pehle hain.'
+                : '';
     if (isHinglish(text)) {
         return rooms.length
-            ? `AI provider response slow tha, isliye maine RoomRadar ke real database se ${rooms.length} matching room dhoondh diye. View Details se direct booking flow open hoga.`
+            ? `AI provider response slow tha, isliye maine RoomRadar ke real database se ${rooms.length} matching room dhoondh diye.${sortNote} View Details se direct booking flow open hoga.`
             : 'AI provider slow tha aur exact room match nahi mila. City, budget ya room type thoda change karke bhejo, main real listings me dobara search karunga.';
     }
+    const englishSortNote = filters.sort === 'price_asc'
+        ? ' Results are ordered from low price to high.'
+        : filters.sort === 'price_desc'
+            ? ' Results are ordered from high price to low.'
+            : filters.sort === 'rating'
+                ? ' Best rated options are shown first.'
+                : '';
     return rooms.length
-        ? `The AI provider was slow, so I searched the real RoomRadar database and found ${rooms.length} matching rooms.`
+        ? `The AI provider was slow, so I searched the real RoomRadar database and found ${rooms.length} matching rooms.${englishSortNote}`
         : 'The AI provider was slow and no exact room match was found. Try another city, budget, or room type.';
 };
 
@@ -647,14 +687,14 @@ const RoomRadarChatbot = () => {
             ]);
         } catch (error) {
             try {
-                const { rooms } = await searchRoomsLocally(trimmed);
+                const { rooms, filters } = await searchRoomsLocally(trimmed);
                 setMessages((current) => [
                     ...current,
                     {
                         role: 'assistant',
-                        content: fallbackReply(trimmed, rooms),
+                        content: fallbackReply(trimmed, rooms, filters),
                         rooms,
-                        sort: extractLocalFilters(trimmed).sort,
+                        sort: filters.sort,
                         provider: 'browser-fallback',
                         fallback: true
                     }
@@ -971,6 +1011,7 @@ const ProfileInsightCard = ({ visual }) => (
 const ChatRoomCard = ({ room, index, sort, closeDrawer }) => {
     const amenities = getRoomAmenityLabels(room);
     const isTopPrice = index === 0 && sort === 'price_asc';
+    const isHighestPrice = index === 0 && sort === 'price_desc';
     const isTopRated = index === 0 && sort === 'rating';
     const displayTitle = formatListingTitle(room?.title, 'Room listing');
 
@@ -1005,9 +1046,9 @@ const ChatRoomCard = ({ room, index, sort, closeDrawer }) => {
             </div>
 
             <div className="rr-chat-room-card-body p-3">
-                {(isTopPrice || isTopRated) && (
+                {(isTopPrice || isHighestPrice || isTopRated) && (
                     <span className="mb-2 inline-flex rounded-full bg-cyan-500/10 px-2 py-1 text-[10px] font-black text-cyan-700 dark:text-cyan-300">
-                        {isTopPrice ? 'Lowest price first' : 'Best rated first'}
+                        {isTopPrice ? 'Lowest price first' : isHighestPrice ? 'Highest price first' : 'Best rated first'}
                     </span>
                 )}
                 <h3 className="rr-line-clamp-2 min-w-0 text-sm font-black leading-tight text-light-text dark:text-dark-text">

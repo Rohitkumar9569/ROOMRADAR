@@ -83,10 +83,20 @@ function PremiumProfileEditor({ mode = 'student' }) {
   const userInitial = getInitial(form.name || user?.name);
   const accountEmail = user?.email || '';
   const verifications = user?.verifications || {};
-  const emailVerified = verifications.email || user?.verifiedEmails?.length > 0;
+  const emailVerified = Boolean(
+    verifications.email
+    || user?.verifiedEmails?.includes(accountEmail)
+    || user?.verifiedEmails?.length > 0
+    || user?.isGoogleUser
+  );
+  const phoneVerified = Boolean(
+    verifications.phone
+    || user?.verifiedPhone
+    || isValidIndianMobile(form.mobileNumber || form.phone || '')
+  );
   const verifiedCount = [
     emailVerified,
-    verifications.phone || Boolean(user?.verifiedPhone),
+    phoneVerified,
     verifications.identity,
     isHost ? verifications.property : verifications.student,
   ].filter(Boolean).length;
@@ -132,8 +142,8 @@ function PremiumProfileEditor({ mode = 'student' }) {
   };
 
   const verificationItems = [
-    { key: 'email', label: 'Email', active: verifications.email || user?.verifiedEmails?.length > 0 },
-    { key: 'phone', label: 'Phone', active: verifications.phone || Boolean(user?.verifiedPhone) },
+    { key: 'email', label: 'Email', active: emailVerified },
+    { key: 'phone', label: 'Phone', active: phoneVerified },
     { key: 'identity', label: 'Identity', active: verifications.identity },
     { key: isHost ? 'property' : 'student', label: isHost ? 'Property' : 'Profile', active: isHost ? verifications.property : verifications.student },
   ];

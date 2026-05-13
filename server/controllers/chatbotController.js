@@ -120,9 +120,10 @@ const detectLanguage = (text = '') => {
         'yaar', 'karo', 'dedo', 'lelo', 'kaun', 'kisne', 'kisane', 'sasta',
         'mahanga', 'mehenga', 'andar', 'liye', 'mein', 'me', 'baare', 'bare',
         'isake', 'iske', 'pura', 'poora', 'details', 'research', 'profile',
-        'member', 'team', 'room chahiye', 'khana', 'khaana', 'banata',
-        'banate', 'banati', 'banane', 'padhna', 'padhta', 'pasand', 'achhe',
-        'achha', 'kaafi', 'karta', 'karte'
+    'member', 'team', 'room chahiye', 'khana', 'khaana', 'banata',
+    'banate', 'banati', 'banane', 'padhna', 'padhta', 'pasand', 'achhe',
+        'achha', 'kaafi', 'karta', 'karte', 'sabse', 'saste', 'sasti',
+        'mahinga', 'mehanga', 'mehangi', 'badhiya', 'badia', 'sahi'
     ];
     const lowerText = text.toLowerCase();
     const tokens = new Set(lowerText.match(/[a-z0-9]+/g) || []);
@@ -161,6 +162,39 @@ const GENERIC_CITY_WORDS = new Set([
     'sasta', 'mahanga', 'mehenga', 'costly', 'expensive', 'near', 'city',
     'location', 'area', 'anywhere', 'all', 'pt', 'pdt', 'pandit'
 ]);
+
+const priceAscIntentRegex = /(?:sabse\s+(?:sasta|saste|sasti|cheap|low(?:est)?|kam\s+(?:price|rent|budget))|cheapest|cheap(?:est)?\s*(?:room|rooms|pg|flat|listing|listings)?|lowest\s+(?:price|rent|budget)|low\s+(?:price|rent|budget)|minimum\s+rent|min\s+rent|kam\s+(?:budget|rent|price)|sasta|saste|sasti|affordable|budget\s*friendly|pocket\s*friendly|low\s*to\s*high|lowest\s*to\s*highest|saste\s+se|kam\s+se|price\s*(?:wise|view|order|ke\s*(?:hisab|hisaab))|rent\s*wise|cost\s*wise|budget\s*wise|by\s+price|according\s+to\s+price)/i;
+const priceDescIntentRegex = /(?:sabse\s+(?:maha?nga|mahi?nga|meha?nga|mehe?nga|mehe?ngi|costly|expensive|high(?:est|t)?\s+(?:price|rent|budget))|high(?:est|t)?\s+(?:price|rent|budget)|maximum\s+rent|max\s+rent|most\s+expensive|costliest|expensive|costly|maha?nga|mahi?nga|meha?nga|mehe?nga|mehe?ngi|price\s+high(?:est|t)?|high(?:est|t)?\s*to\s*low|highest\s*to\s*lowest|costly\s+first|expensive\s+first|luxury)/i;
+const ratingIntentRegex = /(?:sabse\s+(?:best|achha|accha|badhiya|badia)|best\s+(?:room|rooms|pg|flat|listing|listings|rated|option|options)?|top\s+(?:room|rooms|pg|flat|rated|option|options)?|recommended|recommendation|good\s+(?:room|rooms|pg|flat|option|options)|achha|accha|badhiya|badia|rating|rated|popular|trust(?:ed)?)/i;
+
+const getRoomSortIntent = (text = '') => {
+    const lower = text.toLowerCase();
+    if (priceDescIntentRegex.test(lower)) return 'price_desc';
+    if (priceAscIntentRegex.test(lower)) return 'price_asc';
+    if (ratingIntentRegex.test(lower)) return 'rating';
+    if (/(newest|latest|naya|recent)/i.test(lower)) return 'newest';
+    return '';
+};
+
+const hasRoomRankingIntent = (text = '') => Boolean(getRoomSortIntent(text));
+
+const hasExplicitLimit = (text = '') => (
+    /(?:show|give|list|find|display|dikhao|batao|de do|dedo)?\s*\d{1,2}\s*(?:room|rooms|pg|flats?|listings?)\b/i.test(text)
+    || /\b(?:top|best)\s*\d{1,2}\b/i.test(text)
+);
+
+const wantsSingleRankedRoom = (text = '') => {
+    if (hasExplicitLimit(text)) return false;
+    return /(?:sabse\s+(?:sasta|saste|sasti|maha?nga|mehe?nga|mehe?ngi|best|achha|accha|badhiya|badia)|cheapest\s+(?:room|pg|flat|listing)?|costliest\s+(?:room|pg|flat|listing)?|most\s+expensive\s+(?:room|pg|flat|listing)?|highest\s+(?:price|rent)\s+(?:room|pg|flat|listing)?|lowest\s+(?:price|rent)\s+(?:room|pg|flat|listing)?|\bbest\s+room\b|\btop\s+room\b)/i.test(text);
+};
+
+const applyLocalRoomIntent = (filters = {}, text = '') => {
+    const sortIntent = getRoomSortIntent(text);
+    const nextFilters = { ...filters };
+    if (sortIntent) nextFilters.sort_by = sortIntent;
+    if (sortIntent && !nextFilters.limit && wantsSingleRankedRoom(text)) nextFilters.limit = 1;
+    return nextFilters;
+};
 
 const normalizeCityFilter = (...values) => {
     for (const value of values) {
@@ -205,13 +239,6 @@ const extractFiltersLocally = (text = '') => {
         filters.limit = Math.min(Math.max(Number(limitMatch[1]) || 5, 1), 12);
     }
 
-    if (/(sabse sasta|sasta|cheapest|lowest price|low price|kam budget|minimum rent)/i.test(lower)) filters.sort_by = 'price_asc';
-    if (/(sabse costly|sabse mehenga|sabse mahanga|mahanga|expensive|costliest|highest price|premium|luxury)/i.test(lower)) filters.sort_by = 'price_desc';
-    if (/(rating|rated|best rated|top rated|best room|best rooms|top room|top rooms|recommended|good room|good rooms|achha|accha)/i.test(lower)) filters.sort_by = 'rating';
-    if (/(price\s*(wise|view|order)|price\s*(?:point\s*)?of\s*view|price\s*ke\s*(?:hisab|hisaab)|rent\s*wise|cost\s*wise|budget\s*wise|by price|according to price|low to high|lowest to highest|saste se|kam se)/i.test(lower)) filters.sort_by = 'price_asc';
-    if (/(high to low|highest to lowest|price high|costly first|expensive first)/i.test(lower)) filters.sort_by = 'price_desc';
-    if (/(newest|latest|naya|recent)/i.test(lower)) filters.sort_by = 'newest';
-
     if (/\b1\s*bhk\b/i.test(text)) filters.room_type = '1BHK';
     else if (/\b2\s*bhk\b/i.test(text)) filters.room_type = '2BHK';
     else if (/\bpg\b/i.test(text)) filters.room_type = 'PG';
@@ -247,7 +274,7 @@ const extractFiltersLocally = (text = '') => {
     if (/housekeeping|cleaning/i.test(text)) amenities.push('housekeeping');
     if (amenities.length) filters.amenities = amenities;
 
-    return filters;
+    return applyLocalRoomIntent(filters, text);
 };
 
 const buildExtractionPrompt = (messages) => {
@@ -413,7 +440,7 @@ const mergeFilters = (aiFilters = {}, localFilters = {}) => {
     const maxPrice = Number(aiFilters.max_price || aiFilters.maxPrice || aiFilters.budget || localFilters.max_price);
     const minPrice = Number(aiFilters.min_price || aiFilters.minPrice || localFilters.min_price);
     const occupants = Number(aiFilters.occupants || aiFilters.people || localFilters.occupants);
-    const limit = Number(aiFilters.limit || aiFilters.count || aiFilters.number_of_rooms || localFilters.limit);
+    const limit = Number(localFilters.limit || aiFilters.limit || aiFilters.count || aiFilters.number_of_rooms);
     const amenities = Array.isArray(aiFilters.amenities) && aiFilters.amenities.length
         ? aiFilters.amenities
         : (Array.isArray(localFilters.amenities) ? localFilters.amenities : []);
@@ -425,7 +452,7 @@ const mergeFilters = (aiFilters = {}, localFilters = {}) => {
         gender: normalizeGender(localFilters.gender || aiFilters.gender || aiFilters.gender_preference || ''),
         family_status: normalizeFamilyStatus(aiFilters.family_status || aiFilters.familyStatus || localFilters.family_status || ''),
         occupants: Number.isFinite(occupants) && occupants > 0 ? occupants : undefined,
-        sort_by: aiFilters.sort_by || aiFilters.sortBy || localFilters.sort_by,
+        sort_by: localFilters.sort_by || aiFilters.sort_by || aiFilters.sortBy,
         limit: Number.isFinite(limit) && limit > 0 ? Math.min(Math.max(Math.round(limit), 1), 12) : undefined,
         amenities
     };
@@ -441,7 +468,8 @@ const hasSearchIntent = (text = '', filters = {}) => {
     const lower = text.toLowerCase();
     if (isGreeting(text) || isCreatorQuestion(text) || isIdentityQuestion(text) || getTeamProfileKey(text) || isTeamOverviewQuestion(text)) return false;
     return Object.keys(filters).length > 0
-        || /\b(room|rooms|pg|flat|bhk|rent|budget|under|below|andar|search|find|show|give|list|best|top|price|chahiye|available|boys|girls|family|sasta|cheapest|costly|expensive|mahanga|mehenga|people|logo)\b/i.test(lower);
+        || hasRoomRankingIntent(text)
+        || /\b(room|rooms|pg|flat|bhk|rent|budget|under|below|andar|search|find|show|give|list|best|top|price|chahiye|available|boys|girls|family|sasta|saste|sasti|cheapest|cheap|affordable|costly|expensive|mahanga|mahinga|mehanga|mehenga|high price|low price|people|logo)\b/i.test(lower);
 };
 
 const isHinglish = (text = '') => detectLanguage(text) === 'hinglish';
@@ -449,8 +477,8 @@ const isHinglish = (text = '') => detectLanguage(text) === 'hinglish';
 const getDeveloperCredit = () => process.env.PLATFORM_DEVELOPERS || 'Rohit Kumar, Shubhanshu, Kamal Kumar, and Samrat Prajapati';
 
 const teamProfiles = {
-    rohit: `SARATHI'S INSIGHT (The Direct Answer)
-Rohit Kumar Sarathi aur RoomRadar ke lead creator hain. Woh Gurukul Kangri Vishwavidyalaya, Haridwar me B.Tech CSE final-year student hain.
+    rohit: `ROOMRADAR INSIGHT (The Direct Answer)
+Rohit Kumar RoomRadar ke lead creator hain. Woh Gurukul Kangri Vishwavidyalaya, Haridwar me B.Tech CSE final-year student hain.
 
 The Core Idea
 Rohit ka focus technology aur education ko connect karna hai, taaki complex topics simple, clear aur motivating tareeke se samjhaye ja sakein.
@@ -461,7 +489,7 @@ Rohit Kumar 2022-2026 batch ke B.Tech CSE student hain. Woh GATE CSE aur GATE DA
 Major projects: RoomRadar, MockPanel, Study Hub, aur 3D Interactive Portfolio. Long-term goal: government job ki direction me grow karna. Rohit daily AI/ML discoveries explore karna pasand karte hain.
 
 Key Takeaways
-- Rohit Kumar RoomRadar ke lead developer aur Sarathi ke creator hain.
+- Rohit Kumar RoomRadar ke lead developer aur creator hain.
 - GATE CSE aur DA qualified hain.
 - MERN, TypeScript, Data Science, Cybersecurity aur AI/ML me strong interest rakhte hain.
 - Unka vision learning ko simple, accessible aur motivating banana hai.`,
@@ -508,9 +536,9 @@ const teamProfilesHindi = {
 
 const researchedTeamProfiles = {
     hinglish: {
-        rohit: `Research Snapshot: Rohit Kumar Sarathi
+        rohit: `Research Snapshot: Rohit Kumar
 
-Direct answer: Rohit Kumar RoomRadar ke lead creator aur Sarathi AI assistant ke core builder hain. Woh Gurukul Kangri Vishwavidyalaya, Haridwar me B.Tech CSE final-year student hain.
+Direct answer: Rohit Kumar RoomRadar ke lead creator aur AI assistant ke core builder hain. Woh Gurukul Kangri Vishwavidyalaya, Haridwar me B.Tech CSE final-year student hain.
 
 Profile research: Rohit GATE CSE aur GATE DA qualified hain, including DA AIR 7275. Unka engineering focus MERN Stack, TypeScript, Data Science, Cybersecurity, Cloud Computing, Python, C++, React Three Fiber aur AI/ML par hai.
 
@@ -568,9 +596,9 @@ Key takeaways:
 - Team me teaching mindset aur engineering discipline add karte hain.`
     },
     english: {
-        rohit: `Research Snapshot: Rohit Kumar Sarathi
+        rohit: `Research Snapshot: Rohit Kumar
 
-Direct answer: Rohit Kumar is the lead creator of RoomRadar and the core builder behind the Sarathi AI assistant. He is a final-year B.Tech CSE student at Gurukul Kangri Vishwavidyalaya, Haridwar.
+Direct answer: Rohit Kumar is the lead creator of RoomRadar and the core builder behind its AI assistant. He is a final-year B.Tech CSE student at Gurukul Kangri Vishwavidyalaya, Haridwar.
 
 Profile research: Rohit is GATE qualified in CSE and DA, including DA AIR 7275. His technical focus includes MERN Stack, TypeScript, Data Science, Cybersecurity, Cloud Computing, Python, C++, React Three Fiber, and AI/ML.
 
@@ -687,7 +715,7 @@ const isCreatorQuestion = (text = '') => {
 const isIdentityQuestion = (text = '') => /(tum kaun|aap kaun|who are you|what are you)/i.test(text);
 
 const getTeamProfileKey = (text = '') => {
-    if (/\brohit\b|\brk\b|sarathi|sārathi/i.test(text)) return 'rohit';
+    if (/\brohit\b|\brk\b/i.test(text)) return 'rohit';
     if (/shubhanshu|subhanshu/i.test(text)) return 'shubhanshu';
     if (/\bkamal\b/i.test(text)) return 'kamal';
     if (/samrat|prajapati/i.test(text)) return 'samrat';
@@ -706,7 +734,7 @@ const createTeamOverviewReply = (text = '') => {
         return detailed
             ? `RoomRadar team research brief:
 
-1. Rohit Kumar Sarathi - Lead creator of RoomRadar and Sarathi. GATE CSE and GATE DA qualified, with strong focus on MERN Stack, TypeScript, Data Science, Cybersecurity, Cloud, Python, C++, React Three Fiber, and AI/ML.
+1. Rohit Kumar - Lead creator of RoomRadar. GATE CSE and GATE DA qualified, with strong focus on MERN Stack, TypeScript, Data Science, Cybersecurity, Cloud, Python, C++, React Three Fiber, and AI/ML.
 2. Shubhanshu - Software engineer on the RoomRadar team. TCS NQT qualified, cleared the interview, selected for TCS Digital, and currently works at TCS. He practices DSA, enjoys LinkedIn brain games, and likes real-world coding problems.
 3. Kamal Kumar - Software engineer, multi-talented builder, coding lover, DSA-focused, curious about AI/ML inventions, and also excellent at cooking.
 4. Samrat Prajapati - Teacher plus software engineer profile. He teaches students, practices DSA, enjoys cricket, reads books/novels, and follows AI/ML ideas.
@@ -718,7 +746,7 @@ Together, they bring product vision, industry engineering, implementation energy
     return detailed
         ? `RoomRadar team ka research-style brief:
 
-1. Rohit Kumar Sarathi - RoomRadar aur Sarathi ke lead creator. GATE CSE aur GATE DA qualified, MERN, TypeScript, Data Science, Cybersecurity, Cloud, Python, C++, React Three Fiber aur AI/ML me strong focus.
+1. Rohit Kumar - RoomRadar ke lead creator. GATE CSE aur GATE DA qualified, MERN, TypeScript, Data Science, Cybersecurity, Cloud, Python, C++, React Three Fiber aur AI/ML me strong focus.
 2. Shubhanshu - RoomRadar team ke software engineer. TCS NQT qualify kiya, interview clear kiya, TCS Digital role ke liye select hue, aur currently TCS me kaam karte hain. DSA, LinkedIn brain games aur real-world coding problems pasand hain.
 3. Kamal Kumar - Software engineer, multi-talented builder, coding lover, DSA focused, AI/ML inventions explore karte hain, aur cooking me bhi achhe hain.
 4. Samrat Prajapati - Teacher plus software engineer profile. Students ko teach karte hain, DSA practice karte hain, cricket pasand karte hain, books/novels padhte hain, aur AI/ML ideas follow karte hain.
@@ -729,8 +757,8 @@ Together, team RoomRadar me product vision, industry engineering, implementation
 
 const getExtremeIntent = (text = '') => {
     const lower = text.toLowerCase();
-    const wantsCheapest = /(sabse sasta|sasta|cheapest|lowest|minimum|kam rent|low price)/i.test(lower);
-    const wantsCostliest = /(sabse costly|sabse mehenga|mahanga|expensive|costliest|highest|max rent|premium room)/i.test(lower);
+    const wantsCheapest = priceAscIntentRegex.test(lower);
+    const wantsCostliest = priceDescIntentRegex.test(lower);
     if (wantsCheapest && wantsCostliest) return 'both';
     if (wantsCheapest) return 'cheapest';
     if (wantsCostliest) return 'costliest';
@@ -738,7 +766,7 @@ const getExtremeIntent = (text = '') => {
 };
 
 const findExtremeRooms = async (intent) => {
-    const baseQuery = activePublishedQuery();
+    const baseQuery = { ...activePublishedQuery(), rent: { $gt: 0 } };
     const select = 'title rent location roomType gender familyStatus imageUrl images averageRating _id';
     if (intent === 'both') {
         const [cheapest, costliest] = await Promise.all([
@@ -789,6 +817,20 @@ const createExtremeMessage = (intent, rooms, sourceText) => {
         : `The costliest available room is ${rooms[0].title} at ${rent(rooms[0])}.`;
 };
 
+const getRankedSortText = ({ sortText, count, filters, sourceText, language }) => {
+    if (count !== 1 || language === 'hindi') return sortText;
+    if (filters.sort_by === 'price_asc') {
+        return isHinglish(sourceText) ? ' Ye sabse sasta available option hai.' : ' This is the cheapest available option.';
+    }
+    if (filters.sort_by === 'price_desc') {
+        return isHinglish(sourceText) ? ' Ye sabse high price available option hai.' : ' This is the highest price available option.';
+    }
+    if (filters.sort_by === 'rating') {
+        return isHinglish(sourceText) ? ' Ye best rated available option hai.' : ' This is the best rated available option.';
+    }
+    return sortText;
+};
+
 const createSearchMessage = ({ rooms, filters, sourceText }) => {
     const cityText = filters.city ? ` in ${filters.city}` : '';
     const language = detectLanguage(sourceText);
@@ -810,13 +852,13 @@ const createSearchMessage = ({ rooms, filters, sourceText }) => {
     }
     if (isHinglish(sourceText)) {
         if (rooms.length > 0) {
-            return `Maine ${count} real matching room${count > 1 ? 's' : ''}${cityText} dhoondh liye hain.${sortText} Card me photo, price aur details clear dikhengi.`;
+            return `Maine ${count} real matching room${count > 1 ? 's' : ''}${cityText} dhoondh liye hain.${getRankedSortText({ sortText, count, filters, sourceText, language })} Card me photo, price aur details clear dikhengi.`;
         }
         return 'Is exact requirement par room nahi mila. Budget, city ya room type thoda adjust karke dobara try karo, main real listings me search kar dunga.';
     }
 
     if (rooms.length > 0) {
-        return `I found ${count} real matching room${count > 1 ? 's' : ''}${cityText}.${sortText} Open a card to view details and continue booking.`;
+        return `I found ${count} real matching room${count > 1 ? 's' : ''}${cityText}.${getRankedSortText({ sortText, count, filters, sourceText, language })} Open a card to view details and continue booking.`;
     }
     return 'No exact match found for this requirement. Try adjusting the city, budget, or room type and I will search real listings again.';
 };
@@ -947,6 +989,7 @@ const searchRooms = async (input = {}) => {
     }
     if (Number.isFinite(maxPrice) && maxPrice > 0) query.rent = { ...query.rent, $lte: maxPrice };
     if (Number.isFinite(minPrice) && minPrice > 0) query.rent = { ...query.rent, $gte: minPrice };
+    if (['price_asc', 'price_desc'].includes(input.sort_by)) query.rent = { ...query.rent, $gt: 0 };
     if (roomType) query.roomType = new RegExp(escapeRegex(roomType), 'i');
     if (Number.isFinite(occupants) && occupants > 1) {
         andClauses.push({
@@ -989,56 +1032,13 @@ const searchRooms = async (input = {}) => {
     const sort = sortMap[input.sort_by] || { views: -1, createdAt: -1 };
 
     return Room.find(query)
-        .select('title rent location roomType gender familyStatus beds maxOccupants facilities imageUrl images averageRating numReviews views _id')
+        .select('title rent location roomType gender familyStatus tenantPreferences beds maxOccupants bathrooms washroomType attachedWashroom furnishingStatus facilities securityDeposit maintenanceCharge electricityBilling availableFrom paymentPreference offlinePaymentAllowed rentNegotiable minimumStay imageUrl images averageRating numReviews views _id')
         .sort(sort)
         .limit(limit)
         .lean();
 };
 
-exports.chat = asyncHandler(async (req, res) => {
-    const messages = normalizeMessages(req.body.messages);
-    if (messages.length === 0) {
-        return res.status(400).json({ error: 'Messages are required' });
-    }
-
-    const lastUserText = getLastUserText(messages);
-    const detectedLanguage = detectLanguage(lastUserText);
-    const dynamicSystemPrompt = getDynamicSystemPrompt(detectedLanguage);
-    const localFilters = extractFiltersLocally(lastUserText);
-    const extremeIntent = getExtremeIntent(lastUserText);
-
-    if (isGreeting(lastUserText) || isCreatorQuestion(lastUserText) || isIdentityQuestion(lastUserText) || getTeamProfileKey(lastUserText) || isTeamOverviewQuestion(lastUserText)) {
-        return res.json({
-            message: createKnowledgeReply(lastUserText),
-            rooms: [],
-            provider: 'local',
-            fallback: false
-        });
-    }
-
-    if (extremeIntent === 'both') {
-        const rooms = await findExtremeRooms(extremeIntent);
-        return res.json({
-            message: createExtremeMessage(extremeIntent, rooms, lastUserText),
-            rooms,
-            sort: 'price_asc',
-            provider: 'local-db',
-            fallback: false
-        });
-    }
-
-    const aiResult = await runAiExtraction(messages, dynamicSystemPrompt);
-    const filters = mergeFilters(aiResult.filters, localFilters);
-
-    if (!hasSearchIntent(lastUserText, filters)) {
-        return res.json({
-            message: aiResult.reply || createKnowledgeReply(lastUserText),
-            rooms: [],
-            provider: aiResult.provider,
-            fallback: aiResult.fallback
-        });
-    }
-
+const buildRoomSearchPayload = async ({ filters, lastUserText, provider = 'local-db', fallback = false }) => {
     let rooms = await searchRooms(filters);
     let message = createSearchMessage({ rooms, filters, sourceText: lastUserText });
     let responseSort = filters.sort_by;
@@ -1078,13 +1078,76 @@ exports.chat = asyncHandler(async (req, res) => {
         }
     }
 
-    res.json({
+    return {
         message,
         rooms,
         filters,
         sort: responseSort,
         matchType,
+        provider,
+        fallback: fallback || matchType === 'relaxed',
+    };
+};
+
+exports.chat = asyncHandler(async (req, res) => {
+    const messages = normalizeMessages(req.body.messages);
+    if (messages.length === 0) {
+        return res.status(400).json({ error: 'Messages are required' });
+    }
+
+    const lastUserText = getLastUserText(messages);
+    const detectedLanguage = detectLanguage(lastUserText);
+    const dynamicSystemPrompt = getDynamicSystemPrompt(detectedLanguage);
+    const localFilters = extractFiltersLocally(lastUserText);
+    const extremeIntent = getExtremeIntent(lastUserText);
+
+    if (isGreeting(lastUserText) || isCreatorQuestion(lastUserText) || isIdentityQuestion(lastUserText) || getTeamProfileKey(lastUserText) || isTeamOverviewQuestion(lastUserText)) {
+        return res.json({
+            message: createKnowledgeReply(lastUserText),
+            rooms: [],
+            provider: 'local',
+            fallback: false
+        });
+    }
+
+    if (extremeIntent === 'both') {
+        const rooms = await findExtremeRooms(extremeIntent);
+        return res.json({
+            message: createExtremeMessage(extremeIntent, rooms, lastUserText),
+            rooms,
+            sort: 'price_asc',
+            provider: 'local-db',
+            fallback: false
+        });
+    }
+
+    if (hasRoomRankingIntent(lastUserText) && hasSearchIntent(lastUserText, localFilters)) {
+        const payload = await buildRoomSearchPayload({
+            filters: localFilters,
+            lastUserText,
+            provider: 'local-db',
+            fallback: false,
+        });
+        return res.json(payload);
+    }
+
+    const aiResult = await runAiExtraction(messages, dynamicSystemPrompt);
+    const filters = applyLocalRoomIntent(mergeFilters(aiResult.filters, localFilters), lastUserText);
+
+    if (!hasSearchIntent(lastUserText, filters)) {
+        return res.json({
+            message: aiResult.reply || createKnowledgeReply(lastUserText),
+            rooms: [],
+            provider: aiResult.provider,
+            fallback: aiResult.fallback
+        });
+    }
+
+    const payload = await buildRoomSearchPayload({
+        filters,
+        lastUserText,
         provider: aiResult.provider,
-        fallback: aiResult.fallback || matchType === 'relaxed'
+        fallback: aiResult.fallback,
     });
+    res.json(payload);
 });

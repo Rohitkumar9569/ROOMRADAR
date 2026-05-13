@@ -688,7 +688,7 @@ exports.getSimilarRooms = asyncHandler(async (req, res) => {
         status: 'Published',
         isDeleted: { $ne: true },
     };
-    const baseSelection = 'title rent location roomType images imageUrl averageRating numReviews beds maxOccupants gender familyStatus tenantPreferences facilities createdAt landlord views';
+    const baseSelection = 'title rent location roomType images imageUrl averageRating numReviews beds maxOccupants bathrooms washroomType attachedWashroom furnishingStatus gender familyStatus tenantPreferences facilities securityDeposit maintenanceCharge electricityBilling availableFrom paymentPreference offlinePaymentAllowed rentNegotiable minimumStay createdAt landlord views';
     const seenIds = new Set([String(room._id)]);
     const sourceCoordinates = getRoomCoordinates(room);
     const rankCandidates = (rooms, group = 'similar') => rooms
@@ -800,10 +800,22 @@ exports.getSimilarRooms = asyncHandler(async (req, res) => {
                         numReviews: 1,
                         beds: 1,
                         maxOccupants: 1,
+                        bathrooms: 1,
+                        washroomType: 1,
+                        attachedWashroom: 1,
+                        furnishingStatus: 1,
                         gender: 1,
                         familyStatus: 1,
                         tenantPreferences: 1,
                         facilities: 1,
+                        securityDeposit: 1,
+                        maintenanceCharge: 1,
+                        electricityBilling: 1,
+                        availableFrom: 1,
+                        paymentPreference: 1,
+                        offlinePaymentAllowed: 1,
+                        rentNegotiable: 1,
+                        minimumStay: 1,
                         createdAt: 1,
                         landlord: 1,
                         views: 1,

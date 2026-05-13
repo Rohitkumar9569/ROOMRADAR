@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useLayoutEffect } from 'react';
 
 const ThemeContext = createContext();
 const getSystemDarkMode = () => (
@@ -9,7 +9,7 @@ const getSystemDarkMode = () => (
 
 const getSavedThemePreference = () => {
   if (typeof window === 'undefined') return 'system';
-  const savedTheme = window.localStorage.getItem('theme-preference');
+  const savedTheme = window.localStorage.getItem('theme-preference') || window.localStorage.getItem('theme');
   return savedTheme === 'dark' || savedTheme === 'light' ? savedTheme : 'system';
 };
 
@@ -18,7 +18,7 @@ export const ThemeProvider = ({ children }) => {
   const [systemDarkMode, setSystemDarkMode] = useState(getSystemDarkMode);
   const isDarkMode = themePreference === 'system' ? systemDarkMode : themePreference === 'dark';
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (isDarkMode) {
       document.documentElement.classList.add('dark');
     } else {
@@ -26,6 +26,7 @@ export const ThemeProvider = ({ children }) => {
     }
 
     const themeColor = isDarkMode ? '#0f0f0f' : '#ffffff';
+    document.documentElement.style.colorScheme = isDarkMode ? 'dark' : 'light';
     document.querySelectorAll('meta[name="theme-color"]').forEach((meta) => {
       meta.setAttribute('content', themeColor);
     });

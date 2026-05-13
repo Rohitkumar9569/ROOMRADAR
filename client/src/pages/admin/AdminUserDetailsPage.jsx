@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import api from '../../api';
 import toast from 'react-hot-toast';
 import Spinner from '../../components/common/Spinner';
-import { ArrowLeft, BadgeCheck, Calendar, FileText, Home, Mail, ShieldCheck, UserX, X } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, BadgeCheck, Calendar, FileText, Home, Mail, ShieldCheck, UserX, X } from 'lucide-react';
 import { format } from 'date-fns';
 import { confirmToast } from '../../utils/confirmToast';
 
@@ -171,12 +171,19 @@ const AdminUserDetailsPage = () => {
 
     confirmToast({
       title: `${action.charAt(0).toUpperCase() + action.slice(1)} this user?`,
+      description: isBanned
+        ? 'This restores dashboard, booking, hosting, chat, and profile access.'
+        : 'The user will immediately see a Trust & Safety restriction page with review steps.',
       confirmLabel: action.charAt(0).toUpperCase() + action.slice(1),
+      tone: isBanned ? 'success' : 'danger',
       onConfirm: async () => {
         try {
-          await api.patch(`/admin/users/${user._id}/status`, { status: newStatus });
+          const { data } = await api.patch(`/admin/users/${user._id}/status`, {
+            status: newStatus,
+            reason: 'RoomRadar Trust & Safety restricted this account after an admin review. Please check your recent listings, bookings, messages, and verification details before requesting a review.',
+          });
           toast.success(`User successfully ${action}ned.`);
-          setUser((currentUser) => ({ ...currentUser, status: newStatus }));
+          setUser((currentUser) => ({ ...currentUser, ...data, status: newStatus }));
         } catch (err) {
           toast.error(err.response?.data?.message || `Failed to ${action} user.`);
         }
@@ -269,6 +276,27 @@ const AdminUserDetailsPage = () => {
                 <StatBox label="Status" value={user.status || 'Active'} icon={UserX} />
               </div>
             </div>
+
+            {user.status === 'Banned' && (
+              <div className="rounded-[1.5rem] border border-red-200 bg-red-50 p-4 shadow-sm dark:border-red-400/20 dark:bg-red-500/10 sm:p-5">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="flex gap-3">
+                    <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-2xl bg-red-500 text-white">
+                      <AlertTriangle className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-black text-red-700 dark:text-red-200">Restriction visible to user</p>
+                      <p className="mt-1 text-sm font-semibold leading-6 text-red-700/80 dark:text-red-100/80">
+                        {user.accountRestriction?.reason || 'RoomRadar Trust & Safety restricted this account after an admin review.'}
+                      </p>
+                    </div>
+                  </div>
+                  <span className="rounded-full bg-white px-3 py-1.5 text-xs font-black uppercase tracking-wide text-red-600 shadow-sm dark:bg-dark-card dark:text-red-200">
+                    Appeal: {user.accountRestriction?.appealStatus || 'none'}
+                  </span>
+                </div>
+              </div>
+            )}
 
             <div className="flex flex-wrap gap-2">
               {user.roles.map((role) => (

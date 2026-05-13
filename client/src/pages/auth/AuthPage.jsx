@@ -37,8 +37,8 @@ const GoogleIcon = () => (
 
 const TextField = ({ icon: Icon, label, type = 'text', value, onChange, name, placeholder, autoComplete, rightSlot, required = true }) => (
     <label className="block">
-        <span className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.12em] text-light-muted dark:text-dark-muted">{label}</span>
-        <span className="group flex h-12 items-center gap-3 rounded-xl border border-light-border bg-white px-4 shadow-sm transition focus-within:border-cyan-500 focus-within:ring-4 focus-within:ring-cyan-500/10 dark:border-dark-border dark:bg-dark-input">
+        <span className="mb-2 block text-[11px] font-black uppercase tracking-[0.13em] text-light-muted dark:text-dark-muted">{label}</span>
+        <span className="rr-auth-field group flex h-[3.35rem] items-center gap-3 rounded-2xl border border-light-border bg-white px-4 shadow-sm transition focus-within:border-cyan-500 focus-within:ring-4 focus-within:ring-cyan-500/10 dark:border-dark-border dark:bg-dark-input">
             <Icon className="h-4 w-4 flex-shrink-0 text-cyan-600 dark:text-cyan-400" />
             <input
                 type={type}
@@ -48,7 +48,7 @@ const TextField = ({ icon: Icon, label, type = 'text', value, onChange, name, pl
                 placeholder={placeholder}
                 autoComplete={autoComplete}
                 required={required}
-                className="min-w-0 flex-1 bg-transparent text-[15px] font-medium text-light-text outline-none placeholder:text-light-muted dark:text-dark-text dark:placeholder:text-dark-muted"
+                className="rr-auth-input min-w-0 flex-1 bg-transparent text-[16px] font-semibold text-light-text outline-none placeholder:text-light-muted dark:text-dark-text dark:placeholder:text-dark-muted"
             />
             {rightSlot}
         </span>
@@ -205,12 +205,12 @@ function AuthPage() {
         };
 
     return (
-        <main className="relative min-h-dvh overflow-hidden bg-light-bg text-light-text dark:bg-dark-bg dark:text-dark-text lg:h-dvh">
-            <div className="absolute inset-x-0 top-0 h-56 bg-gradient-to-b from-cyan-500/10 via-transparent to-transparent dark:from-cyan-400/10" />
+        <main className="relative min-h-dvh overflow-hidden bg-[radial-gradient(circle_at_50%_0%,rgba(6,182,212,0.10),transparent_18rem),linear-gradient(180deg,#f8fafc_0%,#eef6fb_100%)] text-light-text dark:bg-[radial-gradient(circle_at_50%_0%,rgba(34,211,238,0.12),transparent_18rem),linear-gradient(180deg,#0f0f0f_0%,#181818_100%)] dark:text-dark-text lg:h-dvh">
+            <div className="absolute inset-x-0 top-0 h-44 bg-gradient-to-b from-cyan-500/12 via-transparent to-transparent dark:from-cyan-400/10" />
             <div className="pointer-events-none absolute left-1/2 top-0 hidden h-[26rem] w-[42rem] -translate-x-1/2 rounded-full bg-cyan-400/10 blur-3xl dark:bg-cyan-300/10 lg:block" />
 
             <header className="relative z-10 mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:h-[4.25rem] lg:px-8">
-                <Link to="/" className="text-[clamp(20px,5.5vw,28px)] font-black tracking-tight">
+                <Link to="/" className="text-[clamp(22px,6.2vw,30px)] font-black tracking-tight">
                     <span className="text-brand">Room</span>
                     <span className="text-cyan-500 dark:text-cyan-400">Radar</span>
                 </Link>
@@ -224,7 +224,7 @@ function AuthPage() {
                 </button>
             </header>
 
-            <section className="relative z-10 mx-auto grid min-h-[calc(100dvh-4rem)] max-w-7xl items-center gap-5 px-4 pb-6 sm:px-6 lg:h-[calc(100dvh-4.25rem)] lg:min-h-0 lg:grid-cols-[minmax(0,0.92fr)_minmax(430px,0.82fr)] lg:gap-8 lg:px-8 lg:pb-6">
+            <section className="relative z-10 mx-auto grid min-h-[calc(100dvh-4rem)] max-w-7xl items-start gap-5 px-4 pb-5 pt-7 sm:px-6 sm:pt-8 lg:h-[calc(100dvh-4.25rem)] lg:min-h-0 lg:grid-cols-[minmax(0,0.92fr)_minmax(430px,0.82fr)] lg:items-center lg:gap-8 lg:px-8 lg:py-6">
                 <motion.aside
                     initial={{ opacity: 0, y: 18 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -261,24 +261,24 @@ function AuthPage() {
                     initial={{ opacity: 0, y: 18 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.45, delay: 0.08, ease: 'easeOut' }}
-                    className="no-scrollbar mx-auto w-full max-w-[29rem] rounded-[1.6rem] border border-light-border bg-white/98 p-5 shadow-[0_24px_80px_rgba(15,23,42,0.15)] ring-1 ring-cyan-500/10 backdrop-blur-xl dark:border-dark-border dark:bg-dark-sidebar/98 dark:shadow-black/35 dark:ring-cyan-300/10 sm:p-7 lg:max-h-full lg:overflow-y-auto lg:p-7 xl:p-8"
+                    className="no-scrollbar mx-auto w-full max-w-[30rem] rounded-[2rem] border border-light-border bg-white/96 p-5 shadow-[0_24px_70px_-42px_rgba(15,23,42,0.55)] ring-1 ring-cyan-500/10 backdrop-blur-xl dark:border-dark-border dark:bg-[#181818]/96 dark:shadow-black/45 dark:ring-cyan-300/10 sm:p-7 lg:max-h-full lg:overflow-y-auto lg:p-7 xl:p-8"
                 >
                     <div className="mb-5 sm:mb-6">
-                        <span className="inline-flex items-center gap-2 rounded-full bg-cyan-500/10 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.13em] text-cyan-700 dark:bg-cyan-400/10 dark:text-cyan-300">
+                        <span className="inline-flex items-center gap-2 rounded-full bg-cyan-500/10 px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.13em] text-cyan-700 dark:bg-cyan-400/10 dark:text-cyan-300">
                             <ShieldCheck className="h-3.5 w-3.5" />
                             {modeCopy.eyebrow}
                         </span>
-                        <h2 className="mt-4 text-[clamp(28px,8vw,46px)] font-black leading-tight tracking-[-0.035em] text-light-text dark:text-dark-text lg:text-[clamp(34px,3.8vw,50px)]">
+                        <h2 className="mt-4 text-[clamp(34px,9.5vw,50px)] font-black leading-[0.98] tracking-[-0.045em] text-light-text dark:text-dark-text lg:text-[clamp(36px,3.8vw,52px)]">
                             {modeCopy.title}
                         </h2>
-                        <p className="mt-2 text-sm leading-6 text-light-muted dark:text-dark-muted">{modeCopy.subtitle}</p>
+                        <p className="mt-3 text-[15px] font-medium leading-6 text-light-muted dark:text-dark-muted">{modeCopy.subtitle}</p>
                     </div>
 
                     <button
                         type="button"
                         onClick={() => handleGoogleLogin()}
                         disabled={isSubmitting}
-                        className="flex h-12 w-full items-center justify-center gap-3 rounded-xl border border-light-border bg-white text-sm font-semibold text-light-text shadow-sm transition hover:border-cyan-400 hover:bg-cyan-50 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 dark:border-dark-border dark:bg-dark-card dark:text-dark-text dark:hover:bg-dark-input"
+                        className="flex h-[3.35rem] w-full items-center justify-center gap-3 rounded-2xl border border-light-border bg-white text-[15px] font-black text-light-text shadow-sm transition hover:border-cyan-400 hover:bg-cyan-50 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 dark:border-dark-border dark:bg-dark-card dark:text-dark-text dark:hover:bg-dark-input"
                     >
                         <GoogleIcon />
                         Continue with Google
@@ -355,7 +355,7 @@ function AuthPage() {
                         <button
                             type="submit"
                             disabled={isSubmitting || (!isLogin && settings?.allowNewSignups === false)}
-                            className="group flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-brand text-sm font-semibold text-white shadow-lg shadow-brand/20 transition hover:bg-brand-dark active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-70"
+                            className="group flex h-[3.35rem] w-full items-center justify-center gap-2 rounded-2xl bg-brand text-[15px] font-black text-white shadow-lg shadow-brand/20 transition hover:bg-brand-dark active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-70"
                         >
                             {isSubmitting ? (
                                 <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
@@ -369,7 +369,7 @@ function AuthPage() {
                         </button>
                     </form>
 
-                    <div className="mt-6 rounded-xl bg-light-bg p-4 text-center text-sm font-medium text-light-muted dark:bg-dark-card dark:text-dark-muted">
+                    <div className="mt-6 rounded-2xl bg-light-bg p-4 text-center text-[15px] font-medium text-light-muted dark:bg-dark-card dark:text-dark-muted">
                         {modeCopy.switchText}
                         <Link to={modeCopy.switchTo} className="ml-1 font-black text-cyan-600 transition hover:text-cyan-500 dark:text-cyan-300">
                             {modeCopy.switchAction}

@@ -9,6 +9,7 @@ import BottomNavBar from '../components/layout/student/BottomNavBar';
 import SmartAppHeader from '../components/layout/mobile/SmartAppHeader';
 import { useAuth } from '../context/AuthContext';
 import { useSettings } from '../context/SettingsContext';
+import AccountRestrictedPage from '../pages/AccountRestrictedPage';
 
 const RoomRadarChatbot = lazy(() => import('../components/chatbot/RoomRadarChatbot'));
 
@@ -57,6 +58,10 @@ function RootLayout() {
                 <Spinner />
             </div>
         );
+    }
+
+    if (user?.status === 'Banned' && !isAuthPath && !path.startsWith('/loading')) {
+        return <AccountRestrictedPage />;
     }
 
     if (settings?.maintenanceMode && !isAdmin && !isAuthPath) {

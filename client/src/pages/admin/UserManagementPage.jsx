@@ -140,10 +140,17 @@ const UserManagementPage = () => {
 
     confirmToast({
       title: `${action.charAt(0).toUpperCase() + action.slice(1)} this user?`,
+      description: isBanned
+        ? 'This restores dashboard, booking, hosting, chat, and profile access.'
+        : 'The user will immediately see a Trust & Safety restriction page with review steps.',
       confirmLabel: action.charAt(0).toUpperCase() + action.slice(1),
+      tone: isBanned ? 'success' : 'danger',
       onConfirm: async () => {
         try {
-          await api.patch(`/admin/users/${userId}/status`, { status: newStatus });
+          await api.patch(`/admin/users/${userId}/status`, {
+            status: newStatus,
+            reason: 'RoomRadar Trust & Safety restricted this account after an admin review. Please check your recent listings, bookings, messages, and verification details before requesting a review.',
+          });
           toast.success(`User successfully ${action}ned.`);
           fetchUsers();
         } catch (error) {

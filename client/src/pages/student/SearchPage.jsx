@@ -8,6 +8,7 @@ import RoomCardSkeleton from '../../components/common/RoomCardSkeleton';
 import { getFiltersFromConfig } from '../../utils/roomFieldUtils';
 import { readTabCache, setTabCache } from '../../utils/tabDataCache';
 import { formatPreferenceLabel } from '../../utils/listingDisplay';
+import { getMobileAutoLocation } from '../../utils/mobileLocationAutofill';
 import {
   Check,
   ChevronLeft,
@@ -320,6 +321,41 @@ function SearchPage() {
   const [isFilterSheetOpen, setIsFilterSheetOpen] = useState(false);
   const [isMobileSearchDockOpen, setIsMobileSearchDockOpen] = useState(false);
   const [searchMeta, setSearchMeta] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const fillMobileLocation = async () => {
+      if (searchCriteria.location || searchCriteria.locationQuery || filters.city || filters.latitude) return;
+      try {
+        const autoLocation = await getMobileAutoLocation();
+        if (!autoLocation || cancelled) return;
+        const props = autoLocation.place?.properties || {};
+        setSearchCriteria((current) => (
+          current.location || current.locationQuery
+            ? current
+            : { ...current, location: autoLocation.place, locationQuery: autoLocation.query }
+        ));
+        setFilters((current) => {
+          if (current.city || current.latitude) return current;
+          return {
+            ...current,
+            city: props.city || props.address_line1 || autoLocation.query,
+            latitude: props.lat || props.lat === 0 ? String(props.lat) : '',
+            longitude: props.lon || props.lon === 0 ? String(props.lon) : '',
+            radius: current.radius || '5',
+          };
+        });
+      } catch {
+        // Manual search remains available when location permission is dismissed.
+      }
+    };
+
+    fillMobileLocation();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const activeChips = useMemo(() => {
     const chips = [];

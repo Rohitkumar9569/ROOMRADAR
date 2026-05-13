@@ -17,7 +17,6 @@ import {
 } from 'lucide-react';
 import api from '../../api';
 import { useAuth } from '../../context/AuthContext';
-import Spinner from '../../components/common/Spinner';
 import fallbackRoomImage from '../../assets/background_img.jpg';
 import { formatListingTitle } from '../../utils/listingDisplay';
 
@@ -72,9 +71,7 @@ const LandlordOverviewPage = () => {
         { title: 'This month views', value: stats?.thisMonthViews || 0, Icon: Eye, link: '/landlord/insights', caption: 'Total listing views' },
     ]), [stats]);
 
-    if (loading) {
-        return <div className="flex h-[calc(100vh-4rem)] items-center justify-center bg-light-bg dark:bg-dark-bg"><Spinner /></div>;
-    }
+    if (loading) return <LandlordOverviewSkeleton />;
 
     if (error) {
         return (
@@ -197,6 +194,43 @@ const LandlordOverviewPage = () => {
     );
 };
 
+const LandlordOverviewSkeleton = () => (
+    <div className="min-h-full overflow-hidden bg-[linear-gradient(180deg,#f8fafc_0%,#f1f5f9_100%)] text-light-text dark:bg-[linear-gradient(180deg,#0f0f0f_0%,#181818_100%)] dark:text-dark-text">
+        <section className="px-4 pb-4 pt-3 md:hidden">
+            <div className="mx-auto max-w-xl rounded-[1.75rem] border border-slate-200 bg-white/82 p-4 shadow-[0_18px_52px_-42px_rgba(15,23,42,0.5)] dark:border-white/10 dark:bg-[#181818]">
+                <div className="flex items-center justify-between gap-3">
+                    <div className="h-7 w-32 animate-pulse rounded-full bg-cyan-100 dark:bg-white/10" />
+                    <div className="h-9 w-14 animate-pulse rounded-full bg-slate-100 dark:bg-white/10" />
+                </div>
+                <div className="mt-6 space-y-3">
+                    <div className="h-3 w-24 animate-pulse rounded-full bg-slate-200 dark:bg-white/10" />
+                    <div className="h-9 w-44 animate-pulse rounded-full bg-slate-200 dark:bg-white/10" />
+                    <div className="h-4 w-64 max-w-full animate-pulse rounded-full bg-slate-100 dark:bg-white/10" />
+                    <div className="h-4 w-52 max-w-full animate-pulse rounded-full bg-slate-100 dark:bg-white/10" />
+                </div>
+                <div className="mt-5 grid grid-cols-[minmax(0,1fr)_3rem] items-center gap-2">
+                    <div className="h-12 animate-pulse rounded-[1.25rem] bg-brand/18 dark:bg-brand/20" />
+                    <div className="h-12 animate-pulse rounded-[1.25rem] bg-slate-100 dark:bg-white/10" />
+                </div>
+                <div className="mt-4 grid grid-cols-3 gap-2">
+                    {[0, 1, 2].map((item) => (
+                        <div key={item} className="h-20 animate-pulse rounded-2xl bg-slate-100 dark:bg-white/10" />
+                    ))}
+                </div>
+            </div>
+        </section>
+
+        <div className="mx-auto hidden max-w-7xl space-y-5 px-4 py-6 md:block">
+            <div className="h-32 animate-pulse rounded-3xl bg-white dark:bg-[#181818]" />
+            <div className="grid grid-cols-4 gap-5">
+                {[0, 1, 2, 3].map((item) => (
+                    <div key={item} className="h-36 animate-pulse rounded-3xl bg-white dark:bg-[#181818]" />
+                ))}
+            </div>
+        </div>
+    </div>
+);
+
 const MobileDashboardHero = ({ user, stats }) => (
     <section className="px-4 pb-4 pt-3 md:hidden">
         <div className="relative isolate mx-auto max-w-xl overflow-hidden rounded-[2rem] border border-white/70 bg-white/72 p-4 text-slate-950 shadow-[0_24px_70px_-42px_rgba(15,23,42,0.42)] backdrop-blur-2xl dark:border-white/10 dark:bg-slate-900/72 dark:text-slate-50 dark:shadow-[0_24px_70px_-36px_rgba(0,0,0,0.72)]">
@@ -230,17 +264,17 @@ const MobileDashboardHero = ({ user, stats }) => (
                     </p>
                 </div>
 
-                <div className="mt-5 grid grid-cols-[1fr_auto] gap-2">
+                <div className="rr-host-mobile-actions mt-5 grid grid-cols-[minmax(0,1fr)_3rem] items-center gap-2">
                     <Link
                         to="/landlord/add-room"
-                        className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-[1.25rem] bg-brand px-5 text-sm font-black text-white shadow-[0_18px_34px_-20px_rgba(232,64,64,0.95)] transition active:scale-[0.98]"
+                        className="rr-host-mobile-action inline-flex h-12 min-h-12 items-center justify-center gap-2 rounded-[1.25rem] bg-brand px-5 text-sm font-black text-white shadow-[0_18px_34px_-20px_rgba(232,64,64,0.95)] transition active:scale-[0.98]"
                     >
                         <Plus className="h-4 w-4" />
                         Add room
                     </Link>
                     <Link
                         to="/landlord/my-rooms"
-                        className="inline-flex min-h-[48px] items-center justify-center rounded-[1.25rem] border border-black/[0.06] bg-white/74 px-4 text-cyan-700 shadow-sm backdrop-blur-xl transition active:scale-[0.98] dark:border-white/10 dark:bg-white/10 dark:text-cyan-200"
+                        className="rr-host-mobile-action inline-flex h-12 min-h-12 items-center justify-center rounded-[1.25rem] border border-black/[0.06] bg-white/74 px-4 text-cyan-700 shadow-sm backdrop-blur-xl transition active:scale-[0.98] dark:border-white/10 dark:bg-white/10 dark:text-cyan-200"
                         aria-label="Open listings"
                     >
                         <Home className="h-4 w-4" />

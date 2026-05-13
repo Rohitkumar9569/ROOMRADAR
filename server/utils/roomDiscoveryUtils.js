@@ -12,7 +12,7 @@ const LOCATION_FIELDS = [
   'title',
 ];
 
-const ROOM_DISCOVERY_SELECT = 'title rent location roomType gender familyStatus tenantPreferences beds maxOccupants facilities imageUrl images averageRating numReviews views createdAt _id landlord';
+const ROOM_DISCOVERY_SELECT = 'title rent location roomType gender familyStatus tenantPreferences beds maxOccupants bathrooms washroomType attachedWashroom furnishingStatus facilities securityDeposit maintenanceCharge electricityBilling availableFrom paymentPreference offlinePaymentAllowed rentNegotiable minimumStay imageUrl images averageRating numReviews views createdAt _id landlord';
 
 const LOCATION_STOP_WORDS = new Set([
   'room', 'rooms', 'pg', 'flat', 'flats', 'bhk', 'rk', 'hostel', 'studio',

@@ -55,6 +55,21 @@ const UserSchema = new mongoose.Schema({
         enum: ['Active', 'Banned'],
         default: 'Active'
     },
+    accountRestriction: {
+        reason: { type: String, default: '', trim: true, maxlength: 500 },
+        note: { type: String, default: '', trim: true, maxlength: 500 },
+        bannedAt: Date,
+        bannedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+        appealStatus: {
+            type: String,
+            enum: ['none', 'pending', 'reviewing', 'resolved'],
+            default: 'none',
+        },
+        appealMessage: { type: String, default: '', trim: true, maxlength: 1000 },
+        appealSubmittedAt: Date,
+        supportTicket: { type: mongoose.Schema.Types.ObjectId, ref: 'SupportTicket' },
+        resolvedAt: Date,
+    },
     
     profilePicture: { 
         type: String, 

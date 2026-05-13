@@ -1,5 +1,6 @@
 const User = require('../models/User');
 const Application = require('../models/Application');
+const SupportTicket = require('../models/SupportTicket');
 const { normalizeOptionalIndianMobile } = require('../utils/phoneUtils');
 const Room = require('../models/Room'); // मकान मालिक के डैशबोर्ड के लिए आवश्यक
 
@@ -22,6 +23,7 @@ const buildCurrentUserPayload = (user) => ({
   email: user.email,
   roles: user.roles,
   status: user.status,
+  accountRestriction: user.accountRestriction,
   wishlist: user.wishlist,
   profilePicture: user.profilePicture,
   avatarUrl: user.avatarUrl,
@@ -32,6 +34,7 @@ const buildCurrentUserPayload = (user) => ({
   occupation: user.occupation,
   bio: user.bio,
   roleProfiles: user.roleProfiles,
+  isGoogleUser: user.isGoogleUser,
   isVerified: user.isVerified,
   kyc_status: user.kyc_status,
   trustScore: user.trustScore,
@@ -107,12 +110,112 @@ exports.updateProfile = async (req, res) => {
       Object.assign(update, payload);
     }
 
-    const user = await User.findByIdAndUpdate(req.user.id, { $set: update }, { new: true, runValidators: true }).select('-password');
+    if (req.user?.email) {
+      update['verifications.email'] = true;
+    }
+
+    const verifiedPhone = payload.mobileNumber || payload.phone;
+    if (verifiedPhone) {
+      update.verifiedPhone = verifiedPhone;
+      update['verifications.phone'] = true;
+
+      if (!req.user.mobileNumber && !req.user.phone) {
+        update.mobileNumber = verifiedPhone;
+        update.phone = verifiedPhone;
+      }
+    }
+
+    const updateOperation = { $set: update };
+    if (req.user?.email) {
+      updateOperation.$addToSet = { verifiedEmails: req.user.email };
+    }
+
+    const user = await User.findByIdAndUpdate(req.user.id, updateOperation, { new: true, runValidators: true }).select('-password');
     if (!user) return res.status(404).json({ success: false, message: 'User not found' });
 
     res.status(200).json({ success: true, user: buildCurrentUserPayload(user) });
   } catch (error) {
     res.status(error.statusCode || 500).json({ success: false, message: error.statusCode ? error.message : 'Server Error' });
+  }
+};
+
+exports.requestAccountReview = async (req, res) => {
+  try {
+    const message = String(req.body?.message || '').trim();
+
+    if (message.length < 20) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please add a little more detail so Trust & Safety can review your account.',
+      });
+    }
+
+    if (message.length > 1000) {
+      return res.status(400).json({
+        success: false,
+        message: 'Review request must be 1000 characters or less.',
+      });
+    }
+
+    const user = await User.findById(req.user.id).select('-password');
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+
+    if (user.status !== 'Banned') {
+      return res.status(400).json({
+        success: false,
+        message: 'This account is not restricted.',
+      });
+    }
+
+    let ticket = await SupportTicket.findOne({
+      user: user._id,
+      category: 'account',
+      subject: 'Account restriction review',
+      status: { $in: ['open', 'in_progress'] },
+    }).sort({ createdAt: -1 });
+
+    if (ticket) {
+      ticket.issueDescription = message;
+      ticket.priority = 'high';
+      await ticket.save();
+    } else {
+      ticket = await SupportTicket.create({
+        user: user._id,
+        subject: 'Account restriction review',
+        issueDescription: message,
+        category: 'account',
+        issueType: 'general',
+        priority: 'high',
+      });
+    }
+
+    user.accountRestriction = {
+      ...(user.accountRestriction?.toObject?.() || user.accountRestriction || {}),
+      appealStatus: 'pending',
+      appealMessage: message,
+      appealSubmittedAt: new Date(),
+      supportTicket: ticket._id,
+    };
+    await user.save({ validateBeforeSave: false });
+
+    const io = req.app.get('io');
+    if (io) {
+      io.emit('admin_support_ticket_created', {
+        ticketId: ticket._id,
+        priority: ticket.priority,
+        issueType: ticket.issueType,
+        category: ticket.category,
+      });
+    }
+
+    res.status(201).json({
+      success: true,
+      message: 'Review request submitted. RoomRadar Trust & Safety will check it from the admin support queue.',
+      ticketId: ticket._id,
+      user: buildCurrentUserPayload(user),
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Server Error' });
   }
 };
 
