@@ -363,12 +363,14 @@ const normalizeAmenities = (value) => {
 const normalizeDiscoveryFilters = (input = {}) => {
   const maxRent = toNumber(input.maxRent ?? input.max_price ?? input.budget);
   const minRent = toNumber(input.minRent ?? input.min_price);
+  const maxDeposit = toNumber(input.maxDeposit ?? input.max_deposit ?? input.deposit);
   const occupants = toNumber(input.maxGuests ?? input.maxOccupants ?? input.occupants ?? input.people);
   const latitude = toNumber(input.latitude ?? input.lat);
   const longitude = toNumber(input.longitude ?? input.lon ?? input.lng);
   const radius = toNumber(input.radius);
   const limit = toNumber(input.limit);
   const type = input.roomType || input.room_type || (input.type && !['All', 'Rooms'].includes(input.type) ? input.type : '');
+  const occupancyType = String(input.occupancyType || input.occupancy || '').trim().toLowerCase().replace(/[\s_-]+/g, '-');
 
   return {
     city: String(input.city || input.keyword || input.search || input.location || '').trim(),
@@ -378,7 +380,9 @@ const normalizeDiscoveryFilters = (input = {}) => {
     stayType: normalizeStayType(input.stayType || input.stay || ''),
     maxRent,
     minRent,
+    maxDeposit,
     occupants,
+    occupancyType,
     gender: normalizeGender(input.gender || input.allowedGender || ''),
     familyStatus: normalizeFamilyStatus(input.familyStatus || input.family_status || ''),
     amenities: normalizeAmenities(input.amenities),
@@ -453,6 +457,33 @@ const familyMatches = (room, wanted) => {
 };
 
 const getCapacity = (room) => Math.max(Number(room.maxGuests || 0), Number(room.maxOccupants || 0), Number(room.beds || 0));
+
+const occupancyTypeMatches = (room = {}, requested = '') => {
+  const type = String(requested || '').trim().toLowerCase();
+  if (!type) return true;
+  const text = toSearchText([
+    room.roomType,
+    room.listingCategory,
+    room.title,
+    room.familyStatus,
+    room.tenantPreferences?.familyStatus,
+  ].filter(Boolean).join(' '));
+  const capacity = getCapacity(room);
+
+  if (type === 'single' || type === 'private') {
+    return capacity <= 1 || /\b(single|private|independent|studio|1\s*rk)\b/.test(text);
+  }
+  if (type === 'sharing' || type === 'shared') {
+    return capacity >= 2 || /\b(shared|hostel|pg|co\s*living|co-living)\b/.test(text);
+  }
+  if (type === 'family' || type === 'couple') {
+    return familyMatches(room, 'Family') || /\b(bhk|flat|apartment|house|family|studio)\b/.test(text);
+  }
+  if (type === 'group' || type === 'full-flat' || type === 'flat') {
+    return capacity >= 3 || /\b(bhk|flat|apartment|house|shared)\b/.test(text);
+  }
+  return true;
+};
 
 const getSingleLocationScore = (room, city) => {
   const locationText = getRoomLocationText(room);
@@ -585,6 +616,10 @@ const scoreRoomAgainstFilters = (room, rawFilters = {}) => {
     addDimension('occupants', 'capacity', matched, 55, partial);
   }
 
+  if (filters.occupancyType) {
+    addDimension('occupancyType', 'occupancy type', occupancyTypeMatches(room, filters.occupancyType), 55, 0);
+  }
+
   const rent = Number(room.rent || 0);
   if (Number.isFinite(filters.maxRent) && filters.maxRent > 0) {
     const matched = rent > 0 && rent <= filters.maxRent;
@@ -597,6 +632,13 @@ const scoreRoomAgainstFilters = (room, rawFilters = {}) => {
     addDimension('minRent', 'minimum price', matched, 35, matched ? 35 : 0);
   }
 
+  if (Number.isFinite(filters.maxDeposit) && filters.maxDeposit >= 0) {
+    const deposit = Number(room.securityDeposit || 0);
+    const matched = deposit <= filters.maxDeposit;
+    const overRatio = deposit > filters.maxDeposit ? (deposit - filters.maxDeposit) / Math.max(filters.maxDeposit || 1, 1) : 0;
+    addDimension('maxDeposit', 'deposit', matched, 55, Math.max(0, 28 - Math.round(overRatio * 20)));
+  }
+
   if (filters.amenities.length) {
     const matchedAmenities = filters.amenities.filter((amenity) => room.facilities?.[amenity]);
     const matched = matchedAmenities.length === filters.amenities.length;
@@ -606,6 +648,9 @@ const scoreRoomAgainstFilters = (room, rawFilters = {}) => {
   score += Math.min(Number(room.averageRating || 0), 5) * 3;
   score += Math.min(Number(room.numReviews || 0), 25) / 3;
   score += Math.min(Number(room.views || 0), 100) / 20;
+  if (room.verifications?.property) score += 24;
+  if (room.verifications?.photos) score += 8;
+  if (String(room.status || '').toLowerCase() === 'available' || String(room.status || '').toLowerCase() === 'published') score += 12;
 
   return {
     score,
@@ -707,8 +752,10 @@ const getRequestedFilterLabels = (rawFilters = {}) => {
     filters.stayType ? 'stay type' : '',
     filters.gender && filters.gender !== 'Any' ? `${filters.gender.toLowerCase()} preference` : '',
     filters.familyStatus && filters.familyStatus !== 'Any' ? 'stay type' : '',
+    filters.occupancyType ? 'occupancy type' : '',
     filters.occupants ? 'capacity' : '',
     filters.maxRent || filters.minRent ? 'budget' : '',
+    filters.maxDeposit !== undefined ? 'deposit' : '',
     filters.amenities.length ? 'amenities' : '',
   ].filter(Boolean);
 };

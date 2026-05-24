@@ -6,12 +6,12 @@ import {
   ArrowLeft,
   FileText,
   ImagePlus,
-  LifeBuoy,
   Link as LinkIcon,
   Loader2,
   MessageSquare,
   Paperclip,
   Send,
+  ShieldCheck,
   Trash2,
   X,
 } from 'lucide-react';
@@ -72,6 +72,27 @@ const formatFileSize = (size = 0) => {
   if (!size) return '0 KB';
   if (size < 1024 * 1024) return `${Math.max(1, Math.round(size / 1024))} KB`;
   return `${(size / (1024 * 1024)).toFixed(size > 4 * 1024 * 1024 ? 0 : 1)} MB`;
+};
+
+const AdminSupportMark = ({ size = 'mobile' }) => {
+  const isDesktop = size === 'desktop';
+
+  return (
+    <span
+      className={`relative flex flex-shrink-0 items-center justify-center overflow-visible rounded-2xl bg-slate-950 text-white shadow-[0_16px_34px_-24px_rgba(15,23,42,0.88)] ring-1 ring-white/20 ${
+        isDesktop ? 'h-12 w-12' : 'h-10 w-10'
+      }`}
+      aria-hidden="true"
+    >
+      <span className="absolute inset-0 rounded-2xl bg-[linear-gradient(145deg,#0f172a_0%,#0e7490_48%,#7c3aed_100%)]" />
+      <span className="relative flex h-[72%] w-[72%] items-center justify-center rounded-full bg-white/14 ring-1 ring-white/20">
+        <ShieldCheck className={isDesktop ? 'h-6 w-6' : 'h-5 w-5'} strokeWidth={2.35} />
+      </span>
+      <span className="absolute -bottom-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-white px-1 text-[8px] font-black leading-none text-cyan-700 ring-1 ring-cyan-100 dark:bg-slate-950 dark:text-cyan-200 dark:ring-cyan-400/30">
+        RR
+      </span>
+    </span>
+  );
 };
 
 function SupportTicketModal({
@@ -248,16 +269,12 @@ function SupportTicketModal({
             <p className="text-[10px] font-black uppercase tracking-[0.18em] text-cyan-600 dark:text-cyan-300">RoomRadar support</p>
             <h2 className="truncate text-base font-black">Message admin</h2>
           </div>
-          <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-cyan-50 text-cyan-700 dark:bg-cyan-400/10 dark:text-cyan-200">
-            <LifeBuoy className="h-5 w-5" />
-          </span>
+          <AdminSupportMark />
         </div>
 
         <div className="hidden flex-shrink-0 items-start justify-between gap-4 bg-[linear-gradient(135deg,#0ea5e9_0%,#0f172a_58%,#ef4444_100%)] p-5 text-white md:flex sm:p-6">
           <div className="flex min-w-0 gap-3">
-            <span className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-2xl bg-white/16 ring-1 ring-white/20">
-              <LifeBuoy className="h-6 w-6" />
-            </span>
+            <AdminSupportMark size="desktop" />
             <div className="min-w-0">
               <p className="text-[10px] font-black uppercase tracking-[0.18em] text-white/70">RoomRadar support</p>
               <h2 className="mt-1 text-xl font-black leading-tight">Message admin support</h2>

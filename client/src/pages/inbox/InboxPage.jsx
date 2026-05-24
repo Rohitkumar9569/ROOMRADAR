@@ -93,7 +93,9 @@ const getConversationDisplayMember = (convo, currentUser) => {
         return {
             _id: otherMember?._id || 'roomradar-admin',
             name: 'RoomRadar Admin',
-            avatarUrl: otherMember?.avatarUrl || otherMember?.profilePicture,
+            avatarUrl: null,
+            profilePicture: null,
+            isRoomRadarAdmin: true,
         };
     }
     return otherMember;
@@ -147,6 +149,7 @@ const areChatMetaEqual = (left, right) => {
         left.avatarUrl === right.avatarUrl &&
         left.subtitle === right.subtitle &&
         left.isOnline === right.isOnline &&
+        left.isAdmin === right.isAdmin &&
         left.roomTitle === right.roomTitle &&
         left.statusLabel === right.statusLabel &&
         left.typeLabel === right.typeLabel
@@ -159,6 +162,34 @@ const ScrollStrip = ({ children, className = '' }) => (
     </div>
 );
 
+const getInitial = (name = 'R') => (String(name || 'R').trim().charAt(0) || 'R').toUpperCase();
+
+const avatarSizeClass = {
+    list: 'h-14 w-14 sm:h-[58px] sm:w-[58px]',
+    header: 'h-12 w-12',
+    drawer: 'h-32 w-32',
+};
+
+const ConversationAvatar = ({ name, avatarUrl, isAdmin = false, size = 'list', status = 'offline', className = '' }) => (
+    <span className={`rr-chat-avatar rr-chat-avatar--${size} ${isAdmin ? 'is-admin' : ''} ${avatarSizeClass[size] || avatarSizeClass.list} ${className}`}>
+        {isAdmin ? (
+            <>
+                <span className="rr-admin-avatar-mark" aria-hidden="true">
+                    <span>R</span><span>R</span>
+                </span>
+                <span className="rr-admin-avatar-badge" aria-hidden="true">
+                    <CheckBadgeIcon className="h-full w-full" />
+                </span>
+            </>
+        ) : avatarUrl ? (
+            <img src={avatarUrl} alt="" />
+        ) : (
+            <span className="rr-chat-avatar-initial">{getInitial(name)}</span>
+        )}
+        {!isAdmin && status && <span className={`rr-chat-avatar-status is-${status}`} aria-hidden="true" />}
+    </span>
+);
+
 const ConversationCard = ({ convo, onClick, isSelected, currentUser, isOnline }) => {
     const displayMember = getConversationDisplayMember(convo, currentUser);
     if (!displayMember) return null;
@@ -168,7 +199,8 @@ const ConversationCard = ({ convo, onClick, isSelected, currentUser, isOnline })
     const roomTitle = getConversationRoomTitle(convo);
     const status = getConversationStatus(convo);
     const unreadCount = Number(convo.unreadCount || 0);
-    const avatarUrl = displayMember.avatarUrl || displayMember.profilePicture || `https://api.dicebear.com/8.x/initials/svg?seed=${encodeURIComponent(displayMember.name)}`;
+    const avatarUrl = displayMember.avatarUrl || displayMember.profilePicture;
+    const avatarStatus = isOnline ? 'online' : convo.application?.status === 'pending' ? 'pending' : 'offline';
 
     return (
         <button
@@ -181,18 +213,7 @@ const ConversationCard = ({ convo, onClick, isSelected, currentUser, isOnline })
             }`}
         >
             <div className="flex gap-3.5">
-                <div className="relative flex-shrink-0">
-                    <img
-                        src={avatarUrl}
-                        alt={displayMember.name}
-                        className="h-14 w-14 rounded-full object-cover sm:h-[58px] sm:w-[58px]"
-                    />
-                    <span
-                        className={`absolute bottom-0 right-0 h-3.5 w-3.5 rounded-full border-2 border-[#f0f2f5] dark:border-[#111b21] ${
-                            isAdmin ? 'bg-violet-400' : isOnline ? 'bg-[#00a884]' : convo.application?.status === 'pending' ? 'bg-amber-400' : 'bg-[#8696a0]'
-                        }`}
-                    />
-                </div>
+                <ConversationAvatar name={displayMember.name} avatarUrl={avatarUrl} isAdmin={isAdmin} status={avatarStatus} />
 
                 <div className="min-w-0 flex-1">
                     <div className="flex items-start justify-between gap-2">
@@ -292,7 +313,7 @@ const ContactInfoDrawer = ({ isOpen, onClose, conversation, currentUser, isLandl
         .filter(Boolean)
         .map((date) => format(new Date(date), 'dd MMM yyyy'))
         .join(' - ');
-    const avatarUrl = displayMember.avatarUrl || displayMember.profilePicture || `https://api.dicebear.com/8.x/initials/svg?seed=${encodeURIComponent(displayMember.name)}`;
+    const avatarUrl = displayMember.avatarUrl || displayMember.profilePicture;
 
     return (
         <div className={`absolute inset-0 z-40 flex justify-end transition ${isOpen ? 'pointer-events-auto' : 'pointer-events-none'}`}>
@@ -317,10 +338,13 @@ const ContactInfoDrawer = ({ isOpen, onClose, conversation, currentUser, isLandl
 
                     <div className="flex-1 overflow-y-auto">
                         <section className="bg-white px-6 py-8 text-center dark:bg-[#111b21]">
-                            <img
-                                src={avatarUrl}
-                                alt={displayMember.name}
-                                className="mx-auto h-32 w-32 rounded-full object-cover shadow-lg"
+                            <ConversationAvatar
+                                name={displayMember.name}
+                                avatarUrl={avatarUrl}
+                                isAdmin={isAdmin}
+                                size="drawer"
+                                status={isOnline ? 'online' : 'offline'}
+                                className="mx-auto"
                             />
                             <h2 className="mt-4 truncate text-2xl font-extrabold text-[#111b21] dark:text-[#e9edef]">{displayMember.name}</h2>
                             <p className="mt-1 text-sm font-semibold text-[#667781] dark:text-[#8696a0]">{isAdmin ? 'RoomRadar review desk' : isLandlordView ? 'Applicant conversation' : 'Host conversation'}</p>
@@ -498,6 +522,7 @@ const InboxPage = () => {
             nextMeta = displayMember ? {
                 name: displayMember.name,
                 avatarUrl: displayMember.avatarUrl || displayMember.profilePicture,
+                isAdmin,
                 isOnline,
                 roomTitle,
                 statusLabel,
@@ -803,14 +828,13 @@ const InboxPage = () => {
                             className="flex min-w-0 flex-1 items-center gap-3 rounded-xl p-1.5 text-left transition hover:bg-black/5 dark:hover:bg-white/5"
                             title="Open contact info"
                         >
-                            <span className="relative flex h-12 w-12 flex-shrink-0">
-                                <img
-                                    src={activeOtherMember?.avatarUrl || activeOtherMember?.profilePicture || `https://api.dicebear.com/8.x/initials/svg?seed=${encodeURIComponent(activeOtherMember?.name || 'RoomRadar Admin')}`}
-                                    alt={activeOtherMember?.name}
-                                    className="h-12 w-12 rounded-full object-cover"
-                                />
-                                <span className={`absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-[#f0f2f5] dark:border-[#202c33] ${activeConversationIsAdmin ? 'bg-violet-400' : activeMemberOnline ? 'bg-[#00a884]' : 'bg-[#8696a0]'}`} />
-                            </span>
+                            <ConversationAvatar
+                                name={activeOtherMember?.name}
+                                avatarUrl={activeOtherMember?.avatarUrl || activeOtherMember?.profilePicture}
+                                isAdmin={activeConversationIsAdmin}
+                                size="header"
+                                status={activeMemberOnline ? 'online' : 'offline'}
+                            />
                             <div className="min-w-0">
                                 <h2 className="truncate text-lg font-black leading-tight text-[#111b21] dark:text-[#e9edef]">{activeOtherMember?.name}</h2>
                                 <p className="truncate text-sm font-bold text-[#667781] dark:text-[#8696a0]">
@@ -822,7 +846,7 @@ const InboxPage = () => {
                         <div className="flex items-center gap-1">
                             <span className="hidden items-center gap-1 rounded-full bg-[#d9fdd3] px-3 py-1.5 text-sm font-extrabold text-[#008069] dark:bg-[#005c4b] dark:text-[#d9fdd3] sm:inline-flex">
                                 <CheckBadgeIcon className="h-4 w-4" />
-                                Verified
+                                {activeConversationIsAdmin ? 'Official' : 'Verified'}
                             </span>
                             <button
                                 type="button"

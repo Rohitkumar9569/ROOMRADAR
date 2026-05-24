@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Bell, ChevronLeft, Moon, Search, Settings, Sun } from 'lucide-react';
+import { Bell, ChevronLeft, Moon, Search, Settings, ShieldCheck, Sun } from 'lucide-react';
 import { useAuth } from '../../../context/AuthContext';
 import { useSocket } from '../../../context/SocketContext';
 import { useTheme } from '../../../context/ThemeContext';
@@ -81,6 +81,7 @@ const SmartAppHeader = () => {
   const chatName = activeChatMeta?.name || 'Chat';
   const chatSubtitle = activeChatMeta?.subtitle || (activeChatMeta?.isOnline ? 'Active now' : 'Recently active');
   const chatAvatar = activeChatMeta?.avatarUrl;
+  const isAdminChat = Boolean(activeChatMeta?.isAdmin);
   const rawChatStatus = formatStatusLabel(activeChatMeta?.statusLabel || activeChatMeta?.typeLabel);
   const chatStatus = rawChatStatus.toLowerCase() === 'admin update' ? 'Admin' : rawChatStatus;
   const showBack = isChat || path.startsWith('/room/') || path.includes('/payment/') || path.includes('/agreement/') || path.includes('/report-damage/') || /\/admin\/(?:users|rooms)\/[^/]+/.test(path);
@@ -228,9 +229,17 @@ const SmartAppHeader = () => {
             <ChevronLeft className="h-5 w-5" strokeWidth={2.4} />
           </button>
           <button type="button" onClick={() => setChatProfileOpen(true)} className="smart-header-chat-profile" aria-label="Open chat profile">
-            <span className="smart-header-chat-avatar">
-              {chatAvatar ? <img src={chatAvatar} alt={chatName} /> : getInitial(chatName)}
-              <span className={`smart-header-online-dot ${activeChatMeta?.isOnline ? 'is-online' : ''}`} />
+            <span className={`smart-header-chat-avatar ${isAdminChat ? 'is-admin' : ''}`}>
+              {isAdminChat ? (
+                <span className="smart-header-admin-core" aria-hidden="true">
+                  <ShieldCheck className="h-5 w-5" strokeWidth={2.35} />
+                </span>
+              ) : chatAvatar ? (
+                <img src={chatAvatar} alt={chatName} />
+              ) : (
+                getInitial(chatName)
+              )}
+              <span className={`smart-header-online-dot ${isAdminChat ? 'is-admin' : activeChatMeta?.isOnline ? 'is-online' : ''}`} />
             </span>
             <span className="min-w-0 flex-1 text-left">
               <span className="block truncate text-[clamp(15.5px,4.35vw,17.5px)] font-black leading-tight">{chatName}</span>

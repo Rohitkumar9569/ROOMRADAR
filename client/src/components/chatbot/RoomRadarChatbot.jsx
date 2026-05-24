@@ -11,7 +11,6 @@ import {
     Lightbulb,
     Loader2,
     MapPin,
-    MessageCircle,
     Send,
     ShieldCheck,
     Sparkles,
@@ -24,10 +23,10 @@ import api from '../../api';
 import { formatListingTitle } from '../../utils/listingDisplay';
 
 const suggestions = [
-    'Show rooms in Haridwar',
-    'PG under 5000',
-    'Flat for 2 people',
-    'Show best rated rooms'
+    'Rooms in Haridwar',
+    'PG under 5k',
+    'For 2 people',
+    'Best rated'
 ];
 
 const money = (value) => `₹${Number(value || 0).toLocaleString('en-IN')}`;
@@ -624,14 +623,7 @@ const RoomRadarChatbot = () => {
     const [open, setOpen] = useState(false);
     const [scrollTucked, setScrollTucked] = useState(false);
     const [input, setInput] = useState('');
-    const [messages, setMessages] = useState([
-        {
-            role: 'assistant',
-            content: 'Hi, I am RoomRadar AI. Tell me your city, budget, room type, and who will stay. I will search real listings for you.',
-            rooms: [],
-            localOnly: true
-        }
-    ]);
+    const [messages, setMessages] = useState([]);
     const [typing, setTyping] = useState(false);
     const endRef = useRef(null);
     const scrollRef = useRef(null);
@@ -813,10 +805,9 @@ const RoomRadarChatbot = () => {
                     <Bot />
                 </span>
                 <span className="floating-chatbot-copy">
-                    <span>RoomRadar AI</span>
-                    <strong>Ask AI</strong>
+                    <span>Room search</span>
+                    <strong>Ask</strong>
                 </span>
-                <span className="floating-chatbot-badge" aria-hidden="true">AI</span>
             </motion.button>
 
             <AnimatePresence>
@@ -839,14 +830,13 @@ const RoomRadarChatbot = () => {
                             <header className="rr-chatbot-header">
                                 <div className="rr-chatbot-titlebar">
                                     <span className="rr-chatbot-brandmark">
-                                        <Bot />
+                                        <span>RR</span>
                                     </span>
                                     <div>
-                                        <p className="rr-chatbot-eyebrow">RoomRadar AI</p>
-                                        <h2>AI room assistant</h2>
+                                        <h2>RoomRadar AI</h2>
                                         <p className="rr-chatbot-status">
                                             <span />
-                                            Real listing search
+                                            Live listings
                                         </p>
                                     </div>
                                 </div>
@@ -866,29 +856,29 @@ const RoomRadarChatbot = () => {
                                         <MessageBubble key={`${message.role}-${index}`} message={message} closeDrawer={() => setOpen(false)} />
                                     ))}
 
-                                    {messages.length === 1 && (
+                                    {messages.length === 0 && (
                                         <div className="rr-chatbot-empty">
-                                            <div className="rr-chatbot-empty-card">
-                                                <div className="rr-chatbot-empty-icon">
-                                                    <MessageCircle />
-                                                </div>
+                                            <div className="rr-chatbot-empty-card" aria-label="Room search assistant">
+                                                <span className="rr-chatbot-empty-icon">
+                                                    <Sparkles />
+                                                </span>
                                                 <div>
-                                                    <p>Smart room search</p>
-                                                    <h3>Ask in Hindi, Hinglish, or English.</h3>
-                                                    <span>City, budget, room type, gender, and people count can be understood together.</span>
+                                                    <h3>Find a room faster</h3>
+                                                    <span>Location, budget, tenant need.</span>
                                                 </div>
                                             </div>
-                                            <p className="rr-chatbot-suggestion-title">Try one</p>
-                                            {suggestions.map((suggestion) => (
-                                                <button
-                                                    key={suggestion}
-                                                    type="button"
-                                                    onClick={() => sendMessage(suggestion)}
-                                                    className="rr-chatbot-suggestion"
-                                                >
-                                                    {suggestion}
-                                                </button>
-                                            ))}
+                                            <div className="rr-chatbot-suggestion-grid">
+                                                {suggestions.map((suggestion) => (
+                                                    <button
+                                                        key={suggestion}
+                                                        type="button"
+                                                        onClick={() => sendMessage(suggestion)}
+                                                        className="rr-chatbot-suggestion"
+                                                    >
+                                                        {suggestion}
+                                                    </button>
+                                                ))}
+                                            </div>
                                         </div>
                                     )}
 
@@ -912,7 +902,7 @@ const RoomRadarChatbot = () => {
                                     <input
                                         value={input}
                                         onChange={(event) => setInput(event.target.value)}
-                                        placeholder="Type city, budget, or requirement..."
+                                        placeholder="Ask location or budget..."
                                         className="min-h-[44px] flex-1 bg-transparent px-3 text-sm font-semibold outline-none placeholder:text-light-muted dark:placeholder:text-dark-muted"
                                     />
                                     <button
@@ -935,15 +925,18 @@ const RoomRadarChatbot = () => {
 
 const MessageBubble = ({ message, closeDrawer }) => {
     const isUser = message.role === 'user';
+    const hasRooms = message.rooms?.length > 0;
+    const hasProfileVisual = Boolean(message.profileVisual);
+    const showAssistantAvatar = !isUser && !hasRooms && !hasProfileVisual;
 
     return (
-        <div className={`rr-message-row ${isUser ? 'is-user' : 'is-assistant'}`}>
-            {!isUser && (
+        <div className={`rr-message-row ${isUser ? 'is-user' : 'is-assistant'} ${hasRooms || hasProfileVisual ? 'has-rich-content' : ''}`}>
+            {showAssistantAvatar && (
                 <span className="rr-message-avatar">
                     <Bot />
                 </span>
             )}
-            <div className={`${isUser ? 'max-w-[82%] items-end' : 'min-w-0 flex-1 items-start'}`}>
+            <div className={`${isUser ? 'max-w-[82%] items-end' : hasRooms || hasProfileVisual ? 'rr-message-rich min-w-0 flex-1' : 'min-w-0 flex-1 items-start'}`}>
                 {message.profileVisual ? (
                     <ProfileInsightCard visual={message.profileVisual} />
                 ) : (
@@ -951,8 +944,8 @@ const MessageBubble = ({ message, closeDrawer }) => {
                         {message.content}
                     </div>
                 )}
-                {message.rooms?.length > 0 && (
-                    <div className="mt-3 grid gap-3">
+                {hasRooms && (
+                    <div className="rr-chat-room-results mt-3 grid gap-3">
                         {message.rooms.map((room, index) => (
                             <ChatRoomCard
                                 key={room._id}
@@ -1050,9 +1043,9 @@ const ChatRoomCard = ({ room, index, sort, closeDrawer }) => {
         <Link
             to={`/room/${room._id}`}
             onClick={closeDrawer}
-            className="rr-chat-room-card group block overflow-hidden rounded-[1.1rem] border border-light-border bg-light-card shadow-sm transition-colors hover:border-cyan-300 dark:border-dark-border dark:bg-dark-card dark:hover:border-cyan-700/60"
+            className="rr-chat-room-card group block overflow-hidden rounded-[1.25rem] border border-light-border bg-light-card shadow-sm transition-colors hover:border-cyan-300 dark:border-dark-border dark:bg-dark-card dark:hover:border-cyan-700/60"
         >
-            <div className="rr-chat-room-card-media relative aspect-[4/3] overflow-hidden bg-light-bg dark:bg-dark-input">
+            <div className="rr-chat-room-card-media relative aspect-[16/10] overflow-hidden bg-light-bg dark:bg-dark-input">
                 {roomImage ? (
                     <>
                         <img

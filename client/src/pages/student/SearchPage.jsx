@@ -1,5 +1,6 @@
 import React, { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import toast from 'react-hot-toast';
 import api from '../../api';
 import Header from '../../components/layout/Header';
 import SearchBar from '../../components/features/search/SearchBar';
@@ -8,7 +9,7 @@ import RoomCardSkeleton from '../../components/common/RoomCardSkeleton';
 import { getFiltersFromConfig } from '../../utils/roomFieldUtils';
 import { readTabCache, setTabCache } from '../../utils/tabDataCache';
 import { formatPreferenceLabel } from '../../utils/listingDisplay';
-import { clearCachedLocation, getLocationSearchParams, getLocationSignalFromParams, getMobileAutoLocation, saveSearchedLocation } from '../../utils/mobileLocationAutofill';
+import { clearCachedLocation, getLocationSearchParams, getLocationSignalFromParams, getMobileAutoLocation, readCachedLocation, saveSearchedLocation } from '../../utils/mobileLocationAutofill';
 import {
   Check,
   ChevronLeft,
@@ -22,6 +23,7 @@ import {
 } from 'lucide-react';
 
 const sortOptions = [
+  { value: 'recommended', label: 'Recommended' },
   { value: 'newest', label: 'Newest' },
   { value: 'price_asc', label: 'Price Low-High' },
   { value: 'price_desc', label: 'Price High-Low' },
@@ -32,6 +34,7 @@ const sortOptions = [
 const RoomsMap = lazy(() => import('../../components/features/rooms/RoomsMap'));
 const SEARCH_PRICE_RANGE_CACHE_KEY = 'student:search:price-range';
 const SEARCH_ROOMS_CACHE_PREFIX = 'student:search:rooms';
+const SEARCH_ALERTS_KEY = 'student:search-alerts:v1';
 
 const filterFields = getFiltersFromConfig();
 const amenities = filterFields.filter((field) => field.sectionId === 'amenities');
@@ -40,6 +43,23 @@ const numberFilters = filterFields.filter((field) => field.type === 'number' && 
 const quickBooleanFilters = filterFields.filter((field) => field.type === 'boolean' && field.sectionId !== 'amenities');
 
 const money = (value) => `\u20B9${Number(value || 0).toLocaleString('en-IN')}`;
+const formatCount = (value) => Number(value || 0).toLocaleString('en-IN');
+const availabilityWindowOptions = [
+  { value: '', label: 'Any time' },
+  { value: 'now', label: 'Available now' },
+  { value: '15', label: '15 days' },
+  { value: '30', label: 'Next month' },
+];
+
+const occupancyTypeOptions = [
+  { value: '', label: 'Any tenant', occupants: '' },
+  { value: 'single', label: 'Single', occupants: '1' },
+  { value: 'sharing', label: 'Sharing', occupants: '2' },
+  { value: 'family', label: 'Family/Couple', occupants: '2', familyStatus: 'Family' },
+  { value: 'group', label: 'Group/Flat', occupants: '3' },
+];
+
+const radiusOptions = [2, 5, 10, 20];
 
 const formatFilterOptionLabel = (field, option) => {
   if (field.key === 'gender') return formatPreferenceLabel(option);
@@ -64,9 +84,13 @@ const createEmptyFilters = () => {
     radius: '',
     minRent: '',
     maxRent: '',
+    maxDeposit: '',
     beds: '',
     availableFrom: '',
+    availabilityWindow: '',
     verifiedOnly: '',
+    verifiedLandlord: '',
+    occupancyType: '',
     amenities: [],
   };
   filterFields.forEach((field) => {
@@ -77,7 +101,7 @@ const createEmptyFilters = () => {
   return filters;
 };
 
-const buildInitialFilters = (searchParams) => {
+const buildInitialFilters = (searchParams, preferredLocation = null) => {
   const filters = createEmptyFilters();
   filters.city = searchParams.get('city') || searchParams.get('search') || '';
   filters.latitude = searchParams.get('latitude') || '';
@@ -85,14 +109,26 @@ const buildInitialFilters = (searchParams) => {
   filters.radius = searchParams.get('radius') || '';
   filters.minRent = searchParams.get('minRent') || '';
   filters.maxRent = searchParams.get('maxRent') || '';
+  filters.maxDeposit = searchParams.get('maxDeposit') || '';
   filters.beds = searchParams.get('beds') || '';
   filters.availableFrom = searchParams.get('availableFrom') || '';
+  filters.availabilityWindow = searchParams.get('availabilityWindow') || '';
   filters.verifiedOnly = searchParams.get('verifiedOnly') || '';
+  filters.verifiedLandlord = searchParams.get('verifiedLandlord') || '';
+  filters.occupancyType = searchParams.get('occupancyType') || '';
   filters.amenities = searchParams.get('amenities')?.split(',').filter(Boolean) || [];
   filterFields.forEach((field) => {
     if (field.key === 'roomType') filters.roomType = searchParams.get('roomType') || searchParams.get('type') || '';
     else if (field.sectionId !== 'amenities' && searchParams.get(field.key)) filters[field.key] = searchParams.get(field.key);
   });
+
+  if (!searchParams.toString() && preferredLocation) {
+    const locationParams = getLocationSearchParams(preferredLocation, { radius: 8 });
+    filters.city = locationParams.get('city') || '';
+    filters.latitude = locationParams.get('latitude') || '';
+    filters.longitude = locationParams.get('longitude') || '';
+    filters.radius = filters.latitude && filters.longitude ? (locationParams.get('radius') || '8') : '';
+  }
   return filters;
 };
 
@@ -101,11 +137,10 @@ const createEmptySearchCriteria = () => ({
   locationQuery: '',
   moveInDate: null,
   radius: 5,
-  adults: 1,
-  children: 0,
-  infants: 0,
+  availabilityWindow: '',
+  occupancyType: '',
   gender: 'Any',
-  maxOccupants: 1,
+  maxOccupants: '',
 });
 
 const parseMoveInDate = (value) => {
@@ -114,14 +149,20 @@ const parseMoveInDate = (value) => {
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 };
 
-const buildInitialSearchCriteria = (searchParams) => {
-  const maxOccupants = Math.max(1, Number(searchParams.get('maxOccupants') || 1) || 1);
+const buildInitialSearchCriteria = (searchParams, preferredLocation = null) => {
+  const maxOccupantsParam = searchParams.get('maxOccupants') || '';
+  const maxOccupants = maxOccupantsParam ? Math.max(1, Number(maxOccupantsParam) || 1) : '';
+  const preferredPlace = !searchParams.toString() ? preferredLocation?.place : null;
+  const preferredQuery = !searchParams.toString() ? preferredLocation?.query : '';
+  const preferredRadius = preferredLocation ? getLocationSearchParams(preferredLocation, { radius: 8 }).get('radius') : '';
   return {
     ...createEmptySearchCriteria(),
-    locationQuery: searchParams.get('city') || searchParams.get('search') || (searchParams.get('latitude') && searchParams.get('longitude') ? 'Current location' : ''),
+    location: preferredPlace || null,
+    locationQuery: searchParams.get('city') || searchParams.get('search') || (searchParams.get('latitude') && searchParams.get('longitude') ? 'Current location' : preferredQuery || ''),
     moveInDate: parseMoveInDate(searchParams.get('availableFrom')),
-    radius: Number(searchParams.get('radius') || 5) || 5,
-    adults: maxOccupants,
+    availabilityWindow: searchParams.get('availabilityWindow') || '',
+    radius: Number(searchParams.get('radius') || preferredRadius || 5) || 5,
+    occupancyType: searchParams.get('occupancyType') || '',
     gender: searchParams.get('gender') || 'Any',
     maxOccupants,
   };
@@ -154,32 +195,91 @@ const FilterPanel = ({ filters, setFilters, priceRange, onApply, onClear, isShee
       <div className={`${isSheet ? 'min-h-0 flex-1 overflow-y-auto px-3 py-4' : ''}`}>
         <div className="space-y-4">
           <label className="block">
-            <span className="text-sm font-black">City</span>
+            <span className="text-sm font-black">Location</span>
             <input
               value={filters.city}
               onChange={(event) => setFilters((prev) => ({ ...prev, city: event.target.value }))}
               className="input-field mt-2"
-              placeholder="Haridwar, Delhi, Mumbai..."
+              placeholder="City, area, landmark, institute..."
             />
           </label>
 
           {filters.latitude && filters.longitude && (
             <div className="rounded-2xl border border-brand/20 bg-brand/5 p-3">
               <div className="flex items-center justify-between gap-3">
-                <span className="text-sm font-black">Nearby radius</span>
+                <span className="text-sm font-black">Nearby</span>
                 <span className="rounded-full bg-brand px-2.5 py-1 text-xs font-black text-white">{filters.radius || 5} km</span>
               </div>
-              <input
-                type="range"
-                min="1"
-                max="25"
-                value={filters.radius || 5}
-                onChange={(event) => setFilters((prev) => ({ ...prev, radius: event.target.value }))}
-                className="mt-3 w-full"
-              />
-              <p className="mt-2 text-xs font-semibold text-light-muted dark:text-dark-muted">Searching around the selected room location.</p>
+              <div className="mt-3 grid grid-cols-4 gap-2">
+                {radiusOptions.map((value) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => setFilters((prev) => ({ ...prev, radius: String(value) }))}
+                    className={`rounded-full px-2 py-2 text-xs font-black ${
+                      Number(filters.radius || 5) === value
+                        ? 'bg-brand text-white'
+                        : 'bg-white text-light-muted dark:bg-dark-input dark:text-dark-muted'
+                    }`}
+                  >
+                    {value} km
+                  </button>
+                ))}
+              </div>
+              <p className="mt-2 text-xs font-semibold text-light-muted dark:text-dark-muted">Exact location first, nearby rooms after that.</p>
             </div>
           )}
+
+          <div>
+            <span className="text-sm font-black">Availability</span>
+            <div className="mt-2 grid grid-cols-2 gap-2">
+              {availabilityWindowOptions.map((option) => {
+                const active = String(filters.availabilityWindow || '') === String(option.value) && !filters.availableFrom;
+                return (
+                  <button
+                    key={option.label}
+                    type="button"
+                    onClick={() => setFilters((prev) => ({ ...prev, availabilityWindow: option.value, availableFrom: '' }))}
+                    className={`min-h-10 rounded-xl border px-2 text-xs font-black transition ${
+                      active
+                        ? 'border-cyan-500 bg-cyan-500 text-white'
+                        : 'border-light-border bg-light-card text-light-muted dark:border-dark-border dark:bg-dark-card dark:text-dark-muted lg:bg-light-bg lg:dark:bg-dark-input'
+                    }`}
+                  >
+                    {option.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div>
+            <span className="text-sm font-black">Tenant type</span>
+            <div className="mt-2 grid grid-cols-2 gap-2">
+              {occupancyTypeOptions.map((option) => {
+                const active = String(filters.occupancyType || '') === String(option.value);
+                return (
+                  <button
+                    key={option.label}
+                    type="button"
+                    onClick={() => setFilters((prev) => ({
+                      ...prev,
+                      occupancyType: option.value,
+                      maxOccupants: option.occupants,
+                      familyStatus: option.familyStatus || '',
+                    }))}
+                    className={`min-h-10 rounded-xl border px-2 text-xs font-black transition ${
+                      active
+                        ? 'border-cyan-500 bg-cyan-500 text-white'
+                        : 'border-light-border bg-light-card text-light-muted dark:border-dark-border dark:bg-dark-card dark:text-dark-muted lg:bg-light-bg lg:dark:bg-dark-input'
+                    }`}
+                  >
+                    {option.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
 
           <div>
             <span className="text-sm font-black">Price range</span>
@@ -202,6 +302,18 @@ const FilterPanel = ({ filters, setFilters, priceRange, onApply, onClear, isShee
               />
             </div>
           </div>
+
+          <label className="block">
+            <span className="text-sm font-black">Max deposit</span>
+            <input
+              type="number"
+              min="0"
+              value={filters.maxDeposit}
+              onChange={(event) => setFilters((prev) => ({ ...prev, maxDeposit: event.target.value }))}
+              className="input-field mt-2"
+              placeholder="₹10,000"
+            />
+          </label>
 
           <div className="grid grid-cols-2 gap-3">
             <label className="block min-w-0">
@@ -282,10 +394,37 @@ const FilterPanel = ({ filters, setFilters, priceRange, onApply, onClear, isShee
             <input
               type="date"
               value={filters.availableFrom}
-              onChange={(event) => setFilters((prev) => ({ ...prev, availableFrom: event.target.value }))}
+              onChange={(event) => setFilters((prev) => ({ ...prev, availableFrom: event.target.value, availabilityWindow: '' }))}
               className="input-field mt-2"
             />
           </label>
+
+          <div>
+            <span className="text-sm font-black">Trust</span>
+            <div className="mt-2 grid grid-cols-2 gap-2">
+              {[
+                { key: 'verifiedOnly', label: 'Verified room' },
+                { key: 'verifiedLandlord', label: 'Verified landlord' },
+              ].map((item) => {
+                const active = filters[item.key] === 'true';
+                return (
+                  <button
+                    key={item.key}
+                    type="button"
+                    onClick={() => setFilters((prev) => ({ ...prev, [item.key]: active ? '' : 'true' }))}
+                    className={`flex min-h-11 items-center justify-between gap-2 rounded-xl border px-3 text-left text-xs font-bold transition sm:text-sm ${
+                      active
+                        ? 'border-cyan-500 bg-cyan-500/10 text-cyan-700 dark:text-cyan-300'
+                        : 'border-light-border bg-light-card text-light-muted dark:border-dark-border dark:bg-dark-card dark:text-dark-muted lg:bg-light-bg lg:dark:bg-dark-input'
+                    }`}
+                  >
+                    <span className="min-w-0 truncate">{item.label}</span>
+                    {active && <Check className="h-4 w-4 flex-shrink-0" />}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
 
           <div>
             <span className="text-sm font-black">Amenities</span>
@@ -323,11 +462,12 @@ const FilterPanel = ({ filters, setFilters, priceRange, onApply, onClear, isShee
 
 function SearchPage() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const [filters, setFilters] = useState(() => buildInitialFilters(searchParams));
-  const [searchCriteria, setSearchCriteria] = useState(() => buildInitialSearchCriteria(searchParams));
+  const initialPreferredLocation = useMemo(() => (searchParams.toString() ? null : readCachedLocation()), []);
+  const [filters, setFilters] = useState(() => buildInitialFilters(searchParams, initialPreferredLocation));
+  const [searchCriteria, setSearchCriteria] = useState(() => buildInitialSearchCriteria(searchParams, initialPreferredLocation));
   const [rooms, setRooms] = useState([]);
   const [priceRange, setPriceRange] = useState({ min: 0, max: 0 });
-  const [sort, setSort] = useState(searchParams.get('sort') || 'newest');
+  const [sort, setSort] = useState(searchParams.get('sort') || 'recommended');
   const [page, setPage] = useState(Number(searchParams.get('page') || 1));
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
@@ -395,6 +535,39 @@ function SearchPage() {
           key,
           label: 'Verified rooms',
           clear: () => setFilters((prev) => ({ ...prev, verifiedOnly: '' })),
+        });
+        return;
+      }
+      if (key === 'verifiedLandlord' && value) {
+        chips.push({
+          key,
+          label: 'Verified landlord',
+          clear: () => setFilters((prev) => ({ ...prev, verifiedLandlord: '' })),
+        });
+        return;
+      }
+      if (key === 'availabilityWindow' && value) {
+        chips.push({
+          key,
+          label: availabilityWindowOptions.find((option) => String(option.value) === String(value))?.label || `Within ${value} days`,
+          clear: () => setFilters((prev) => ({ ...prev, availabilityWindow: '' })),
+        });
+        return;
+      }
+      if (key === 'maxDeposit' && value) {
+        chips.push({
+          key,
+          label: `Deposit up to ${money(value)}`,
+          clear: () => setFilters((prev) => ({ ...prev, maxDeposit: '' })),
+        });
+        return;
+      }
+      if (key === 'occupancyType' && value) {
+        const labelMap = { single: 'Single occupancy', sharing: 'Sharing room', family: 'Family/Couple', group: 'Group/Flat' };
+        chips.push({
+          key,
+          label: labelMap[value] || value,
+          clear: () => setFilters((prev) => ({ ...prev, occupancyType: '' })),
         });
         return;
       }
@@ -600,6 +773,24 @@ function SearchPage() {
     setSearchMeta(null);
   };
 
+  const relaxFilters = () => {
+    setFilters((current) => ({
+      ...createEmptyFilters(),
+      city: current.city,
+      latitude: current.latitude,
+      longitude: current.longitude,
+      radius: current.radius,
+    }));
+    setSearchCriteria((current) => ({
+      ...createEmptySearchCriteria(),
+      location: current.location,
+      locationQuery: current.locationQuery,
+      radius: current.radius || 5,
+    }));
+    setPage(1);
+    setSearchMeta(null);
+  };
+
   const handleLocationCriteriaChange = (nextCriteria) => {
     setSearchCriteria((prev) => ({ ...prev, ...nextCriteria }));
   };
@@ -617,6 +808,8 @@ function SearchPage() {
       gender: '',
       familyStatus: '',
       availableFrom: '',
+      availabilityWindow: '',
+      occupancyType: '',
     }));
     setPage(1);
     setSearchMeta(null);
@@ -629,21 +822,30 @@ function SearchPage() {
 
     if (!typedLocation && !locationProps) return;
 
-    const adults = Math.max(1, Number(nextCriteria.adults || nextCriteria.maxOccupants || 1) || 1);
-    const children = Math.max(0, Number(nextCriteria.children || 0) || 0);
-    const infants = Math.max(0, Number(nextCriteria.infants || 0) || 0);
-    const roomOccupants = Math.max(1, adults + children);
     const nextFilters = {
       ...filters,
       city: '',
       latitude: '',
       longitude: '',
-      radius: nextCriteria.radius ? String(nextCriteria.radius) : '5',
-      maxOccupants: String(roomOccupants),
-      gender: nextCriteria.gender && nextCriteria.gender !== 'Any' ? nextCriteria.gender : '',
-      familyStatus: children > 0 || infants > 0 ? 'Family' : '',
-      availableFrom: '',
+      radius: nextCriteria.radius ? String(nextCriteria.radius) : '',
     };
+
+    if (Object.prototype.hasOwnProperty.call(nextCriteria, 'listingCategory')) nextFilters.listingCategory = nextCriteria.listingCategory || '';
+    if (Object.prototype.hasOwnProperty.call(nextCriteria, 'roomType')) nextFilters.roomType = nextCriteria.roomType || '';
+    if (Object.prototype.hasOwnProperty.call(nextCriteria, 'maxRent')) nextFilters.maxRent = nextCriteria.maxRent || '';
+    if (Object.prototype.hasOwnProperty.call(nextCriteria, 'minRent')) nextFilters.minRent = nextCriteria.minRent || '';
+    if (Object.prototype.hasOwnProperty.call(nextCriteria, 'occupancyType')) {
+      nextFilters.occupancyType = nextCriteria.occupancyType || '';
+      nextFilters.maxOccupants = nextCriteria.maxOccupants ? String(nextCriteria.maxOccupants) : '';
+      nextFilters.familyStatus = nextCriteria.familyStatus || (nextCriteria.occupancyType === 'family' ? 'Family' : '');
+    }
+    if (Object.prototype.hasOwnProperty.call(nextCriteria, 'gender')) {
+      nextFilters.gender = nextCriteria.gender && nextCriteria.gender !== 'Any' ? nextCriteria.gender : '';
+    }
+    if (Object.prototype.hasOwnProperty.call(nextCriteria, 'moveInDate') || Object.prototype.hasOwnProperty.call(nextCriteria, 'availabilityWindow')) {
+      nextFilters.availableFrom = '';
+      nextFilters.availabilityWindow = nextCriteria.moveInDate ? '' : (nextCriteria.availabilityWindow || '');
+    }
 
     if (locationProps) {
       const locationParams = getLocationSearchParams(
@@ -687,6 +889,24 @@ function SearchPage() {
     setIsMobileSearchDockOpen(false);
   };
 
+  const saveSearchAlert = () => {
+    if (typeof window === 'undefined') return;
+    const alertPayload = {
+      id: `${Date.now()}`,
+      filters,
+      sort,
+      label: filters.city || searchCriteria.locationQuery || 'RoomRadar search',
+      createdAt: new Date().toISOString(),
+    };
+    try {
+      const existing = JSON.parse(window.localStorage.getItem(SEARCH_ALERTS_KEY) || '[]');
+      window.localStorage.setItem(SEARCH_ALERTS_KEY, JSON.stringify([alertPayload, ...existing].slice(0, 20)));
+      toast.success('Search alert saved for this device.');
+    } catch {
+      toast.error('Could not save this alert.');
+    }
+  };
+
   const handleSmartSearch = async (event) => {
     event.preventDefault();
     const query = naturalQuery.trim();
@@ -696,7 +916,8 @@ function SearchPage() {
       setSmartLoading(true);
       const { data } = await api.post('/search/smart', { query });
       const smartFilters = data.filters || {};
-      const nextOccupants = Math.max(1, Number(smartFilters.maxOccupants || 1) || 1);
+      const nextOccupants = smartFilters.maxOccupants ? Math.max(1, Number(smartFilters.maxOccupants) || 1) : '';
+      const nextOccupancyType = nextOccupants ? (nextOccupants > 2 ? 'group' : nextOccupants > 1 ? 'sharing' : 'single') : '';
       if (smartFilters.city) saveSearchedLocation(smartFilters.city);
       setFilters((prev) => ({
         ...prev,
@@ -706,13 +927,14 @@ function SearchPage() {
         roomType: smartFilters.roomType || '',
         familyStatus: smartFilters.familyStatus || '',
         gender: smartFilters.gender || '',
-        maxOccupants: smartFilters.maxOccupants || prev.maxOccupants || '',
+        maxOccupants: smartFilters.maxOccupants || '',
+        occupancyType: nextOccupancyType,
       }));
       setSearchCriteria((prev) => ({
         ...prev,
         location: null,
         locationQuery: smartFilters.city || query,
-        adults: nextOccupants,
+        occupancyType: nextOccupancyType,
         maxOccupants: nextOccupants,
         gender: smartFilters.gender || 'Any',
       }));
@@ -786,10 +1008,10 @@ function SearchPage() {
             <p className="text-[10px] font-black uppercase tracking-[0.1em] text-brand sm:text-xs">Search & browse</p>
             <h1 className="mt-1 text-lg font-black tracking-tight sm:text-2xl">
               {searchMeta?.fallback?.type === 'location_expanded' || searchMeta?.fallback?.type === 'location_primary'
-                ? `Showing ${total} rooms${locationHeadingLabel ? ` near ${locationHeadingLabel}` : ''}`
+                ? `${formatCount(total)} rooms${locationHeadingLabel ? ` near ${locationHeadingLabel}` : ''}`
                 : searchMeta?.fallback
                   ? 'Showing closest rooms'
-                  : `Showing ${total} rooms${locationHeadingLabel ? ` near ${locationHeadingLabel}` : ''}`}
+                  : `${formatCount(total)} rooms${locationHeadingLabel ? ` near ${locationHeadingLabel}` : ''}`}
             </h1>
           </div>
           <div className="grid grid-cols-2 gap-2 md:flex md:flex-wrap md:justify-end">
@@ -826,7 +1048,7 @@ function SearchPage() {
         </form>
 
         {activeChips.length > 0 && (
-          <div className="mb-5 flex flex-wrap gap-2">
+          <div className="rooms-active-filter-chips sticky top-[calc(var(--rr-mobile-header-offset)+0.35rem)] z-20 mb-5 flex flex-wrap gap-2 rounded-2xl bg-light-bg/92 py-2 backdrop-blur-xl dark:bg-dark-bg/92 md:top-20">
             {activeChips.map((chip) => (
               <button key={chip.key} onClick={chip.clear} className="inline-flex min-h-10 items-center gap-2 rounded-full bg-brand/10 px-4 text-sm font-bold text-brand">
                 {chip.label}
@@ -888,8 +1110,12 @@ function SearchPage() {
               <div className="rounded-3xl border border-dashed border-light-border bg-light-card p-12 text-center dark:border-dark-border dark:bg-dark-card">
                 <SlidersHorizontal className="mx-auto h-10 w-10 text-brand" />
                 <h2 className="mt-5 text-2xl font-black">No rooms found</h2>
-                <p className="mt-2 text-sm font-semibold text-light-muted dark:text-dark-muted">Try adjusting filters or clearing them completely.</p>
-                <button onClick={clearFilters} className="btn-primary mt-6">Clear Filters</button>
+                <p className="mt-2 text-sm font-semibold text-light-muted dark:text-dark-muted">Save this demand or loosen the filters to see nearby options.</p>
+                <div className="mt-6 flex flex-col justify-center gap-3 sm:flex-row">
+                  <button onClick={saveSearchAlert} className="btn-primary">Notify me</button>
+                  <button onClick={relaxFilters} className="btn-outline">Relax filters</button>
+                  <button onClick={clearFilters} className="btn-outline">Clear all</button>
+                </div>
               </div>
             )}
           </section>

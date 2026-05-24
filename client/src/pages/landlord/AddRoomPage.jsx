@@ -154,6 +154,7 @@ const requiredFieldsForStep = (section) => section.fields.filter((field) => fiel
 const valueUnitFields = getRoomFields().filter((field) => field.valueUnit);
 const numberFields = getRoomFields().filter((field) => field.type === 'number');
 const dateFields = getRoomFields().filter((field) => field.type === 'date');
+const roomFieldByKey = new Map(getRoomFields().map((field) => [field.key, field]));
 const getValueUnitKey = (field) => `${field.key}Unit`;
 const getValueUnitOptions = (field) => (Array.isArray(field.unitOptions) && field.unitOptions.length
   ? field.unitOptions
@@ -165,6 +166,22 @@ const formatValueUnitOption = (unit) => {
   if (unit === 'km') return 'km';
   return unit;
 };
+
+const countWords = (value) => String(value || '').trim().split(/\s+/).filter(Boolean).length;
+
+const applyFieldLimit = (field, value) => {
+  if (!field || typeof value !== 'string') return value;
+  let nextValue = value;
+  if (field.maxLength && nextValue.length > field.maxLength) {
+    nextValue = nextValue.slice(0, field.maxLength);
+  }
+  if (field.maxWords && countWords(nextValue) > field.maxWords) {
+    nextValue = nextValue.trim().split(/\s+/).slice(0, field.maxWords).join(' ');
+  }
+  return nextValue;
+};
+
+const limitFieldValue = (key, value) => applyFieldLimit(roomFieldByKey.get(key), value);
 
 const stepIconMap = {
   basicDetails: Home,
@@ -331,7 +348,8 @@ function AddRoomPage() {
   }, [formData.city, formData.roomType, formData.state]);
 
   const updateField = (key, value) => {
-    const nextValue = isPhoneFieldKey(key) ? sanitizePhoneInput(value) : value;
+    const sanitizedValue = isPhoneFieldKey(key) ? sanitizePhoneInput(value) : value;
+    const nextValue = limitFieldValue(key, sanitizedValue);
     setIsDirty(true);
     setFormData((prev) => ({ ...prev, [key]: nextValue }));
     if (errors[key]) setErrors((prev) => ({ ...prev, [key]: '' }));
@@ -350,6 +368,12 @@ function AddRoomPage() {
       const value = formData[field.key];
       if (isPhoneFieldKey(field.key) && value && !isValidIndianMobile(value)) {
         nextErrors[field.key] = `${field.label} must be a valid 10-digit mobile number.`;
+      }
+      if (field.maxLength && typeof value === 'string' && value.length > field.maxLength) {
+        nextErrors[field.key] = `${field.label} must be ${field.maxLength} characters or less.`;
+      }
+      if (field.maxWords && countWords(value) > field.maxWords) {
+        nextErrors[field.key] = `${field.label} must be ${field.maxWords} words or less.`;
       }
     });
 
@@ -384,10 +408,10 @@ function AddRoomPage() {
       ...prev,
       latitude: locationData.lat,
       longitude: locationData.lng,
-      fullAddress: locationData.fullAddress || prev.fullAddress,
-      city: raw.city || raw.town || raw.village || prev.city,
-      state: raw.state || prev.state,
-      pincode: raw.postcode || prev.pincode,
+      fullAddress: limitFieldValue('fullAddress', locationData.fullAddress || prev.fullAddress),
+      city: limitFieldValue('city', raw.city || raw.town || raw.village || prev.city),
+      state: limitFieldValue('state', raw.state || prev.state),
+      pincode: limitFieldValue('pincode', raw.postcode || prev.pincode),
     }));
     setErrors((prev) => ({ ...prev, mapLocation: '' }));
   }, []);
@@ -599,6 +623,18 @@ function AddRoomPage() {
     const Icon = iconMap[field.key] || Sparkles;
     const isDenseOptionStep = currentStep.id === 'amenities' || currentStep.id === 'rules';
     const isPhoneField = isPhoneFieldKey(field.key);
+    const renderLimitHint = () => {
+      if (!field.maxLength && !field.maxWords) return null;
+      const value = String(toFieldInputValue(field, formData[field.key]) || '');
+      const label = field.maxWords
+        ? `${countWords(value)}/${field.maxWords} words`
+        : `${value.length}/${field.maxLength} characters`;
+      return (
+        <p className="mt-1 text-right text-[11px] font-bold text-slate-400 dark:text-slate-500">
+          {label}
+        </p>
+      );
+    };
     const commonLabel = (
       <label htmlFor={field.key} className="text-[13px] font-black text-slate-800 dark:text-slate-100 sm:text-sm">
         {field.label}{field.required ? <span className="text-brand"> *</span> : null}
@@ -636,8 +672,10 @@ function AddRoomPage() {
             rows={4}
             value={toFieldInputValue(field, formData[field.key])}
             onChange={(event) => updateField(field.key, event.target.value)}
+            maxLength={field.maxLength || undefined}
             className="input-field mt-2 min-h-28 resize-none rounded-[1.15rem] text-[15px]"
           />
+          {renderLimitHint()}
           {errors[field.key] && <p className="mt-1 text-sm font-semibold text-brand">{errors[field.key]}</p>}
         </div>
       );
@@ -722,11 +760,13 @@ function AddRoomPage() {
             min={field.type === 'number' ? 0 : undefined}
             step={field.type === 'time' ? 300 : undefined}
             onChange={(event) => updateField(field.key, event.target.value)}
+            maxLength={!isPhoneField ? field.maxLength || undefined : undefined}
             className="input-field h-12 rounded-[1.15rem] pl-11 text-[15px] sm:pl-12"
             placeholder={isPhoneField ? '9876543210' : undefined}
             {...(isPhoneField ? phoneInputProps : {})}
           />
         </div>
+        {renderLimitHint()}
         {errors[field.key] && <p className="mt-1 text-sm font-semibold text-brand">{errors[field.key]}</p>}
       </div>
     );

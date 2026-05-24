@@ -37,8 +37,14 @@ function RootLayout() {
     const showInstallPrompt = showAppHeader && !path.includes('/inbox') && !isRoomFlow;
     const showChatbot = showInstallPrompt
         && !/^\/landlord\/(?:add-room|edit-room\/[^/]+)\/?$/.test(path);
+    const isSupportContextPath = (
+        /^\/room\/[^/]+\/book\/?$/.test(path)
+        || /^\/profile\/(?:my-applications|payment\/[^/]+|agreement\/[^/]+|report-damage\/[^/]+)/.test(path)
+        || /^\/landlord\/(?:add-room|edit-room\/[^/]+|my-rooms|applications|calendar)/.test(path)
+    );
     const showSupportLauncher = Boolean(user)
         && showAppHeader
+        && isSupportContextPath
         && !isAdminPath
         && !isAuthPath
         && !path.startsWith('/loading');

@@ -42,7 +42,8 @@ const handledRoomQueryKeys = new Set([
     'beds', 'maxOccupants', 'roomType', 'gender', 'familyStatus', 'amenities', 'availableFrom',
     'checkInDate', 'checkOutDate', 'moveInDate', 'latitude', 'longitude', 'radius', 'verifiedOnly',
     'strictLocation', 'listingCategory', 'pricingMode', 'stayType', 'maxGuests', 'instantBook',
-    'minPricePerNight', 'maxPricePerNight',
+    'minPricePerNight', 'maxPricePerNight', 'occupancyType', 'availabilityWindow', 'maxDeposit',
+    'verifiedLandlord',
 ]);
 const lockedInventoryStatuses = ['approved', 'confirmed', 'external', 'blocked'];
 const DISCOVERABLE_ROOM_STATUSES = [
@@ -55,6 +56,12 @@ const DISCOVERABLE_ROOM_STATUSES = [
     'booked',
     'confirmed',
 ];
+const AVAILABLE_ROOM_STATUSES = [
+    'Published',
+    'Available',
+    'published',
+    'available',
+];
 const BOOKED_DISCOVERY_STATUSES = new Set(['booked', 'confirmed']);
 
 const createDiscoverableBaseQuery = () => ({
@@ -62,7 +69,9 @@ const createDiscoverableBaseQuery = () => ({
     isDeleted: { $ne: true },
 });
 
-const createDiscoverableStatusClause = () => ({ status: { $in: DISCOVERABLE_ROOM_STATUSES } });
+const createDiscoverableStatusClause = (availabilityIntent = false) => ({
+    status: { $in: availabilityIntent ? AVAILABLE_ROOM_STATUSES : DISCOVERABLE_ROOM_STATUSES },
+});
 
 const getAvailabilityRank = (room = {}) => {
     const normalizedStatus = String(room.status || '').toLowerCase();
@@ -525,6 +534,100 @@ const getLocationKeyword = (...values) => values.find(isUsefulLocationKeyword) |
 
 const isStrictLocationRequest = (value) => ['true', '1', 'yes'].includes(String(value || '').trim().toLowerCase());
 
+const isTruthyQuery = (value) => value === true || ['true', '1', 'yes'].includes(String(value || '').trim().toLowerCase());
+
+const normalizeOccupancyType = (value = '') => {
+    const normalized = String(value || '').trim().toLowerCase().replace(/[\s_-]+/g, '-');
+    if (['single', 'private', 'private-room', 'one-person', '1-person'].includes(normalized)) return 'single';
+    if (['sharing', 'shared', 'shared-room', '2-sharing', '3-sharing'].includes(normalized)) return 'sharing';
+    if (['family', 'family-couple', 'couple'].includes(normalized)) return 'family';
+    if (['group', 'full-flat', 'flat', 'house'].includes(normalized)) return 'group';
+    return '';
+};
+
+const createOccupancyTypeClause = (value) => {
+    const type = normalizeOccupancyType(value);
+    if (!type) return null;
+
+    if (type === 'single') {
+        return {
+            $or: [
+                { roomType: { $regex: 'single|private|independent|studio|1\\s*rk', $options: 'i' } },
+                { beds: { $lte: 1 } },
+                { maxOccupants: { $lte: 1 } },
+            ],
+        };
+    }
+
+    if (type === 'sharing') {
+        return {
+            $or: [
+                { roomType: { $regex: 'shared|hostel|pg', $options: 'i' } },
+                { listingCategory: { $in: ['PG', 'Hostel', 'Co-living'] } },
+                { beds: { $gte: 2 } },
+                { maxOccupants: { $gte: 2 } },
+            ],
+        };
+    }
+
+    if (type === 'family') {
+        return {
+            $or: [
+                { familyStatus: { $in: ['Family', 'Any'] } },
+                { 'tenantPreferences.familyStatus': { $in: ['Family', 'Any'] } },
+                { roomType: { $regex: 'bhk|flat|apartment|house|studio', $options: 'i' } },
+                { listingCategory: { $in: ['Flat', 'Apartment', 'Studio'] } },
+            ],
+        };
+    }
+
+    return {
+        $or: [
+            { roomType: { $regex: 'bhk|flat|apartment|house|shared', $options: 'i' } },
+            { listingCategory: { $in: ['Flat', 'Apartment', 'Co-living'] } },
+            { maxOccupants: { $gte: 3 } },
+            { beds: { $gte: 3 } },
+        ],
+    };
+};
+
+const getAvailabilityWindowDate = (windowValue) => {
+    const normalized = String(windowValue || '').trim().toLowerCase().replace(/[\s_-]+/g, '-');
+    if (!normalized) return null;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    if (['now', 'immediate', 'available-now', 'today'].includes(normalized)) return today;
+    const dayMatch = normalized.match(/(\d{1,3})/);
+    if (dayMatch) {
+        const next = new Date(today);
+        next.setDate(next.getDate() + Number(dayMatch[1]));
+        return next;
+    }
+    if (normalized.includes('month')) {
+        const next = new Date(today);
+        next.setMonth(next.getMonth() + 1);
+        return next;
+    }
+    return null;
+};
+
+const getVerifiedLandlordIds = async () => {
+    const landlords = await User.find({
+        roles: 'Landlord',
+        $or: [
+            { isVerified: true },
+            { kyc_status: 'Verified' },
+            { verificationLevel: { $in: ['verified', 'premium'] } },
+            { 'verifications.identity': true },
+            { 'verifications.address': true },
+            { 'verifications.property': true },
+        ],
+    }).select('_id').lean();
+
+    return landlords.map((landlord) => landlord._id);
+};
+
 const escapeLocationRegex = (value = '') => String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 const buildStrictLocationQuery = (value = '') => {
@@ -703,6 +806,10 @@ exports.getAllRooms = asyncHandler(async (req, res) => {
             instantBook,
             minPricePerNight,
             maxPricePerNight,
+            occupancyType,
+            availabilityWindow,
+            maxDeposit,
+            verifiedLandlord,
             gender,
             familyStatus,
             amenities,
@@ -716,7 +823,8 @@ exports.getAllRooms = asyncHandler(async (req, res) => {
             verifiedOnly,
             strictLocation,
         } = req.query;
-        const hasDateAvailabilityIntent = Boolean(checkInDate || moveInDate || availableFrom);
+        const availabilityWindowDate = getAvailabilityWindowDate(availabilityWindow);
+        const hasDateAvailabilityIntent = Boolean(checkInDate || moveInDate || availableFrom || availabilityWindowDate);
         const query = { isDeleted: { $ne: true } };
         appendAndClause(query, createDiscoverableStatusClause(hasDateAvailabilityIntent));
 
@@ -755,9 +863,29 @@ exports.getAllRooms = asyncHandler(async (req, res) => {
             else if (type === 'Flats') query.roomType = { $regex: 'Flat|BHK', $options: 'i' };
             else query.roomType = { $regex: type, $options: 'i' };
         }
-        if (verifiedOnly === true || verifiedOnly === 'true' || verifiedOnly === '1') {
+        if (isTruthyQuery(verifiedOnly)) {
             query['verifications.property'] = true;
         }
+        if (isTruthyQuery(verifiedLandlord)) {
+            const verifiedLandlordIds = await getVerifiedLandlordIds();
+            if (verifiedLandlordIds.length === 0) {
+                if (page) {
+                    return res.json({
+                        data: [],
+                        count: 0,
+                        total: 0,
+                        exactTotal: 0,
+                        page: Math.max(Number(page), 1),
+                        totalPages: 1,
+                        fallback: null,
+                    });
+                }
+                return res.json([]);
+            }
+            query.landlord = { $in: verifiedLandlordIds };
+        }
+        const occupancyClause = createOccupancyTypeClause(occupancyType);
+        if (occupancyClause) appendAndClause(query, occupancyClause);
         if (gender && gender !== 'Any') {
             const genderClause = createGenderPreferenceClause(gender);
             if (genderClause) appendAndClause(query, genderClause);
@@ -781,6 +909,10 @@ exports.getAllRooms = asyncHandler(async (req, res) => {
             if (minRent) query.rent.$gte = Number(minRent);
             if (maxRent) query.rent.$lte = Number(maxRent);
         }
+        const maxDepositNumber = Number(maxDeposit);
+        if (Number.isFinite(maxDepositNumber) && maxDepositNumber >= 0) {
+            query.securityDeposit = { $lte: maxDepositNumber };
+        }
         if (minPricePerNight || maxPricePerNight) {
             query.pricePerNight = {};
             if (minPricePerNight) query.pricePerNight.$gte = Number(minPricePerNight);
@@ -800,10 +932,21 @@ exports.getAllRooms = asyncHandler(async (req, res) => {
             ];
         }
         if (beds) query.beds = Number(beds);
-        const availableFromDate = toOptionalDate(availableFrom);
-        if (availableFromDate) query.availableFrom = { $lte: availableFromDate };
+        const availableFromDate = toOptionalDate(availableFrom) || availabilityWindowDate;
+        if (availableFromDate) {
+            query.$and = [
+                ...(query.$and || []),
+                {
+                    $or: [
+                        { availableFrom: { $exists: false } },
+                        { availableFrom: null },
+                        { availableFrom: { $lte: availableFromDate } },
+                    ],
+                },
+            ];
+        }
         addAvailabilityExclusion(query, {
-            startDate: checkInDate || moveInDate || availableFrom,
+            startDate: checkInDate || moveInDate || availableFrom || availabilityWindowDate,
             endDate: checkOutDate,
         });
         if (amenities) {
@@ -816,7 +959,8 @@ exports.getAllRooms = asyncHandler(async (req, res) => {
             buildConfiguredFilter(query, field, req.query[field.key]);
         });
 
-        let sortOption = { createdAt: -1 };
+        let sortOption = { 'verifications.property': -1, averageRating: -1, views: -1, createdAt: -1 };
+        if (sort === 'newest') sortOption = { createdAt: -1 };
         if (sort === 'views' || sort === 'popular') sortOption = { views: -1, createdAt: -1 };
         const normalizedPricingMode = isAllFilterValue(pricingMode) ? 'monthly' : normalizePricingMode(pricingMode);
         if (sort === 'price_asc') sortOption = normalizedPricingMode !== 'monthly' ? { pricePerNight: 1, rent: 1 } : { rent: 1 };

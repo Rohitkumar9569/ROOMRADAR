@@ -48,7 +48,7 @@ router.route('/:id/sentiment').get(getRoomSentiment);
 // Wildcard/Dynamic routes 
 router.route('/:id')
   .get(getRoomById)
-  .put(protect, restrictTo('Landlord'), updateRoom)
+  .put(protect, restrictTo('Landlord'), validateRoomConfig, updateRoom)
   .delete(protect, restrictTo('Landlord'), deleteRoom);
 
 module.exports = router;

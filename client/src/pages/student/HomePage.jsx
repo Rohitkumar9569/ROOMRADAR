@@ -107,17 +107,24 @@ const filterRoomsForLocation = (rooms, terms) => {
   return list.filter((room) => roomMatchesLocationTerms(room, terms));
 };
 
+const hasLocationCoordinates = (locationSignal) => {
+  const props = locationSignal?.place?.properties || locationSignal?.properties || {};
+  const lat = props.lat ?? props.latitude;
+  const lon = props.lon ?? props.lng ?? props.longitude;
+  return lat !== undefined && lat !== null && lat !== '' && lon !== undefined && lon !== null && lon !== '';
+};
+
 const excludeRoomsById = (rooms, excludedRooms = []) => {
   const excludedIds = new Set(realRoomList(excludedRooms).map((room) => String(room._id)));
   return realRoomList(rooms).filter((room) => !excludedIds.has(String(room._id)));
 };
 
-const buildLocationAwareRoomUrl = (baseEntries, locationQuery) => {
+const buildLocationAwareRoomUrl = (baseEntries, locationQuery, { strictLocation = false } = {}) => {
   const params = new URLSearchParams(baseEntries);
   if (locationQuery) {
     new URLSearchParams(locationQuery).forEach((value, key) => params.set(key, value));
     params.set('page', '1');
-    params.set('strictLocation', 'true');
+    if (strictLocation) params.set('strictLocation', 'true');
   }
   return `/rooms?${params.toString()}`;
 };
@@ -152,12 +159,11 @@ const createDefaultSearchCriteria = (locationSignal = null) => ({
   location: locationSignal?.place || null,
   locationQuery: locationSignal?.query || '',
   moveInDate: null,
-  radius: 5,
-  adults: 1,
-  children: 0,
-  infants: 0,
+  availabilityWindow: '',
+  occupancyType: '',
   gender: 'Any',
-  maxOccupants: 1,
+  maxOccupants: '',
+  radius: 8,
 });
 
 const SectionHeader = ({ eyebrow, title, action }) => (
@@ -236,27 +242,25 @@ function HomePage() {
     () => (personalizedLocation ? getLocationSearchParams(personalizedLocation, { radius: 12 }).toString() : ''),
     [personalizedLocation]
   );
-  const personalizedLocationLabel = useMemo(
-    () => (personalizedLocation ? getLocationLabel(personalizedLocation) : ''),
-    [personalizedLocation]
-  );
   const personalizedLocationTerms = useMemo(() => getLocationTerms(personalizedLocation), [personalizedLocation]);
+  const personalizedLocationHasCoordinates = useMemo(() => hasLocationCoordinates(personalizedLocation), [personalizedLocation]);
   const userCitySignal = useMemo(() => getUserCitySignal(user), [user]);
   const visibleCategoryRooms = useMemo(
     () => realRoomList(categoryRooms),
     [categoryRooms]
   );
   const visiblePopularRooms = useMemo(
-    () => filterRoomsForLocation(popularRooms, personalizedLocationTerms),
-    [popularRooms, personalizedLocationTerms]
+    () => filterRoomsForLocation(popularRooms, personalizedLocationHasCoordinates ? [] : personalizedLocationTerms),
+    [personalizedLocationHasCoordinates, personalizedLocationTerms, popularRooms]
   );
   const visibleRecommendedRooms = useMemo(() => {
-    const exactRecommendations = filterRoomsForLocation(recommendedRooms, personalizedLocationTerms);
-    const recommendationBase = exactRecommendations.length || !personalizedLocationTerms.length
+    const locationTerms = personalizedLocationHasCoordinates ? [] : personalizedLocationTerms;
+    const exactRecommendations = filterRoomsForLocation(recommendedRooms, locationTerms);
+    const recommendationBase = exactRecommendations.length || !locationTerms.length
       ? exactRecommendations
       : visiblePopularRooms.slice(0, Number(HOME_RAIL_ROOM_LIMIT));
     return excludeRoomsById(recommendationBase, visiblePopularRooms);
-  }, [personalizedLocationTerms, recommendedRooms, visiblePopularRooms]);
+  }, [personalizedLocationHasCoordinates, personalizedLocationTerms, recommendedRooms, visiblePopularRooms]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return undefined;
@@ -300,7 +304,7 @@ function HomePage() {
 
     const fillMobileLocation = async () => {
       try {
-        const autoLocation = await getMobileAutoLocation();
+        const autoLocation = await getMobileAutoLocation({ mobileOnly: false });
         if (!autoLocation || cancelled || locationClearedByUser) return;
         setPersonalizedLocation(autoLocation);
       } catch {
@@ -316,6 +320,7 @@ function HomePage() {
 
   useEffect(() => {
     if (personalizedLocation || !userCitySignal || locationClearedByUser) return;
+    saveSearchedLocation(userCitySignal);
     setPersonalizedLocation(userCitySignal);
   }, [locationClearedByUser, personalizedLocation, userCitySignal]);
 
@@ -357,7 +362,7 @@ function HomePage() {
           api.get(buildLocationAwareRoomUrl({ sort: 'views', limit: HOME_RAIL_ROOM_LIMIT }, personalizedLocationQuery)),
           api.get(`/rooms/recommended?${new URLSearchParams({
             limit: HOME_RAIL_ROOM_LIMIT,
-            ...(personalizedLocationQuery ? { ...Object.fromEntries(new URLSearchParams(personalizedLocationQuery)), strictLocation: 'true' } : {}),
+            ...(personalizedLocationQuery ? Object.fromEntries(new URLSearchParams(personalizedLocationQuery)) : {}),
           }).toString()}`),
         ]);
 
@@ -446,10 +451,7 @@ function HomePage() {
         query: typedLocation || getLocationLabel(nextCriteria.location),
         source: 'search',
       };
-      const locationParams = getLocationSearchParams(
-        searchedLocation,
-        { radius: nextCriteria.radius || 8 }
-      );
+      const locationParams = getLocationSearchParams(searchedLocation, { radius: 8 });
       locationParams.forEach((value, key) => params.set(key, value));
     } else if (typedLocation) {
       searchedLocation = createManualLocationSignal(typedLocation);
@@ -463,15 +465,18 @@ function HomePage() {
       setLocationClearedByUser(false);
       setPersonalizedLocation(searchedLocation);
     }
-    if (params.has('latitude') && params.has('longitude') && nextCriteria.radius) params.set('radius', nextCriteria.radius);
-    const adults = Math.max(1, Number(nextCriteria.adults || nextCriteria.maxOccupants || 1));
-    const children = Math.max(0, Number(nextCriteria.children || 0));
-    const infants = Math.max(0, Number(nextCriteria.infants || 0));
-    const roomOccupants = Math.max(1, adults + children);
-    params.set('maxOccupants', roomOccupants);
+    params.set('sort', 'recommended');
+    if (nextCriteria.type) params.set('type', nextCriteria.type);
+    if (nextCriteria.roomType) params.set('roomType', nextCriteria.roomType);
+    if (nextCriteria.listingCategory) params.set('listingCategory', nextCriteria.listingCategory);
+    if (nextCriteria.maxRent) params.set('maxRent', nextCriteria.maxRent);
+    if (nextCriteria.minRent) params.set('minRent', nextCriteria.minRent);
+    if (nextCriteria.occupancyType) params.set('occupancyType', nextCriteria.occupancyType);
+    if (nextCriteria.maxOccupants) params.set('maxOccupants', nextCriteria.maxOccupants);
     if (nextCriteria.gender && nextCriteria.gender !== 'Any') params.set('gender', nextCriteria.gender);
-    if (children > 0 || infants > 0) params.set('familyStatus', 'Family');
+    if (nextCriteria.familyStatus || nextCriteria.occupancyType === 'family') params.set('familyStatus', nextCriteria.familyStatus || 'Family');
     if (nextCriteria.moveInDate) params.set('availableFrom', nextCriteria.moveInDate.toISOString().slice(0, 10));
+    else if (nextCriteria.availabilityWindow) params.set('availabilityWindow', nextCriteria.availabilityWindow);
     navigate(`/rooms?${params.toString()}`);
   };
 
@@ -483,18 +488,31 @@ function HomePage() {
   };
 
   const handleCityClick = (cityName) => {
-    saveSearchedLocation(cityName);
+    const cityLocation = saveSearchedLocation(cityName);
+    if (cityLocation) {
+      setLocationClearedByUser(false);
+      setPersonalizedLocation(cityLocation);
+    }
     navigate(`/rooms?city=${encodeURIComponent(cityName)}`);
+  };
+
+  const buildRoomsPath = (entries = {}) => {
+    const params = new URLSearchParams();
+    Object.entries(entries).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== '') params.set(key, value);
+    });
+    const queryString = params.toString();
+    return queryString ? `/rooms?${queryString}` : '/rooms';
   };
 
   const handleTrustStatClick = (key) => {
     if (key === 'verified') {
-      navigate('/rooms?verifiedOnly=true&sort=popular');
+      navigate(buildRoomsPath({ verifiedOnly: 'true', sort: 'popular' }));
       return;
     }
 
     if (key === 'published') {
-      navigate('/rooms?sort=newest');
+      navigate(buildRoomsPath({ sort: 'newest' }));
       return;
     }
 
@@ -652,7 +670,7 @@ function HomePage() {
             eyebrow="Marketplace listings"
             title={`${activeCategoryLabel} on RoomRadar`}
             action={(
-              <button onClick={() => navigate(activeCategory === 'All' ? '/rooms' : `/rooms?type=${encodeURIComponent(activeCategory)}`)} className="inline-flex min-h-9 items-center gap-1.5 rounded-full border border-light-border bg-light-card px-3 text-xs font-semibold text-light-text transition hover:border-cyan-400 hover:text-cyan-600 dark:border-dark-border dark:bg-dark-card dark:text-dark-text">
+              <button onClick={() => navigate(buildRoomsPath(activeCategory === 'All' ? {} : { type: activeCategory }))} className="inline-flex min-h-9 items-center gap-1.5 rounded-full border border-light-border bg-light-card px-3 text-xs font-semibold text-light-text transition hover:border-cyan-400 hover:text-cyan-600 dark:border-dark-border dark:bg-dark-card dark:text-dark-text">
                 View all
                 <ArrowRight className="h-4 w-4" />
               </button>
@@ -663,8 +681,8 @@ function HomePage() {
 
         <section className="mt-12">
           <SectionHeader
-            eyebrow={personalizedLocationLabel ? `Popular near ${personalizedLocationLabel}` : 'Popular near you'}
-            title={personalizedLocationLabel ? `Most viewed verified rooms around ${personalizedLocationLabel}` : 'Most viewed verified rooms'}
+            eyebrow="Popular near you"
+            title={personalizedLocation ? 'Nearby verified rooms matched from current demand' : 'Most viewed verified rooms'}
           />
           <RoomsGrid rooms={visiblePopularRooms} loading={loading} />
         </section>
@@ -673,7 +691,7 @@ function HomePage() {
           <section className="mt-10 sm:mt-12">
             <SectionHeader
               eyebrow="Recommended for you"
-              title={personalizedLocationLabel ? `Personalized around ${personalizedLocationLabel}` : 'Rooms matched from current demand'}
+              title={personalizedLocation ? 'Matched by location, trust, and room demand' : 'Rooms matched from current demand'}
             />
             <RoomsGrid rooms={visibleRecommendedRooms} loading={loading} />
           </section>
@@ -717,7 +735,7 @@ function HomePage() {
 
         <section className="mt-10 grid gap-2.5 sm:mt-12 sm:gap-4 md:grid-cols-3">
           {[
-            { title: 'Search', text: 'Use location, people, radius, and filters to find the right room.', Icon: Search },
+            { title: 'Search', text: 'Start with location, then refine by budget, tenant fit, move-in, and trust.', Icon: Search },
             { title: 'Request', text: 'Send a booking request with profile and stay details.', Icon: MessageCircle },
             { title: 'Move In', text: 'Confirm after host approval and keep the record in your dashboard.', Icon: CheckCircle2 },
           ].map(({ title, text, Icon }) => (

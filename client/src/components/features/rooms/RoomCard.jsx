@@ -119,22 +119,22 @@ const getCompactTagText = (key = '', text = '') => {
         if (/women/i.test(value)) return 'Women';
         if (/men/i.test(value)) return 'Men';
         if (/family/i.test(value)) return 'Family';
-        if (/bachelor/i.test(value)) return 'Bachelor';
+        if (/bachelor/i.test(value)) return 'Bachelors';
     }
 
     if (key === 'room-type') {
         const bhkMatch = value.match(/(\d+)\s*BHK/i);
         if (bhkMatch) return `${bhkMatch[1]} BHK`;
-        if (/shared/i.test(value)) return 'Shared';
-        if (/single/i.test(value)) return 'Single';
+        if (/shared/i.test(value)) return 'Shared room';
+        if (/single/i.test(value)) return 'Single room';
         if (/pg/i.test(value)) return 'PG';
         return value.replace(/\s*\([^)]*\)/g, '').replace(/\s+room\b/i, '').trim();
     }
 
-    if (key === 'category') return value.replace(/^Co-living$/i, 'Co-live');
+    if (key === 'category') return value;
     if (key === 'instant') return 'Instant';
-    if (key === 'washroom') return /attached/i.test(value) ? 'Bath' : value.replace(/\s+bath/i, '');
-    if (key === 'deposit') return value.replace(/^Deposit/i, 'Dep');
+    if (key === 'washroom') return value;
+    if (key === 'deposit') return value;
     if (key === 'electricity') return /included/i.test(value) ? 'Electricity' : 'Metered';
     if (key === 'available') return value.replace(/^Move-in\s+/i, '');
     if (key === 'distance') return value.replace(/\s+away$/i, '');
@@ -337,6 +337,8 @@ function RoomCard({ room, context = 'default', onRemove, imagePriority = false }
     const [isActiveMobilePreview, setIsActiveMobilePreview] = useState(false);
     const cardRef = useRef(null);
     const mediaRef = useRef(null);
+    const touchStartRef = useRef(null);
+    const suppressNextClickRef = useRef(false);
     const previewIdRef = useRef(null);
     if (!previewIdRef.current) {
         previewIdRef.current = `${roomId || 'room'}-${Math.random().toString(36).slice(2)}`;
@@ -369,6 +371,61 @@ function RoomCard({ room, context = 'default', onRemove, imagePriority = false }
         event.stopPropagation();
         setCurrentImageIndex((prevIndex) => (prevIndex - 1 + imageUrls.length) % imageUrls.length);
     }, [imageUrls.length]);
+
+    const handleCardClickCapture = useCallback((event) => {
+        if (!suppressNextClickRef.current) return;
+        event.preventDefault();
+        event.stopPropagation();
+        suppressNextClickRef.current = false;
+    }, []);
+
+    const handleMediaTouchStart = useCallback((event) => {
+        if (imageUrls.length <= 1) return;
+        const touch = event.touches?.[0];
+        if (!touch) return;
+        touchStartRef.current = {
+            x: touch.clientX,
+            y: touch.clientY,
+            time: typeof performance !== 'undefined' ? performance.now() : Date.now(),
+        };
+    }, [imageUrls.length]);
+
+    const handleMediaTouchEnd = useCallback((event) => {
+        if (imageUrls.length <= 1 || !touchStartRef.current) return;
+        const touch = event.changedTouches?.[0];
+        if (!touch) {
+            touchStartRef.current = null;
+            return;
+        }
+
+        const start = touchStartRef.current;
+        touchStartRef.current = null;
+        const deltaX = start.x - touch.clientX;
+        const deltaY = start.y - touch.clientY;
+        const absX = Math.abs(deltaX);
+        const absY = Math.abs(deltaY);
+
+        if (absX < 34 || absX < absY * 1.18) return;
+
+        event.preventDefault();
+        event.stopPropagation();
+        suppressNextClickRef.current = true;
+        setCurrentImageIndex((prevIndex) => (
+            deltaX > 0
+                ? (prevIndex + 1) % imageUrls.length
+                : (prevIndex - 1 + imageUrls.length) % imageUrls.length
+        ));
+
+        if (typeof window !== 'undefined') {
+            window.setTimeout(() => {
+                suppressNextClickRef.current = false;
+            }, 520);
+        }
+    }, [imageUrls.length]);
+
+    const handleMediaTouchCancel = useCallback(() => {
+        touchStartRef.current = null;
+    }, []);
 
     const handleMouseEnter = useCallback(() => {
         if (canPreviewOnHover) setIsHovered(true);
@@ -560,12 +617,15 @@ function RoomCard({ room, context = 'default', onRemove, imagePriority = false }
             ref={cardRef}
             className="room-card-pro rr-room-card group h-full cursor-pointer"
         >
-            <Link to={`/room/${room._id}`} className="flex h-full flex-col">
+            <Link to={`/room/${room._id}`} className="flex h-full flex-col" onClickCapture={handleCardClickCapture}>
                 <div
                     ref={mediaRef}
                     className="rr-room-card-media relative overflow-hidden bg-light-border dark:bg-dark-input"
                     onMouseEnter={handleMouseEnter}
                     onMouseLeave={handleMouseLeave}
+                    onTouchStart={handleMediaTouchStart}
+                    onTouchEnd={handleMediaTouchEnd}
+                    onTouchCancel={handleMediaTouchCancel}
                 >
                     {imageUrls.length > 0 ? (
                         <>
@@ -577,7 +637,7 @@ function RoomCard({ room, context = 'default', onRemove, imagePriority = false }
                                 loading={imageLoading}
                                 decoding="async"
                                 fetchpriority={imageFetchPriority}
-                                sizes="(max-width: 639px) 50vw, (max-width: 1023px) 50vw, 280px"
+                                sizes="(max-width: 639px) 100vw, (max-width: 1023px) 50vw, 280px"
                                 draggable="false"
                             />
                             <div className="absolute inset-0 bg-gradient-to-t from-slate-950/52 via-transparent to-black/10 opacity-80" />

@@ -1,20 +1,52 @@
 import api from '../api';
 
-const LOCATION_CACHE_KEY = 'roomradar:auto-location:v1';
+const PREFERRED_LOCATION_KEY = 'roomradar:preferred-location:v2';
+const LEGACY_LOCATION_CACHE_KEY = 'roomradar:auto-location:v1';
 const LOCATION_ATTEMPT_KEY = 'roomradar:auto-location-attempt:v1';
-const LOCATION_CACHE_TTL = 12 * 60 * 60 * 1000;
 
 const isMobileViewport = () => (
   typeof window !== 'undefined'
   && window.matchMedia?.('(max-width: 639px)').matches
 );
 
+const normalizeStoredLocation = (location) => {
+  if (!location?.query || !location?.place) return null;
+  const props = location.place?.properties || {};
+  const isAutoLocation = ['auto', 'auto-city'].includes(location.source) || String(location.query || '').toLowerCase() === 'current location';
+  const city = [props.city, props.address_line1, location.query]
+    .find((value) => isUsefulLocationText(value)) || location.query;
+
+  if (!isAutoLocation) {
+    return { ...location, savedAt: location.savedAt || Date.now() };
+  }
+
+  return createManualLocationSignal(city, {
+    city,
+    address_line1: city,
+    address_line2: props.state || props.country || 'India',
+    formatted: props.formatted && props.formatted !== 'Current location' ? props.formatted : `${city}, India`,
+    state: props.state,
+    country: props.country,
+    lat: props.lat ?? props.latitude,
+    lon: props.lon ?? props.lng ?? props.longitude,
+  }, 'auto-city');
+};
+
 export const readCachedLocation = () => {
   if (typeof window === 'undefined') return null;
   try {
-    const cached = JSON.parse(window.localStorage.getItem(LOCATION_CACHE_KEY) || 'null');
-    if (!cached?.query || !cached?.place || Date.now() - Number(cached.savedAt || 0) > LOCATION_CACHE_TTL) return null;
-    return cached;
+    const cached = JSON.parse(window.localStorage.getItem(PREFERRED_LOCATION_KEY) || 'null');
+    const normalized = normalizeStoredLocation(cached);
+    if (normalized) return normalized;
+
+    const legacyCached = JSON.parse(window.localStorage.getItem(LEGACY_LOCATION_CACHE_KEY) || 'null');
+    const normalizedLegacy = normalizeStoredLocation(legacyCached);
+    if (normalizedLegacy) {
+      saveCachedLocation(normalizedLegacy);
+      window.localStorage.removeItem(LEGACY_LOCATION_CACHE_KEY);
+      return normalizedLegacy;
+    }
+    return null;
   } catch {
     return null;
   }
@@ -22,12 +54,15 @@ export const readCachedLocation = () => {
 
 export const saveCachedLocation = (location) => {
   if (typeof window === 'undefined' || !location?.query || !location?.place) return;
-  window.localStorage.setItem(LOCATION_CACHE_KEY, JSON.stringify({ ...location, savedAt: Date.now() }));
+  const normalized = normalizeStoredLocation(location);
+  if (!normalized) return;
+  window.localStorage.setItem(PREFERRED_LOCATION_KEY, JSON.stringify({ ...normalized, savedAt: Date.now() }));
 };
 
 export const clearCachedLocation = () => {
   if (typeof window === 'undefined') return;
-  window.localStorage.removeItem(LOCATION_CACHE_KEY);
+  window.localStorage.removeItem(PREFERRED_LOCATION_KEY);
+  window.localStorage.removeItem(LEGACY_LOCATION_CACHE_KEY);
 };
 
 const isUsefulLocationText = (value = '') => {
@@ -144,12 +179,12 @@ const buildPlace = (feature, coords) => {
   };
 };
 
-export const getMobileAutoLocation = async ({ force = false } = {}) => {
+export const getMobileAutoLocation = async ({ force = false, mobileOnly = true } = {}) => {
   if (
     typeof window === 'undefined'
     || typeof navigator === 'undefined'
     || !navigator.geolocation
-    || !isMobileViewport()
+    || (mobileOnly && !isMobileViewport())
   ) return null;
 
   const cached = readCachedLocation();
@@ -162,8 +197,10 @@ export const getMobileAutoLocation = async ({ force = false } = {}) => {
     try {
       const permission = await navigator.permissions.query({ name: 'geolocation' });
       if (permission.state === 'denied') return null;
+      if (!force && permission.state !== 'granted') return null;
     } catch {
       // Some mobile browsers do not expose geolocation through Permissions API.
+      if (!force) return null;
     }
   }
 
