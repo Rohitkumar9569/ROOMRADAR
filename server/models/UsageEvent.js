@@ -4,7 +4,21 @@ const usageEventSchema = new mongoose.Schema(
   {
     eventType: {
       type: String,
-      enum: ['session_start', 'page_view', 'pwa_install', 'app_open', 'heartbeat'],
+      enum: [
+        'session_start',
+        'page_view',
+        'pwa_install',
+        'app_open',
+        'heartbeat',
+        'search_run',
+        'filter_apply',
+        'room_click',
+        'room_view',
+        'wishlist_add',
+        'wishlist_remove',
+        'search_alert_save',
+        'booking_request',
+      ],
       required: true,
       index: true,
     },

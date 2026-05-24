@@ -10,6 +10,7 @@ import { useAuth } from '../../context/AuthContext';
 import { readTabCache, setTabCache } from '../../utils/tabDataCache';
 import { formatListingTitle } from '../../utils/listingDisplay';
 import { clearCachedLocation, createManualLocationSignal, getLocationLabel, getLocationSearchParams, getMobileAutoLocation, readCachedLocation, saveSearchedLocation } from '../../utils/mobileLocationAutofill';
+import { trackUsageEvent } from '../../utils/usageAnalytics';
 import {
   ArrowRight,
   BadgeCheck,
@@ -176,7 +177,7 @@ const SectionHeader = ({ eyebrow, title, action }) => (
   </div>
 );
 
-const RoomsGrid = React.memo(function RoomsGrid({ rooms, loading, priorityCount = 0 }) {
+const RoomsGrid = React.memo(function RoomsGrid({ rooms, loading, priorityCount = 0, trackingContext = 'home' }) {
   const visibleRooms = realRoomList(rooms);
 
   if (loading) {
@@ -203,7 +204,15 @@ const RoomsGrid = React.memo(function RoomsGrid({ rooms, loading, priorityCount 
 
   return (
     <div className="mobile-room-grid grid gap-3 sm:gap-5 lg:[grid-template-columns:repeat(auto-fill,minmax(280px,1fr))]">
-      {visibleRooms.map((room, index) => <RoomCard key={room._id} room={room} imagePriority={index < priorityCount} />)}
+      {visibleRooms.map((room, index) => (
+        <RoomCard
+          key={room._id}
+          room={room}
+          imagePriority={index < priorityCount}
+          position={index + 1}
+          trackingContext={trackingContext}
+        />
+      ))}
     </div>
   );
 });
@@ -249,10 +258,19 @@ function HomePage() {
     () => realRoomList(categoryRooms),
     [categoryRooms]
   );
-  const visiblePopularRooms = useMemo(
-    () => filterRoomsForLocation(popularRooms, personalizedLocationHasCoordinates ? [] : personalizedLocationTerms),
-    [personalizedLocationHasCoordinates, personalizedLocationTerms, popularRooms]
-  );
+  const popularRoomDisplay = useMemo(() => {
+    const rooms = realRoomList(popularRooms);
+    if (!personalizedLocation || personalizedLocationHasCoordinates || !personalizedLocationTerms.length) {
+      return { rooms, usedFallback: false };
+    }
+
+    const matchedRooms = filterRoomsForLocation(rooms, personalizedLocationTerms);
+    return {
+      rooms: matchedRooms.length ? matchedRooms : rooms,
+      usedFallback: matchedRooms.length === 0 && rooms.length > 0,
+    };
+  }, [personalizedLocation, personalizedLocationHasCoordinates, personalizedLocationTerms, popularRooms]);
+  const visiblePopularRooms = popularRoomDisplay.rooms;
   const visibleRecommendedRooms = useMemo(() => {
     const locationTerms = personalizedLocationHasCoordinates ? [] : personalizedLocationTerms;
     const exactRecommendations = filterRoomsForLocation(recommendedRooms, locationTerms);
@@ -465,6 +483,13 @@ function HomePage() {
       setLocationClearedByUser(false);
       setPersonalizedLocation(searchedLocation);
     }
+    trackUsageEvent('search_run', {
+      metadata: {
+        source: 'home_search',
+        city: params.get('city') || typedLocation,
+        hasGeo: params.has('latitude') && params.has('longitude'),
+      },
+    });
     params.set('sort', 'recommended');
     if (nextCriteria.type) params.set('type', nextCriteria.type);
     if (nextCriteria.roomType) params.set('roomType', nextCriteria.roomType);
@@ -493,6 +518,12 @@ function HomePage() {
       setLocationClearedByUser(false);
       setPersonalizedLocation(cityLocation);
     }
+    trackUsageEvent('search_run', {
+      metadata: {
+        source: 'home_city_chip',
+        city: cityName,
+      },
+    });
     navigate(`/rooms?city=${encodeURIComponent(cityName)}`);
   };
 
@@ -667,8 +698,8 @@ function HomePage() {
 
         <section className="mt-10">
           <SectionHeader
-            eyebrow="Marketplace listings"
-            title={`${activeCategoryLabel} on RoomRadar`}
+            eyebrow="Explore rooms"
+            title={activeCategory === 'All' ? 'All verified rooms on RoomRadar' : `${activeCategoryLabel} on RoomRadar`}
             action={(
               <button onClick={() => navigate(buildRoomsPath(activeCategory === 'All' ? {} : { type: activeCategory }))} className="inline-flex min-h-9 items-center gap-1.5 rounded-full border border-light-border bg-light-card px-3 text-xs font-semibold text-light-text transition hover:border-cyan-400 hover:text-cyan-600 dark:border-dark-border dark:bg-dark-card dark:text-dark-text">
                 View all
@@ -676,15 +707,17 @@ function HomePage() {
               </button>
             )}
           />
-          <RoomsGrid rooms={visibleCategoryRooms} loading={categoryLoading || loading} priorityCount={4} />
+          <RoomsGrid rooms={visibleCategoryRooms} loading={categoryLoading || loading} priorityCount={4} trackingContext={`home_${activeCategory.toLowerCase().replace(/\s+/g, '_')}`} />
         </section>
 
         <section className="mt-12">
           <SectionHeader
-            eyebrow="Popular near you"
-            title={personalizedLocation ? 'Nearby verified rooms matched from current demand' : 'Most viewed verified rooms'}
+            eyebrow={popularRoomDisplay.usedFallback ? 'Popular rooms' : 'Popular near you'}
+            title={popularRoomDisplay.usedFallback
+              ? 'No exact nearby match yet, showing trusted popular rooms'
+              : personalizedLocation ? 'Nearby verified rooms matched from current demand' : 'Most viewed verified rooms'}
           />
-          <RoomsGrid rooms={visiblePopularRooms} loading={loading} />
+          <RoomsGrid rooms={visiblePopularRooms} loading={loading} trackingContext={popularRoomDisplay.usedFallback ? 'home_popular_fallback' : 'home_nearby'} />
         </section>
 
         {user && visibleRecommendedRooms.length > 0 && (
@@ -693,7 +726,7 @@ function HomePage() {
               eyebrow="Recommended for you"
               title={personalizedLocation ? 'Matched by location, trust, and room demand' : 'Rooms matched from current demand'}
             />
-            <RoomsGrid rooms={visibleRecommendedRooms} loading={loading} />
+            <RoomsGrid rooms={visibleRecommendedRooms} loading={loading} trackingContext="home_recommended" />
           </section>
         )}
 

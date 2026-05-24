@@ -22,6 +22,7 @@ import Spinner from '../../components/common/Spinner';
 import fallbackRoomImage from '../../assets/background_img.jpg';
 import { isValidIndianMobile, phoneInputProps, sanitizePhoneInput } from '../../utils/phoneUtils';
 import { formatListingTitle } from '../../utils/listingDisplay';
+import { trackUsageEvent } from '../../utils/usageAnalytics';
 
 const durations = [
     { label: '1M', months: 1 },
@@ -209,6 +210,16 @@ const BookingPage = () => {
 
             const { data } = await api.post('/applications', payload);
             setBookingResult(data.application);
+            trackUsageEvent('booking_request', {
+                metadata: {
+                    source: 'booking_request_sent',
+                    roomId: room._id,
+                    city: room.location?.city,
+                    rent: room.rent,
+                    durationMonths: Number(form.durationMonths),
+                    occupants: Number(form.occupants),
+                },
+            });
             setStep(3);
             toast.success('Booking request sent to the landlord.');
         } catch (err) {

@@ -10,6 +10,7 @@ import { getFiltersFromConfig } from '../../utils/roomFieldUtils';
 import { readTabCache, setTabCache } from '../../utils/tabDataCache';
 import { formatPreferenceLabel } from '../../utils/listingDisplay';
 import { clearCachedLocation, getLocationSearchParams, getLocationSignalFromParams, getMobileAutoLocation, readCachedLocation, saveSearchedLocation } from '../../utils/mobileLocationAutofill';
+import { trackUsageEvent } from '../../utils/usageAnalytics';
 import {
   Check,
   ChevronLeft,
@@ -43,6 +44,14 @@ const numberFilters = filterFields.filter((field) => field.type === 'number' && 
 const quickBooleanFilters = filterFields.filter((field) => field.type === 'boolean' && field.sectionId !== 'amenities');
 
 const money = (value) => `\u20B9${Number(value || 0).toLocaleString('en-IN')}`;
+
+const getActiveFilterKeys = (filters = {}) => Object.entries(filters)
+  .filter(([key, value]) => {
+    if (['latitude', 'longitude'].includes(key)) return false;
+    if (Array.isArray(value)) return value.length > 0;
+    return Boolean(value);
+  })
+  .map(([key]) => key);
 const formatCount = (value) => Number(value || 0).toLocaleString('en-IN');
 const availabilityWindowOptions = [
   { value: '', label: 'Any time' },
@@ -760,6 +769,13 @@ function SearchPage() {
   }, []);
 
   const applyFilters = () => {
+    trackUsageEvent('filter_apply', {
+      metadata: {
+        source: 'rooms_filter_panel',
+        activeFilterKeys: getActiveFilterKeys(filters),
+        sort,
+      },
+    });
     setPage(1);
     setIsFilterSheetOpen(false);
     fetchRooms();
@@ -877,6 +893,15 @@ function SearchPage() {
       if (moveInDate) nextFilters.availableFrom = moveInDate.toISOString().slice(0, 10);
     }
 
+    trackUsageEvent('search_run', {
+      metadata: {
+        source: 'rooms_location_search',
+        city: nextFilters.city || typedLocation,
+        hasGeo: Boolean(nextFilters.latitude && nextFilters.longitude),
+        activeFilterKeys: getActiveFilterKeys(nextFilters),
+      },
+    });
+
     setSearchCriteria(nextCriteria);
     setFilters(nextFilters);
     setNaturalQuery('');
@@ -901,6 +926,13 @@ function SearchPage() {
     try {
       const existing = JSON.parse(window.localStorage.getItem(SEARCH_ALERTS_KEY) || '[]');
       window.localStorage.setItem(SEARCH_ALERTS_KEY, JSON.stringify([alertPayload, ...existing].slice(0, 20)));
+      trackUsageEvent('search_alert_save', {
+        metadata: {
+          source: 'rooms_no_results',
+          city: filters.city,
+          activeFilterKeys: getActiveFilterKeys(filters),
+        },
+      });
       toast.success('Search alert saved for this device.');
     } catch {
       toast.error('Could not save this alert.');
@@ -947,6 +979,15 @@ function SearchPage() {
         exactTotal: data.exactCount,
       });
       if (smartFilters.sort) setSort(smartFilters.sort);
+      trackUsageEvent('search_run', {
+        metadata: {
+          source: 'smart_search',
+          query,
+          city: smartFilters.city,
+          activeFilterKeys: Object.keys(smartFilters).filter((key) => Boolean(smartFilters[key])),
+          sort: smartFilters.sort,
+        },
+      });
       const params = new URLSearchParams();
       params.set('q', query);
       if (smartFilters.sort) params.set('sort', smartFilters.sort);
@@ -1090,7 +1131,15 @@ function SearchPage() {
             ) : rooms.length ? (
               <>
                 <div className="mobile-room-grid grid gap-3 sm:gap-5 lg:[grid-template-columns:repeat(auto-fill,minmax(280px,1fr))]">
-                  {rooms.map((room, index) => <RoomCard key={room._id} room={room} imagePriority={index < 4} />)}
+                  {rooms.map((room, index) => (
+                    <RoomCard
+                      key={room._id}
+                      room={room}
+                      imagePriority={index < 4}
+                      position={(page - 1) * 12 + index + 1}
+                      trackingContext="search_results"
+                    />
+                  ))}
                 </div>
                 <div className="mt-8 grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 sm:flex sm:justify-center sm:gap-3">
                   <button disabled={page <= 1} onClick={() => setPage((prev) => prev - 1)} className="btn-outline inline-flex min-h-11 min-w-0 items-center justify-center gap-1.5 rounded-2xl px-2.5 py-2 text-sm sm:min-w-28 sm:gap-2 sm:px-4">

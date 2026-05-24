@@ -2,7 +2,21 @@ const jwt = require('jsonwebtoken');
 const asyncHandler = require('express-async-handler');
 const UsageEvent = require('../models/UsageEvent');
 
-const ALLOWED_EVENTS = new Set(['session_start', 'page_view', 'pwa_install', 'app_open', 'heartbeat']);
+const ALLOWED_EVENTS = new Set([
+  'session_start',
+  'page_view',
+  'pwa_install',
+  'app_open',
+  'heartbeat',
+  'search_run',
+  'filter_apply',
+  'room_click',
+  'room_view',
+  'wishlist_add',
+  'wishlist_remove',
+  'search_alert_save',
+  'booking_request',
+]);
 const ALLOWED_SOURCES = new Set(['web', 'mobile_web', 'desktop_web', 'pwa']);
 const ALLOWED_DEVICES = new Set(['mobile', 'tablet', 'desktop', 'unknown']);
 

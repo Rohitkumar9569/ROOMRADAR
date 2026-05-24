@@ -29,6 +29,7 @@ import {
 import PropTypes from 'prop-types';
 import { useAuth } from '../../../context/AuthContext';
 import { formatListingTitle } from '../../../utils/listingDisplay';
+import { trackUsageEvent } from '../../../utils/usageAnalytics';
 
 const money = (value) => `\u20B9${Number(value || 0).toLocaleString('en-IN')}`;
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -317,7 +318,7 @@ const handleMobilePreviewTouchEnd = (event) => {
     window.setTimeout(scheduleActiveMobilePreviewSync, 220);
 };
 
-function RoomCard({ room, context = 'default', onRemove, imagePriority = false }) {
+function RoomCard({ room, context = 'default', trackingContext, onRemove, imagePriority = false, position }) {
     const { user, addToWishlist, removeFromWishlist } = useAuth();
     const cardRoom = room || {};
     const roomId = cardRoom._id;
@@ -345,6 +346,7 @@ function RoomCard({ room, context = 'default', onRemove, imagePriority = false }
     }
     const canPreviewOnHover = useMemo(supportsFineHover, []);
     const isSavedContext = context === 'saved';
+    const analyticsContext = trackingContext || context;
     const isWishlisted = Boolean(user?.wishlist?.some((item) => String(item?._id || item) === String(roomId)));
     const rating = cardRoom.averageRating || cardRoom.rating;
     const isGuestFavourite = Number(rating || 0) >= 4.8;
@@ -353,12 +355,36 @@ function RoomCard({ room, context = 'default', onRemove, imagePriority = false }
         event.stopPropagation();
         if (isSavedContext && onRemove) {
             onRemove(roomId);
+            trackUsageEvent('wishlist_remove', {
+                metadata: {
+                    roomId,
+                    context: analyticsContext,
+                    city: cardRoom.location?.city || cardRoom.city,
+                },
+            });
             return;
         }
         if (!user) return;
-        if (isWishlisted) removeFromWishlist(roomId);
-        else addToWishlist(roomId);
-    }, [addToWishlist, isSavedContext, isWishlisted, onRemove, removeFromWishlist, roomId, user]);
+        if (isWishlisted) {
+            removeFromWishlist(roomId);
+            trackUsageEvent('wishlist_remove', {
+                metadata: {
+                    roomId,
+                    context: analyticsContext,
+                    city: cardRoom.location?.city || cardRoom.city,
+                },
+            });
+        } else {
+            addToWishlist(roomId);
+            trackUsageEvent('wishlist_add', {
+                metadata: {
+                    roomId,
+                    context: analyticsContext,
+                    city: cardRoom.location?.city || cardRoom.city,
+                },
+            });
+        }
+    }, [addToWishlist, analyticsContext, cardRoom.city, cardRoom.location?.city, isSavedContext, isWishlisted, onRemove, removeFromWishlist, roomId, user]);
 
     const handleNextImage = useCallback((event) => {
         event.preventDefault();
@@ -373,11 +399,26 @@ function RoomCard({ room, context = 'default', onRemove, imagePriority = false }
     }, [imageUrls.length]);
 
     const handleCardClickCapture = useCallback((event) => {
-        if (!suppressNextClickRef.current) return;
-        event.preventDefault();
-        event.stopPropagation();
-        suppressNextClickRef.current = false;
-    }, []);
+        if (suppressNextClickRef.current) {
+            event.preventDefault();
+            event.stopPropagation();
+            suppressNextClickRef.current = false;
+            return;
+        }
+
+        trackUsageEvent('room_click', {
+            metadata: {
+                roomId,
+                context: analyticsContext,
+                position,
+                city: cardRoom.location?.city || cardRoom.city,
+                rent: cardRoom.rent,
+                status: cardRoom.status,
+                listingCategory: cardRoom.listingCategory,
+                recommendationSource: cardRoom._recommendation?.group || cardRoom._match?.matchedLabels?.join(', '),
+            },
+        });
+    }, [analyticsContext, cardRoom._match?.matchedLabels, cardRoom._recommendation?.group, cardRoom.city, cardRoom.listingCategory, cardRoom.location?.city, cardRoom.rent, cardRoom.status, position, roomId]);
 
     const handleMediaTouchStart = useCallback((event) => {
         if (imageUrls.length <= 1) return;
@@ -834,6 +875,8 @@ RoomCard.propTypes = {
     context: PropTypes.oneOf(['default', 'saved']),
     imagePriority: PropTypes.bool,
     onRemove: PropTypes.func,
+    position: PropTypes.number,
+    trackingContext: PropTypes.string,
     room: PropTypes.shape({
         _id: PropTypes.string.isRequired,
         imageUrl: PropTypes.string,

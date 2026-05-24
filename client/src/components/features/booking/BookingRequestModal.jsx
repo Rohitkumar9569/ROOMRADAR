@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { isValidIndianMobile, phoneInputProps, sanitizePhoneInput } from '../../../utils/phoneUtils';
 import { formatListingTitle } from '../../../utils/listingDisplay';
+import { trackUsageEvent } from '../../../utils/usageAnalytics';
 
 // --- Ultra-Premium Input Styles ---
 const baseInputStyles = "block w-full rounded-xl border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/80 shadow-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 dark:focus:border-indigo-400 dark:focus:ring-indigo-400/30 sm:text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 transition-all duration-300 hover:border-slate-300 dark:hover:border-slate-600";
@@ -193,6 +194,15 @@ function BookingRequestModal({ mode = 'create', applicationData = null, room, on
             } else {
                 const response = await api.post('/applications', payload);
                 const conversationId = response.data.conversationId;
+                trackUsageEvent('booking_request', {
+                    metadata: {
+                        source: 'booking_request_modal',
+                        roomId: room._id,
+                        city: room.location?.city,
+                        rent: room.rent,
+                        occupants: adults,
+                    },
+                });
                 toast.success("Request sent! Redirecting to chat...");
                 if (conversationId) {
                     navigate(`/profile/inbox/${conversationId}`);

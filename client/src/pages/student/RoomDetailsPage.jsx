@@ -14,6 +14,7 @@ import RoomCard from '../../components/features/rooms/RoomCard';
 import { useAuth } from '../../context/AuthContext';
 import { formatRoomFieldValue, getRulesSection, getRoomFieldValue, getVisibleDetailFields } from '../../utils/roomFieldUtils';
 import { formatListingTitle } from '../../utils/listingDisplay';
+import { trackUsageEvent } from '../../utils/usageAnalytics';
 import {
     ArrowLeft,
     BadgeCheck,
@@ -214,6 +215,15 @@ const RoomDetailsPage = () => {
 
                 const roomData = roomRes.data.data || roomRes.data;
                 setRoom(roomData);
+                trackUsageEvent('room_view', {
+                    metadata: {
+                        roomId,
+                        city: roomData.location?.city,
+                        rent: roomData.rent,
+                        status: roomData.status,
+                        listingCategory: roomData.listingCategory,
+                    },
+                });
                 setReviews(reviewsRes.data.data || reviewsRes.data || []);
                 setSentiment(sentimentRes.data || null);
 
@@ -374,9 +384,23 @@ const RoomDetailsPage = () => {
         }
         if (isWishlisted) {
             await removeFromWishlist(room._id);
+            trackUsageEvent('wishlist_remove', {
+                metadata: {
+                    roomId: room._id,
+                    context: 'room_details',
+                    city: room.location?.city,
+                },
+            });
             toast.success('Removed from wishlist.');
         } else {
             await addToWishlist(room._id);
+            trackUsageEvent('wishlist_add', {
+                metadata: {
+                    roomId: room._id,
+                    context: 'room_details',
+                    city: room.location?.city,
+                },
+            });
             toast.success('Added to wishlist.');
         }
     };
@@ -649,14 +673,14 @@ const RoomDetailsPage = () => {
                     </div>
                     {similarRooms.length ? (
                         <div className="flex gap-4 overflow-x-auto pb-4 [scrollbar-width:none] md:grid md:grid-cols-4 md:overflow-visible [&::-webkit-scrollbar]:hidden">
-                            {similarRooms.map((similarRoom) => (
+                            {similarRooms.map((similarRoom, index) => (
                                 <div key={similarRoom._id} className="min-w-[260px] md:min-w-0">
                                     {similarRoom._recommendation?.reason && (
                                         <div className="mb-2 inline-flex max-w-full rounded-full border border-cyan-100 bg-cyan-50 px-3 py-1 text-[11px] font-black text-cyan-700 dark:border-cyan-500/20 dark:bg-cyan-500/10 dark:text-cyan-200">
                                             <span className="truncate">{similarRoom._recommendation.reason}</span>
                                         </div>
                                     )}
-                                    <RoomCard room={similarRoom} />
+                                    <RoomCard room={similarRoom} position={index + 1} trackingContext="similar_rooms" />
                                 </div>
                             ))}
                         </div>
