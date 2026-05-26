@@ -1,21 +1,28 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { format } from 'date-fns';
 import toast from 'react-hot-toast';
-import { ArrowLeft, BadgeCheck, Download, FileText, Home, ShieldCheck } from 'lucide-react';
+import { ArrowLeft, BadgeCheck, Download, FileText, Home, Share2, ShieldCheck } from 'lucide-react';
 import api from '../../api';
 import Spinner from '../../components/common/Spinner';
 import BookingStatusTimeline from '../../components/features/booking/BookingStatusTimeline';
 import { useSettings } from '../../context/SettingsContext';
 import { formatListingTitle } from '../../utils/listingDisplay';
+import { triggerHaptic } from '../../utils/haptics';
+import { shareContent } from '../../utils/nativeShare';
 
 const money = (value) => `\u20B9${Number(value || 0).toLocaleString('en-IN')}`;
+const parseMoneyValue = (value) => {
+    if (value === undefined || value === null || value === '') return undefined;
+    const numericValue = Number(String(value).replace(/[^\d.-]/g, ''));
+    return Number.isFinite(numericValue) && numericValue >= 0 ? numericValue : undefined;
+};
 
 const buildBreakdown = (application, settings) => {
     if (application?.amountBreakdown?.total) return application.amountBreakdown;
 
     const rent = Number(application?.room?.rent || 0);
-    const securityDeposit = Number(String(application?.room?.securityDeposit || '').replace(/[^\d.]/g, '')) || rent;
+    const securityDeposit = parseMoneyValue(application?.room?.securityDeposit) ?? rent;
     const platformFee = Number(settings?.platformFee || 0);
     return { rent, securityDeposit, platformFee, total: rent + securityDeposit + platformFee };
 };
@@ -23,9 +30,13 @@ const buildBreakdown = (application, settings) => {
 const RentalAgreementPage = () => {
     const { applicationId } = useParams();
     const navigate = useNavigate();
+    const location = useLocation();
     const { settings } = useSettings();
     const [application, setApplication] = useState(null);
     const [loading, setLoading] = useState(true);
+    const isLandlordAgreement = location.pathname.startsWith('/landlord/');
+    const backTo = isLandlordAgreement ? '/landlord/applications?status=confirmed' : '/profile/my-applications';
+    const backLabel = isLandlordAgreement ? 'Applications' : 'Applications';
 
     useEffect(() => {
         const fetchApplication = async () => {
@@ -35,18 +46,18 @@ const RentalAgreementPage = () => {
 
                 if (data.status !== 'confirmed') {
                     toast.error('This booking is not confirmed yet.');
-                    navigate('/profile/my-applications');
+                    navigate(backTo);
                 }
             } catch (error) {
                 toast.error(error.response?.data?.message || 'Could not load rental agreement.');
-                navigate('/profile/my-applications');
+                navigate(backTo);
             } finally {
                 setLoading(false);
             }
         };
 
         fetchApplication();
-    }, [applicationId, navigate]);
+    }, [applicationId, backTo, navigate]);
 
     const breakdown = useMemo(() => buildBreakdown(application, settings), [application, settings]);
 
@@ -72,33 +83,64 @@ const RentalAgreementPage = () => {
     ].filter(Boolean).join(' - ');
 
     const handleDownloadPdf = () => {
+        triggerHaptic('success');
         const previousTitle = document.title;
         document.title = `RoomRadar Agreement - ${application._id}`;
-        window.print();
-        setTimeout(() => {
+        window.requestAnimationFrame(() => window.print());
+        window.setTimeout(() => {
             document.title = previousTitle;
         }, 500);
+    };
+
+    const handleShareAgreement = async () => {
+        triggerHaptic('tap');
+        const agreementPath = isLandlordAgreement ? '/landlord/agreement' : '/profile/agreement';
+        const agreementUrl = `${window.location.origin}${agreementPath}/${application._id}`;
+        try {
+            const result = await shareContent({
+                title: `RoomRadar Agreement - ${formatListingTitle(room.title, 'Room listing')}`,
+                text: `Confirmed RoomRadar rental agreement for ${formatListingTitle(room.title, 'this room')}.`,
+                url: agreementUrl,
+            });
+
+            if (result.status === 'copied') toast.success('Agreement link copied.');
+            if (result.status === 'failed') toast.error('Could not share agreement.');
+        } catch {
+            toast.error('Could not share agreement.');
+        }
     };
 
     return (
         <div className="min-h-screen bg-slate-50 px-4 py-6 dark:bg-secondary-900 sm:px-6 lg:px-8">
             <div className="mx-auto max-w-5xl">
-                <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="no-print mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                     <Link
-                        to="/profile/my-applications"
+                        to={backTo}
                         className="inline-flex w-max items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-700 shadow-sm transition hover:border-cyan-200 hover:text-cyan-700 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-200"
                     >
                         <ArrowLeft className="h-4 w-4" />
-                        Applications
+                        {backLabel}
                     </Link>
-                    <button
-                        type="button"
-                        onClick={handleDownloadPdf}
-                        className="no-print inline-flex items-center justify-center gap-2 rounded-2xl bg-slate-950 px-5 py-3 text-sm font-black text-white shadow-lg shadow-slate-950/15 transition hover:bg-cyan-700 dark:bg-white dark:text-slate-950"
-                    >
-                        <Download className="h-4 w-4" />
-                        Download PDF
-                    </button>
+                    <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center">
+                        <button
+                            type="button"
+                            onClick={handleShareAgreement}
+                            data-haptic="tap"
+                            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 shadow-sm transition hover:border-cyan-200 hover:text-cyan-700 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-200"
+                        >
+                            <Share2 className="h-4 w-4" />
+                            Share
+                        </button>
+                        <button
+                            type="button"
+                            onClick={handleDownloadPdf}
+                            data-haptic="tap"
+                            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-slate-950 px-5 text-sm font-black text-white shadow-lg shadow-slate-950/15 transition hover:bg-cyan-700 dark:bg-white dark:text-slate-950"
+                        >
+                            <Download className="h-4 w-4" />
+                            Save PDF
+                        </button>
+                    </div>
                 </div>
 
                 <section className="agreement-print-root overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl shadow-slate-200/70 dark:border-secondary-700 dark:bg-secondary-800 dark:shadow-black/20">

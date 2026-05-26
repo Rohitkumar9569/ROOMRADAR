@@ -29,6 +29,10 @@ import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YA
 import { formatDistanceToNow } from 'date-fns';
 import { confirmToast } from '../../utils/confirmToast';
 import { formatListingTitle } from '../../utils/listingDisplay';
+import { triggerHaptic } from '../../utils/haptics';
+import { notifyAdminCountsChanged } from '../../utils/adminEvents';
+import { useAuth } from '../../context/AuthContext';
+import { hasAdminPermission } from '../../utils/adminPermissions';
 
 const money = (value = 0) =>
   new Intl.NumberFormat('en-IN', {
@@ -118,6 +122,7 @@ const RecentActivityFeed = ({ activities }) => {
 
 const AdminDashboardPage = () => {
   const navigate = useNavigate();
+  const { user: currentAdmin } = useAuth();
   const [stats, setStats] = useState(null);
   const [pendingRooms, setPendingRooms] = useState([]);
   const [signupData, setSignupData] = useState([]);
@@ -130,8 +135,18 @@ const AdminDashboardPage = () => {
   const [error, setError] = useState(null);
   const [rejectingRoomId, setRejectingRoomId] = useState('');
   const [rejectReason, setRejectReason] = useState('');
+  const canModerateRooms = hasAdminPermission(currentAdmin, 'rooms:moderate');
+  const canViewRooms = hasAdminPermission(currentAdmin, 'rooms:view');
+  const canViewAnalytics = hasAdminPermission(currentAdmin, 'analytics:view');
+  const canViewRevenue = hasAdminPermission(currentAdmin, 'revenue:view');
+  const canViewVerifications = hasAdminPermission(currentAdmin, 'verifications:view');
+  const canManageTickets = hasAdminPermission(currentAdmin, 'tickets:manage');
 
   useEffect(() => {
+    const optionalRequest = (enabled, request, fallback) => (
+      enabled ? request().catch(() => ({ data: fallback })) : Promise.resolve({ data: fallback })
+    );
+
     const fetchDashboardData = async () => {
       try {
         setLoading(true);
@@ -146,13 +161,13 @@ const AdminDashboardPage = () => {
           ticketsRes,
         ] = await Promise.all([
           api.get('/admin/stats'),
-          api.get('/admin/pending-rooms'),
-          api.get('/admin/stats/user-signups'),
+          optionalRequest(canViewRooms, () => api.get('/admin/pending-rooms'), []),
+          optionalRequest(canViewAnalytics, () => api.get('/admin/stats/user-signups'), []),
           api.get('/admin/activities'),
-          api.get('/admin/analytics'),
-          api.get('/admin/revenue'),
-          api.get('/admin/verifications'),
-          api.get('/admin/tickets'),
+          optionalRequest(canViewAnalytics, () => api.get('/admin/analytics'), null),
+          optionalRequest(canViewRevenue, () => api.get('/admin/revenue'), null),
+          optionalRequest(canViewVerifications, () => api.get('/admin/verifications'), null),
+          optionalRequest(canManageTickets, () => api.get('/admin/tickets'), null),
         ]);
 
         setStats(statsRes.data);
@@ -172,7 +187,7 @@ const AdminDashboardPage = () => {
     };
 
     fetchDashboardData();
-  }, []);
+  }, [canManageTickets, canViewAnalytics, canViewRevenue, canViewRooms, canViewVerifications]);
 
   const supportOpenCount = useMemo(() => {
     return (tickets?.statusBreakdown || []).find((item) => item._id === 'open')?.count || 0;
@@ -212,6 +227,7 @@ const AdminDashboardPage = () => {
       onConfirm: async () => {
         try {
           await api.patch(`/admin/rooms/${roomId}/approve`);
+          triggerHaptic('success');
           toast.success('Room approved successfully.');
           setPendingRooms((currentRooms) => currentRooms.filter((room) => room._id !== roomId));
           setStats((currentStats) => ({
@@ -219,7 +235,9 @@ const AdminDashboardPage = () => {
             pendingRoomsCount: Math.max((currentStats?.pendingRoomsCount || 1) - 1, 0),
             publishedRoomsCount: (currentStats?.publishedRoomsCount || 0) + 1,
           }));
+          notifyAdminCountsChanged();
         } catch (err) {
+          triggerHaptic('error');
           toast.error('Failed to approve room.');
         }
       },
@@ -240,6 +258,7 @@ const AdminDashboardPage = () => {
 
     try {
       await api.patch(`/admin/rooms/${rejectingRoomId}/reject`, { reason });
+      triggerHaptic('success');
       toast.success('Room rejected successfully.');
       setPendingRooms((currentRooms) => currentRooms.filter((room) => room._id !== rejectingRoomId));
       setStats((currentStats) => ({
@@ -248,7 +267,9 @@ const AdminDashboardPage = () => {
       }));
       setRejectingRoomId('');
       setRejectReason('');
+      notifyAdminCountsChanged();
     } catch (err) {
+      triggerHaptic('error');
       toast.error('Failed to reject room.');
     }
   };
@@ -512,8 +533,12 @@ const AdminDashboardPage = () => {
                     <span className="shrink-0 rounded-full bg-amber-500/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-amber-600 dark:text-amber-300">Pending</span>
                   </div>
                   <div className="mt-4 grid grid-cols-3 gap-2">
-                    <button onClick={(event) => { event.stopPropagation(); handleApproveRoom(room._id); }} className="rr-approve-action rounded-2xl bg-emerald-500/10 px-2 py-2 text-[11px] font-black text-emerald-600 transition hover:bg-emerald-500 hover:text-white sm:px-3 sm:text-xs">Approve</button>
-                    <button onClick={(event) => { event.stopPropagation(); handleRejectRoom(room._id); }} className="rounded-2xl bg-red-500/10 px-2 py-2 text-[11px] font-black text-red-600 transition hover:bg-red-500 hover:text-white sm:px-3 sm:text-xs">Reject</button>
+                    {canModerateRooms && (
+                      <>
+                        <button onClick={(event) => { event.stopPropagation(); handleApproveRoom(room._id); }} className="rr-approve-action rounded-2xl bg-emerald-500/10 px-2 py-2 text-[11px] font-black text-emerald-600 transition hover:bg-emerald-500 hover:text-white sm:px-3 sm:text-xs">Approve</button>
+                        <button onClick={(event) => { event.stopPropagation(); handleRejectRoom(room._id); }} className="rounded-2xl bg-red-500/10 px-2 py-2 text-[11px] font-black text-red-600 transition hover:bg-red-500 hover:text-white sm:px-3 sm:text-xs">Reject</button>
+                      </>
+                    )}
                     <Link onClick={(event) => event.stopPropagation()} to={`/admin/rooms/${room._id}/review`} className="rounded-2xl bg-cyan-500/10 px-2 py-2 text-center text-[11px] font-black text-cyan-600 transition hover:bg-cyan-500 hover:text-white sm:px-3 sm:text-xs">View</Link>
                   </div>
                 </article>

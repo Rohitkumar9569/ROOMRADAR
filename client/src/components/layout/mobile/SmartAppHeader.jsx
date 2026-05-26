@@ -6,6 +6,7 @@ import { useAuth } from '../../../context/AuthContext';
 import { useSocket } from '../../../context/SocketContext';
 import { useTheme } from '../../../context/ThemeContext';
 import { useUI } from '../../../context/UIContext';
+import { hasAdminPermission } from '../../../utils/adminPermissions';
 
 const getInitial = (name = 'R') => name.charAt(0).toUpperCase();
 
@@ -65,6 +66,7 @@ const SmartAppHeader = () => {
   const isHome = path === '/';
   const isSearchPage = path === '/rooms';
   const isAdmin = path.startsWith('/admin');
+  const canOpenAdminSettings = isAdmin && hasAdminPermission(user, 'settings:manage');
   const isLandlord = path.startsWith('/landlord');
   const isInbox = /\/(?:profile|landlord)\/inbox(?:\/|$)/.test(path);
   const isChat = /\/(?:profile|landlord)\/inbox\/[^/]+/.test(path);
@@ -317,7 +319,7 @@ const SmartAppHeader = () => {
         </div>
 
         <div className="smart-header-right">
-          {isAdmin && (
+          {canOpenAdminSettings && (
             <Link to="/admin/settings" className="smart-header-action smart-header-action--secondary" aria-label="Admin settings">
               <Settings className="h-5 w-5" />
             </Link>

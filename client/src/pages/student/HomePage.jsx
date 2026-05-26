@@ -418,7 +418,7 @@ function HomePage() {
     let active = true;
 
     const fetchCategoryRooms = async () => {
-      const cacheKey = `${HOME_CATEGORY_CACHE_PREFIX}:${activeCategory}:published`;
+      const cacheKey = `${HOME_CATEGORY_CACHE_PREFIX}:${activeCategory}:published:${personalizedLocationQuery || 'all'}`;
       const cached = readTabCache(cacheKey)?.value;
       if (cached) {
         setCategoryRooms(realRoomList(cached.rooms || []));
@@ -430,7 +430,7 @@ function HomePage() {
       try {
         const baseParams = { sort: 'views', limit: HOME_CATEGORY_ROOM_LIMIT };
         if (activeCategory !== 'All') baseParams.type = activeCategory;
-        const { data } = await api.get(`/rooms?${new URLSearchParams(baseParams).toString()}`);
+        const { data } = await api.get(buildLocationAwareRoomUrl(baseParams, personalizedLocationQuery));
         const rooms = realRoomList(data.data || data || []);
         setTabCache(cacheKey, { rooms });
         if (active) setCategoryRooms(rooms);
@@ -445,7 +445,7 @@ function HomePage() {
     return () => {
       active = false;
     };
-  }, [activeCategory]);
+  }, [activeCategory, personalizedLocationQuery]);
 
   const handleCriteriaChange = (newCriteria) => {
     if (newCriteria.location) {
@@ -529,6 +529,9 @@ function HomePage() {
 
   const buildRoomsPath = (entries = {}) => {
     const params = new URLSearchParams();
+    if (personalizedLocationQuery) {
+      new URLSearchParams(personalizedLocationQuery).forEach((value, key) => params.set(key, value));
+    }
     Object.entries(entries).forEach(([key, value]) => {
       if (value !== undefined && value !== null && value !== '') params.set(key, value);
     });

@@ -88,6 +88,24 @@
     -webkit-tap-highlight-color: transparent;
   }
 
+  button,
+  a[href],
+  [role="button"],
+  input[type="button"],
+  input[type="submit"],
+  input[type="reset"],
+  summary {
+    touch-action: manipulation;
+  }
+
+  button,
+  [role="button"],
+  input[type="button"],
+  input[type="submit"],
+  input[type="reset"] {
+    -webkit-touch-callout: none;
+  }
+
   ::selection {
     @apply bg-brand text-white dark:bg-cyan-500 dark:text-white;
   }
@@ -3146,6 +3164,55 @@
     box-shadow: 0 10px 24px rgba(8, 145, 178, 0.18);
   }
 
+  .rr-message-analysis-meta {
+    display: flex;
+    width: min(100%, 22.5rem);
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    margin-top: 0.45rem;
+    color: #475569;
+    font-size: 0.68rem;
+    font-weight: 850;
+    line-height: 1.15;
+  }
+
+  .rr-message-analysis-meta span {
+    display: inline-flex;
+    min-width: 0;
+    align-items: center;
+    gap: 0.25rem;
+    border: 1px solid rgba(148, 163, 184, 0.24);
+    border-radius: 999px;
+    background: rgba(248, 250, 252, 0.86);
+    padding: 0.28rem 0.48rem;
+  }
+
+  .rr-message-analysis-meta span.is-muted {
+    color: #64748b;
+    background: rgba(241, 245, 249, 0.72);
+  }
+
+  .rr-message-analysis-meta svg {
+    width: 0.75rem;
+    height: 0.75rem;
+    flex: 0 0 auto;
+    color: #0891b2;
+  }
+
+  .dark .rr-message-analysis-meta {
+    color: #cbd5e1;
+  }
+
+  .dark .rr-message-analysis-meta span {
+    border-color: rgba(148, 163, 184, 0.16);
+    background: rgba(15, 23, 42, 0.76);
+  }
+
+  .dark .rr-message-analysis-meta span.is-muted {
+    color: #94a3b8;
+    background: rgba(30, 41, 59, 0.62);
+  }
+
   .rr-profile-insight-card {
     overflow: hidden;
     border: 1px solid rgba(6, 182, 212, 0.18);
@@ -5939,6 +6006,32 @@
     scroll-margin-block: 5rem;
   }
 
+  .app-route-surface :where(a[href], button, [role="button"], input[type="button"], input[type="submit"], input[type="reset"]).rr-is-pressing,
+  body > div :where(a[href], button, [role="button"], input[type="button"], input[type="submit"], input[type="reset"]).rr-is-pressing {
+    opacity: 0.84;
+    transform: translateZ(0) scale(0.985) !important;
+    transition: transform 70ms ease, opacity 70ms ease !important;
+  }
+
+  .app-route-surface .rr-bottom-item.rr-is-pressing,
+  body > div .rr-bottom-item.rr-is-pressing {
+    opacity: 1;
+    transform: none !important;
+  }
+
+  .app-route-surface .rr-bottom-item.rr-is-pressing .rr-bottom-item-inner,
+  body > div .rr-bottom-item.rr-is-pressing .rr-bottom-item-inner {
+    transform: scale(0.94) !important;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .app-route-surface :where(a[href], button, [role="button"], input[type="button"], input[type="submit"], input[type="reset"]).rr-is-pressing,
+    body > div :where(a[href], button, [role="button"], input[type="button"], input[type="submit"], input[type="reset"]).rr-is-pressing {
+      opacity: 0.88;
+      transform: none !important;
+    }
+  }
+
   .app-route-surface :where([class*="backdrop-blur"]):not(.smart-app-header):not(.rr-bottom-track):not(.floating-chatbot),
   body > div :where([class*="backdrop-blur"]):not(.smart-app-header):not(.rr-bottom-track):not(.floating-chatbot) {
     backdrop-filter: none !important;
@@ -7790,7 +7883,296 @@ html:not(.dark) .rr-profile-completion [class*="from-brand"] {
   z-index: -1;
 }
 
+/* Premium listing cards: image-first, uniform, low-clutter search cards. */
+.mobile-room-grid {
+  grid-template-columns: repeat(1, minmax(0, 1fr)) !important;
+}
+
+@media (min-width: 640px) {
+  .mobile-room-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
+
+@media (min-width: 1024px) {
+  .mobile-room-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  }
+}
+
+@media (min-width: 1280px) {
+  .mobile-room-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  }
+}
+
+.rr-room-card {
+  display: flex !important;
+  min-height: 26rem !important;
+  overflow: hidden !important;
+  border-radius: 16px !important;
+  border-color: rgba(148, 163, 184, 0.24) !important;
+  background: #ffffff !important;
+  box-shadow: 0 16px 44px -36px rgba(15, 23, 42, 0.74) !important;
+}
+
+.rr-room-card:hover {
+  transform: translateY(-2px) !important;
+  border-color: rgba(14, 165, 233, 0.32) !important;
+  box-shadow: 0 18px 46px -34px rgba(15, 23, 42, 0.85) !important;
+}
+
+.dark .rr-room-card {
+  border-color: rgba(255, 255, 255, 0.10) !important;
+  background: #171717 !important;
+  box-shadow: 0 18px 42px -34px rgba(0, 0, 0, 0.72) !important;
+}
+
+.dark .rr-room-card:hover {
+  border-color: rgba(34, 211, 238, 0.28) !important;
+  background: #1c1c1c !important;
+}
+
+.rr-room-card-media {
+  aspect-ratio: 16 / 10 !important;
+  flex: 0 0 auto !important;
+}
+
+.rr-room-card-body {
+  display: grid !important;
+  min-height: 12.55rem !important;
+  grid-template-rows: 1rem 2.55rem 2.55rem 1.55rem minmax(2.65rem, auto) !important;
+  row-gap: 0.4rem !important;
+  padding: 1rem 1.12rem 1.05rem !important;
+}
+
+.rr-card-eyebrow {
+  min-height: 1rem !important;
+  max-width: 100% !important;
+  overflow: hidden !important;
+  letter-spacing: 0 !important;
+}
+
+.rr-room-card-title {
+  display: -webkit-box !important;
+  min-height: 2.6rem !important;
+  overflow: hidden !important;
+  -webkit-box-orient: vertical !important;
+  -webkit-line-clamp: 2 !important;
+  letter-spacing: 0 !important;
+  white-space: normal !important;
+}
+
+.rr-card-spec-line {
+  display: -webkit-box !important;
+  min-height: 2.45rem !important;
+  overflow: hidden !important;
+  -webkit-box-orient: vertical !important;
+  -webkit-line-clamp: 2 !important;
+  white-space: normal !important;
+}
+
+.rr-card-detail-chips {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 0.38rem !important;
+  min-height: 2.55rem !important;
+  max-height: 2.55rem !important;
+  overflow: hidden !important;
+  align-content: start !important;
+}
+
+.rr-card-detail-chip {
+  display: inline-flex !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+  align-items: center !important;
+  gap: 0.28rem !important;
+  overflow: hidden !important;
+  border: 1px solid rgba(14, 165, 233, 0.14) !important;
+  border-radius: 999px !important;
+  background: linear-gradient(180deg, rgba(248, 250, 252, 0.96), rgba(241, 245, 249, 0.86)) !important;
+  padding: 0.27rem 0.48rem !important;
+  color: #475569 !important;
+  font-size: 0.68rem !important;
+  font-weight: 850 !important;
+  line-height: 1 !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72) !important;
+}
+
+.rr-card-detail-chip:nth-child(3) {
+  grid-column: span 2 !important;
+  width: max-content !important;
+}
+
+.rr-card-detail-chip span {
+  min-width: 0 !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+.rr-card-detail-icon {
+  width: 0.78rem !important;
+  height: 0.78rem !important;
+  flex-shrink: 0 !important;
+  color: #0891b2 !important;
+}
+
+.dark .rr-card-detail-chip {
+  border-color: rgba(103, 232, 249, 0.14) !important;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.075), rgba(255, 255, 255, 0.045)) !important;
+  color: #cbd5e1 !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06) !important;
+}
+
+.dark .rr-card-detail-icon {
+  color: #67e8f9 !important;
+}
+
+.rr-room-card-location {
+  display: flex !important;
+  min-height: 1.55rem !important;
+  max-width: 100% !important;
+  align-items: center !important;
+  gap: 0.34rem !important;
+  overflow: hidden !important;
+  border-radius: 0.78rem !important;
+  background: rgba(241, 245, 249, 0.62) !important;
+  padding: 0.2rem 0.5rem !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+.rr-room-card-location svg {
+  color: #06b6d4 !important;
+}
+
+.rr-room-card-location span {
+  min-width: 0 !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+.dark .rr-room-card-location {
+  background: rgba(255, 255, 255, 0.055) !important;
+}
+
+.rr-room-card-footer {
+  min-height: 2.65rem !important;
+  border-top: 0 !important;
+  align-items: center !important;
+  border-radius: 0.95rem !important;
+  background: linear-gradient(135deg, rgba(248, 250, 252, 0.98), rgba(236, 254, 255, 0.7)) !important;
+  padding: 0.55rem 0.65rem !important;
+}
+
+.dark .rr-room-card-footer {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.07), rgba(8, 47, 73, 0.16)) !important;
+}
+
+.rr-room-card-price {
+  font-size: clamp(1.35rem, 1.65vw, 1.62rem) !important;
+  letter-spacing: 0 !important;
+  white-space: nowrap !important;
+}
+
+.rr-room-card-price-unit {
+  white-space: nowrap !important;
+}
+
+.rr-card-body-rating {
+  min-width: 2.4rem !important;
+  justify-content: flex-end !important;
+  white-space: nowrap !important;
+}
+
+.rr-room-card-view-btn,
+.rr-host-inline,
+.rr-room-card-tags {
+  display: none !important;
+}
+
+.rr-card-heart-btn {
+  width: 2.15rem !important;
+  height: 2.15rem !important;
+  background: rgba(255, 255, 255, 0.84) !important;
+  box-shadow: 0 10px 26px -18px rgba(15, 23, 42, 0.8) !important;
+}
+
+.dark .rr-card-heart-btn {
+  background: rgba(23, 23, 23, 0.76) !important;
+}
+
+.rr-card-badge {
+  height: 1.55rem !important;
+  max-width: 100% !important;
+  padding-right: 0.55rem !important;
+  font-size: 10px !important;
+  letter-spacing: 0 !important;
+  white-space: nowrap !important;
+}
+
+.rr-card-badge-stack {
+  max-width: calc(100% - 4.8rem) !important;
+}
+
+.rr-overlay-label,
+.rr-new-label {
+  min-width: 0 !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+.rr-card-badge-icon {
+  width: 1.05rem !important;
+  height: 1.05rem !important;
+}
+
+.rr-card-badge svg,
+.rr-card-heart-btn svg {
+  width: 0.95rem !important;
+  height: 0.95rem !important;
+}
+
+.rr-image-progress-strip {
+  bottom: 0.48rem !important;
+  background: rgba(15, 23, 42, 0.22) !important;
+}
+
+@media (max-width: 639px) {
+  .rr-room-card {
+    min-height: 25.3rem !important;
+  }
+
+  .rr-room-card-media {
+    aspect-ratio: 4 / 3 !important;
+  }
+
+  .rr-room-card-body {
+    min-height: 12.35rem !important;
+    padding: 0.95rem 1rem 1rem !important;
+  }
+
+  .rr-card-detail-chip {
+    padding-inline: 0.42rem !important;
+    font-size: 0.66rem !important;
+  }
+}
+
 @media print {
+  @page {
+    margin: 14mm;
+    size: A4;
+  }
+
+  html,
+  body {
+    background: #ffffff !important;
+  }
+
   body * {
     visibility: hidden;
   }
@@ -7815,6 +8197,12 @@ html:not(.dark) .rr-profile-completion [class*="from-brand"] {
     color-adjust: exact;
     print-color-adjust: exact;
     -webkit-print-color-adjust: exact;
+  }
+
+  .agreement-print-root section,
+  .agreement-print-root aside,
+  .agreement-print-root article {
+    break-inside: avoid;
   }
 
   .no-print {

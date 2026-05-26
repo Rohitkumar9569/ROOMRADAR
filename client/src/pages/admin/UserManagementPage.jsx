@@ -7,6 +7,10 @@ import { Eye, Search, ShieldCheck, UserCheck, Users, UserX, X } from 'lucide-rea
 import { format } from 'date-fns';
 import { confirmToast } from '../../utils/confirmToast';
 import { getScopeLabel, getScopeStatus, normalizeRoleScope } from '../../utils/roleRestrictions';
+import { notifyAdminCountsChanged } from '../../utils/adminEvents';
+import { triggerHaptic } from '../../utils/haptics';
+import { useAuth } from '../../context/AuthContext';
+import { hasAdminPermission } from '../../utils/adminPermissions';
 
 const allRoles = ['Student', 'Landlord', 'Admin', 'Super_Admin', 'Moderator', 'Support'];
 
@@ -111,6 +115,7 @@ const EditRoleModal = ({ user, onClose, onSave }) => {
 };
 
 const UserManagementPage = () => {
+  const { user: currentAdmin } = useAuth();
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -119,6 +124,8 @@ const UserManagementPage = () => {
   const navigate = useNavigate();
 
   const roleFilter = searchParams.get('role') || 'All';
+  const canRestrictUsers = hasAdminPermission(currentAdmin, 'users:restrict');
+  const canManageRoles = hasAdminPermission(currentAdmin, 'users:roles');
 
   const fetchUsers = useCallback(async () => {
     setLoading(true);
@@ -186,9 +193,12 @@ const UserManagementPage = () => {
             roleScope,
             reason: 'RoomRadar Trust & Safety restricted this account after an admin review. Please check your recent listings, bookings, messages, and verification details before requesting a review.',
           });
+          triggerHaptic(isBanned ? 'success' : 'warning');
           toast.success(`${scopeLabel} successfully ${action}ned.`);
+          notifyAdminCountsChanged();
           fetchUsers();
         } catch (error) {
+          triggerHaptic('error');
           toast.error(error.response?.data?.message || `Failed to ${action} ${scopeLabel.toLowerCase()}.`);
         }
       },
@@ -198,10 +208,13 @@ const UserManagementPage = () => {
   const handleUpdateRoles = async (userId, newRoles) => {
     try {
       await api.patch(`/admin/users/${userId}/roles`, { roles: newRoles });
+      triggerHaptic('success');
       toast.success('User roles updated successfully.');
       setSelectedUser(null);
+      notifyAdminCountsChanged();
       fetchUsers();
     } catch (error) {
+      triggerHaptic('error');
       toast.error(error.response?.data?.message || 'Failed to update roles.');
     }
   };
@@ -294,7 +307,8 @@ const UserManagementPage = () => {
                             <button
                               onClick={() => handleBanUser(user)}
                               title={getScopeActionLabel(getModerationScope(roleFilter), getScopeStatus(user, getModerationScope(roleFilter)) === 'Banned')}
-                              className={`inline-flex items-center gap-1.5 rounded-xl px-2.5 py-2 text-xs font-black transition ${
+                              disabled={!canRestrictUsers}
+                              className={`inline-flex items-center gap-1.5 rounded-xl px-2.5 py-2 text-xs font-black transition disabled:cursor-not-allowed disabled:opacity-40 ${
                                 getScopeStatus(user, getModerationScope(roleFilter)) === 'Banned'
                                   ? 'text-emerald-600 hover:bg-emerald-500/10 dark:text-emerald-300'
                                   : 'text-red-500 hover:bg-red-500/10'
@@ -303,10 +317,12 @@ const UserManagementPage = () => {
                               {getScopeStatus(user, getModerationScope(roleFilter)) === 'Banned' ? <UserCheck className="h-4 w-4" /> : <UserX className="h-4 w-4" />}
                               {getScopeActionLabel(getModerationScope(roleFilter), getScopeStatus(user, getModerationScope(roleFilter)) === 'Banned')}
                             </button>
-                            <button onClick={() => setSelectedUser(user)} title="Edit roles" className="inline-flex items-center gap-1.5 rounded-xl px-2.5 py-2 text-xs font-black text-cyan-500 transition hover:bg-cyan-500/10">
-                              <ShieldCheck className="h-4 w-4" />
-                              Roles
-                            </button>
+                            {canManageRoles && (
+                              <button onClick={() => setSelectedUser(user)} title="Edit roles" className="inline-flex items-center gap-1.5 rounded-xl px-2.5 py-2 text-xs font-black text-cyan-500 transition hover:bg-cyan-500/10">
+                                <ShieldCheck className="h-4 w-4" />
+                                Roles
+                              </button>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -339,7 +355,8 @@ const UserManagementPage = () => {
                     <button
                       type="button"
                       onClick={(event) => { event.stopPropagation(); handleBanUser(user); }}
-                      className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-black uppercase transition active:scale-95 ${statusTone(getScopeStatus(user, getModerationScope(roleFilter)))}`}
+                      disabled={!canRestrictUsers}
+                      className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-black uppercase transition active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 ${statusTone(getScopeStatus(user, getModerationScope(roleFilter)))}`}
                       aria-label={getScopeActionLabel(getModerationScope(roleFilter), getScopeStatus(user, getModerationScope(roleFilter)) === 'Banned')}
                     >
                       {getScopeLabel(getModerationScope(roleFilter))} {getScopeStatus(user, getModerationScope(roleFilter)) === 'Banned' ? 'Banned' : 'Active'}
@@ -368,7 +385,8 @@ const UserManagementPage = () => {
                       <button
                         type="button"
                         onClick={(event) => { event.stopPropagation(); handleBanUser(user); }}
-                        className={`inline-flex min-h-10 items-center justify-center gap-1.5 rounded-2xl px-2 text-[11px] font-black text-white shadow-sm transition active:scale-[0.98] ${
+                        disabled={!canRestrictUsers}
+                        className={`inline-flex min-h-10 items-center justify-center gap-1.5 rounded-2xl px-2 text-[11px] font-black text-white shadow-sm transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-45 ${
                           getScopeStatus(user, getModerationScope(roleFilter)) === 'Banned'
                             ? 'bg-emerald-500 shadow-emerald-500/20'
                             : 'bg-red-500 shadow-red-500/20'
@@ -377,14 +395,16 @@ const UserManagementPage = () => {
                         {getScopeStatus(user, getModerationScope(roleFilter)) === 'Banned' ? <UserCheck className="h-3.5 w-3.5" /> : <UserX className="h-3.5 w-3.5" />}
                         {getScopeStatus(user, getModerationScope(roleFilter)) === 'Banned' ? 'Unban' : 'Ban'}
                       </button>
-                      <button
-                        type="button"
-                        onClick={(event) => { event.stopPropagation(); setSelectedUser(user); }}
-                        className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-2xl bg-cyan-500/10 px-2 text-[11px] font-black text-cyan-600 transition active:scale-[0.98] dark:text-cyan-300"
-                      >
-                        <ShieldCheck className="h-3.5 w-3.5" />
-                        Roles
-                      </button>
+                      {canManageRoles && (
+                        <button
+                          type="button"
+                          onClick={(event) => { event.stopPropagation(); setSelectedUser(user); }}
+                          className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-2xl bg-cyan-500/10 px-2 text-[11px] font-black text-cyan-600 transition active:scale-[0.98] dark:text-cyan-300"
+                        >
+                          <ShieldCheck className="h-3.5 w-3.5" />
+                          Roles
+                        </button>
+                      )}
                     </div>
                   </div>
                 </article>

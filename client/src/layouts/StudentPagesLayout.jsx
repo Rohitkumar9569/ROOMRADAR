@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
-import { Outlet, useLocation } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import RouteTransition from '../components/common/RouteTransition';
 
 function StudentPagesLayout() {
     const { switchRole, activeRole } = useAuth();
@@ -19,7 +20,7 @@ function StudentPagesLayout() {
     return (
         <div className="min-h-screen bg-light-bg text-light-text dark:bg-dark-bg dark:text-dark-text">
             <div className={needsTopPadding ? 'pt-16 md:pt-0' : ''}>
-                <Outlet />
+                <RouteTransition />
             </div>
         </div>
     );

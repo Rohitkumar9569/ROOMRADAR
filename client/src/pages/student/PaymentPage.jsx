@@ -22,13 +22,18 @@ import { useSettings } from '../../context/SettingsContext';
 import { formatListingTitle } from '../../utils/listingDisplay';
 
 const money = (value) => `\u20B9${Number(value || 0).toLocaleString('en-IN')}`;
+const parseMoneyValue = (value) => {
+    if (value === undefined || value === null || value === '') return undefined;
+    const numericValue = Number(String(value).replace(/[^\d.-]/g, ''));
+    return Number.isFinite(numericValue) && numericValue >= 0 ? numericValue : undefined;
+};
 
 const buildBreakdown = (application, settings) => {
     if (application?.amountBreakdown?.total) return application.amountBreakdown;
 
     const rent = Number(application?.room?.rent || 0);
     const rawDeposit = application?.room?.securityDeposit;
-    const securityDeposit = Number(String(rawDeposit || '').replace(/[^\d.]/g, '')) || rent;
+    const securityDeposit = parseMoneyValue(rawDeposit) ?? rent;
     const platformFee = Number(settings?.platformFee || 0);
 
     return {

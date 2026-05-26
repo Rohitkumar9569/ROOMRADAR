@@ -32,11 +32,9 @@ const ProtectedRoute = ({ allowedRoles }) => {
         return <AccountRestrictedPage restrictionScope={restrictedScope} />;
     }
 
-    // --- [CHANGED] This is the updated role check ---
-    // It now checks if the user's roles array has at least one of the allowed roles
-    const hasRequiredRole = user.roles && user.roles.some(role => allowedRoles.includes(role));
+    const hasRequiredRole = !allowedRoles?.length || user.roles?.some(role => allowedRoles.includes(role));
 
-    if (allowedRoles && !hasRequiredRole) {
+    if (allowedRoles?.length && !hasRequiredRole) {
         // If the user does not have the required role, redirect to the homepage
         return <Navigate to="/" replace />;
     }

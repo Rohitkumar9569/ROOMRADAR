@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowDownUp, Check, ChevronDown, Heart, Search } from 'lucide-react';
+import toast from 'react-hot-toast';
 import api from '../../api';
 import { useAuth } from '../../context/AuthContext';
 import Spinner from '../../components/common/Spinner';
@@ -144,7 +145,11 @@ function WishlistPage() {
     }, [wishlistedRooms, sortBy]);
 
     const handleRemoveFromWishlist = async (roomId) => {
-        await removeFromWishlist(roomId);
+        const removed = await removeFromWishlist(roomId);
+        if (!removed) {
+            toast.error('Could not remove this room. Please retry.');
+            return;
+        }
         setWishlistedRooms((prev) => {
             const rooms = prev.filter((room) => room._id !== roomId);
             setTabCache(WISHLIST_CACHE_KEY, { rooms });

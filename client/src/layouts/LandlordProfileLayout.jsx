@@ -1,10 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Outlet, useLocation } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 import { LayoutDashboard, List, Mail, PlusCircle, User } from 'lucide-react';
 import { useSocket } from '../context/SocketContext';
 import { useUI } from '../context/UIContext';
 import LandlordProfileSidebar from '../components/layout/landlord/LandlordProfileSidebar';
 import MobileBottomNav from '../components/layout/mobile/MobileBottomNav';
+import RouteTransition from '../components/common/RouteTransition';
 
 const landlordNavItems = [
     { path: '/landlord/overview', label: 'Today', Icon: LayoutDashboard, activePrefixes: ['/landlord/overview', '/landlord/calendar', '/landlord/applications'] },
@@ -86,7 +87,7 @@ const LandlordProfileLayout = () => {
                             ? 'rr-flat-mobile-pages md:p-6 lg:p-8'
                             : 'app-route-surface rr-flat-mobile-pages px-2 pb-4 sm:p-6 lg:p-8'
                 }>
-                    <Outlet context={outletContext} />
+                    <RouteTransition context={outletContext} />
                 </div>
             </main>
 

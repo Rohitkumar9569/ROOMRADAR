@@ -168,6 +168,11 @@ const formatValueUnitOption = (unit) => {
 };
 
 const countWords = (value) => String(value || '').trim().split(/\s+/).filter(Boolean).length;
+const MAX_ROOM_PHOTOS = 8;
+const PREMIUM_PHOTO_TARGET = 5;
+const MAX_ROOM_PHOTO_SIZE_MB = 5;
+const MAX_ROOM_PHOTO_BYTES = MAX_ROOM_PHOTO_SIZE_MB * 1024 * 1024;
+const allowedRoomPhotoTypes = new Set(['image/jpeg', 'image/png', 'image/webp']);
 
 const applyFieldLimit = (field, value) => {
   if (!field || typeof value !== 'string') return value;
@@ -205,6 +210,42 @@ const stepCopyMap = {
   photos: 'Real photos build trust and speed up approval.',
 };
 
+const calculateListingQuality = (formData, photoItems) => {
+  const amenities = roomConfig.sections.find((section) => section.id === 'amenities')?.fields || [];
+  const selectedAmenities = amenities.filter((field) => Boolean(formData[field.key])).length;
+  const descriptionWords = countWords(formData.description);
+  const hasMapPin = Number.isFinite(Number(formData.latitude)) && Number.isFinite(Number(formData.longitude));
+  const hasAddress = Boolean(String(formData.fullAddress || '').trim());
+  const hasCity = Boolean(String(formData.city || '').trim());
+  const hasPincode = Boolean(String(formData.pincode || '').trim());
+
+  const photoScore = Math.round((Math.min(photoItems.length, PREMIUM_PHOTO_TARGET) / PREMIUM_PHOTO_TARGET) * 40);
+  const descriptionScore = Math.round((Math.min(descriptionWords, 150) / 150) * 20);
+  const amenityScore = Math.round((Math.min(selectedAmenities, 8) / 8) * 20);
+  const locationScore = (hasMapPin ? 12 : 0) + (hasAddress ? 4 : 0) + (hasCity ? 2 : 0) + (hasPincode ? 2 : 0);
+  const score = Math.min(100, photoScore + descriptionScore + amenityScore + locationScore);
+  const tips = [];
+
+  if (photoItems.length < PREMIUM_PHOTO_TARGET) {
+    tips.push(`Add ${PREMIUM_PHOTO_TARGET - photoItems.length} more clear photo${PREMIUM_PHOTO_TARGET - photoItems.length === 1 ? '' : 's'} for stronger discovery.`);
+  }
+  if (descriptionWords < 150) tips.push('Write a richer description with furniture, locality, commute, and house details.');
+  if (selectedAmenities < 6) tips.push('Select the real amenities tenants will use every day.');
+  if (!hasMapPin) tips.push('Pin the exact map location to improve location search ranking.');
+
+  return {
+    score,
+    tips: tips.slice(0, 3),
+    badge: score >= 85 ? 'Search-ready' : score >= 70 ? 'Strong' : score >= 50 ? 'Improving' : 'Needs details',
+    segments: [
+      { label: 'Photos', value: photoScore, max: 40 },
+      { label: 'Description', value: descriptionScore, max: 20 },
+      { label: 'Amenities', value: amenityScore, max: 20 },
+      { label: 'Location', value: locationScore, max: 20 },
+    ],
+  };
+};
+
 function AddRoomPage() {
   const navigate = useNavigate();
   const { id } = useParams();
@@ -227,6 +268,7 @@ function AddRoomPage() {
   const CurrentStepIcon = stepIconMap[currentStep.id] || ShieldCheck;
   const currentStepCopy = stepCopyMap[currentStep.id] || 'Complete this listing section with accurate details.';
   const imagePreviews = useMemo(() => photoItems.map((item) => item.preview).filter(Boolean), [photoItems]);
+  const listingQuality = useMemo(() => calculateListingQuality(formData, photoItems), [formData, photoItems]);
   const selectedMapLocation = useMemo(() => {
     const lat = Number(formData.latitude);
     const lng = Number(formData.longitude);
@@ -419,12 +461,33 @@ function AddRoomPage() {
   const handleFileChange = (event) => {
     const files = Array.from(event.target.files || []);
     if (!files.length) return;
-    if (imagePreviews.length + files.length > 8) {
-      toast.error('Upload up to 8 high-quality photos.');
+    const remainingSlots = MAX_ROOM_PHOTOS - photoItems.length;
+    const validFiles = [];
+    let invalidTypeCount = 0;
+    let oversizedCount = 0;
+
+    files.forEach((file) => {
+      if (!allowedRoomPhotoTypes.has(file.type)) {
+        invalidTypeCount += 1;
+        return;
+      }
+      if (file.size > MAX_ROOM_PHOTO_BYTES) {
+        oversizedCount += 1;
+        return;
+      }
+      if (validFiles.length < remainingSlots) validFiles.push(file);
+    });
+
+    if (files.length > remainingSlots) toast.error(`Only ${remainingSlots} more photo${remainingSlots === 1 ? '' : 's'} can be added.`);
+    if (invalidTypeCount) toast.error('Only JPG, PNG, and WebP room photos are supported.');
+    if (oversizedCount) toast.error(`Each photo must be ${MAX_ROOM_PHOTO_SIZE_MB}MB or smaller.`);
+    if (!validFiles.length) {
+      event.target.value = '';
       return;
     }
+
     setIsDirty(true);
-    setPhotoItems((prev) => [...prev, ...files.map(createFilePhotoItem)]);
+    setPhotoItems((prev) => [...prev, ...validFiles.map(createFilePhotoItem)]);
     event.target.value = '';
   };
 
@@ -843,6 +906,47 @@ function AddRoomPage() {
             );
           })}
         </div>
+
+        <section className="mb-4 grid gap-3 lg:grid-cols-[minmax(0,1fr)_18rem]">
+          <div className="rounded-[1.5rem] border border-white/75 bg-white/84 p-4 shadow-[0_16px_42px_rgba(15,23,42,0.07)] backdrop-blur-xl dark:border-white/10 dark:bg-slate-900/70">
+            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+              <div className="min-w-0">
+                <p className="text-[10px] font-black uppercase tracking-[0.16em] text-cyan-600 dark:text-cyan-300">Listing quality score</p>
+                <h2 className="mt-1 text-xl font-black tracking-tight sm:text-2xl">
+                  {listingQuality.score}% <span className="text-sm font-black text-brand dark:text-cyan-200">{listingQuality.badge}</span>
+                </h2>
+                <p className="mt-1 text-sm font-semibold leading-6 text-slate-500 dark:text-slate-400">
+                  Higher quality listings are easier to approve, trust, and rank in search.
+                </p>
+              </div>
+              <div className="flex h-20 w-20 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-brand/12 to-cyan-400/14 text-brand ring-1 ring-brand/10 dark:text-cyan-200 dark:ring-cyan-300/10">
+                <span className="text-2xl font-black">{listingQuality.score}</span>
+              </div>
+            </div>
+            <div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
+              <div className="h-full rounded-full bg-gradient-to-r from-brand via-rose-400 to-cyan-400 transition-all duration-500" style={{ width: `${listingQuality.score}%` }} />
+            </div>
+            <div className="mt-4 grid grid-cols-2 gap-2 md:grid-cols-4">
+              {listingQuality.segments.map((segment) => (
+                <div key={segment.label} className="rounded-2xl border border-slate-200/80 bg-white/70 p-3 dark:border-slate-700/80 dark:bg-slate-950/35">
+                  <p className="text-[11px] font-black text-slate-500 dark:text-slate-400">{segment.label}</p>
+                  <p className="mt-1 text-sm font-black text-slate-900 dark:text-white">{segment.value}/{segment.max}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="rounded-[1.5rem] border border-cyan-200/70 bg-cyan-50/75 p-4 shadow-sm dark:border-cyan-300/15 dark:bg-cyan-300/10">
+            <p className="text-[10px] font-black uppercase tracking-[0.16em] text-cyan-700 dark:text-cyan-200">Host coach</p>
+            <div className="mt-3 space-y-2">
+              {(listingQuality.tips.length ? listingQuality.tips : ['This listing looks strong. Review photos, price, and rules before submitting.']).map((tip) => (
+                <div key={tip} className="flex gap-2 text-sm font-semibold leading-5 text-slate-700 dark:text-slate-200">
+                  <CheckCircle2 className="mt-0.5 h-4 w-4 flex-shrink-0 text-cyan-600 dark:text-cyan-300" />
+                  <span>{tip}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
 
         <motion.section
           key={currentStep.id}

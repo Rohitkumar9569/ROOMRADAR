@@ -86,7 +86,8 @@ function AuthPage() {
     };
 
     const redirectAfterLogin = (data) => {
-        const from = location.state?.from?.pathname;
+        const fromState = location.state?.from;
+        const from = typeof fromState === 'string' ? fromState : fromState?.pathname;
         const userRoles = Array.isArray(data.roles) ? data.roles : [data.role].filter(Boolean);
         const isAdminUser = userRoles.some(role => ADMIN_ROLES.includes(role));
 

@@ -1,4 +1,4 @@
-import React, { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
+import React, { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import api from '../../api';
@@ -8,16 +8,18 @@ import RoomCard from '../../components/features/rooms/RoomCard';
 import RoomCardSkeleton from '../../components/common/RoomCardSkeleton';
 import { getFiltersFromConfig } from '../../utils/roomFieldUtils';
 import { readTabCache, setTabCache } from '../../utils/tabDataCache';
-import { formatPreferenceLabel } from '../../utils/listingDisplay';
+import { formatListingTitle, formatPreferenceLabel } from '../../utils/listingDisplay';
 import { clearCachedLocation, getLocationSearchParams, getLocationSignalFromParams, getMobileAutoLocation, readCachedLocation, saveSearchedLocation } from '../../utils/mobileLocationAutofill';
 import { trackUsageEvent } from '../../utils/usageAnalytics';
 import {
+  Bell,
   Check,
   ChevronLeft,
   ChevronRight,
   List,
   Loader2,
   Map,
+  Scale,
   SlidersHorizontal,
   Sparkles,
   X,
@@ -44,10 +46,59 @@ const numberFilters = filterFields.filter((field) => field.type === 'number' && 
 const quickBooleanFilters = filterFields.filter((field) => field.type === 'boolean' && field.sectionId !== 'amenities');
 
 const money = (value) => `\u20B9${Number(value || 0).toLocaleString('en-IN')}`;
+const MAX_COMPARE_ROOMS = 3;
+
+const parseMoneyValue = (value) => {
+  if (value === undefined || value === null || value === '') return undefined;
+  const numericValue = Number(String(value).replace(/[^\d.-]/g, ''));
+  return Number.isFinite(numericValue) && numericValue >= 0 ? numericValue : undefined;
+};
+
+const getRoomAddress = (room = {}) => (
+  room.location?.locality
+  || room.location?.city
+  || room.city
+  || 'Location available'
+);
+
+const getRoomImage = (room = {}) => {
+  const image = room.images?.[0] || room.imageUrls?.[0] || room.imageUrl;
+  if (!image) return '';
+  return typeof image === 'string' ? image : image.url || image.secure_url || image.src || '';
+};
+
+const getAmenityLabels = (room = {}) => amenities
+  .filter((item) => room.facilities?.[item.key])
+  .map((item) => item.label)
+  .slice(0, 5);
+
+const isLandlordVerified = (room = {}) => {
+  const landlord = room.landlord || {};
+  return Boolean(
+    landlord.isVerified
+    || landlord.kyc_status === 'Verified'
+    || ['verified', 'premium'].includes(String(landlord.verificationLevel || '').toLowerCase())
+    || landlord.verifications?.identity
+  );
+};
+
+const getSavedSearches = () => {
+  if (typeof window === 'undefined') return [];
+  try {
+    return JSON.parse(window.localStorage.getItem(SEARCH_ALERTS_KEY) || '[]');
+  } catch {
+    return [];
+  }
+};
+
+const saveSearches = (searches) => {
+  if (typeof window === 'undefined') return;
+  window.localStorage.setItem(SEARCH_ALERTS_KEY, JSON.stringify(searches.slice(0, 20)));
+};
 
 const getActiveFilterKeys = (filters = {}) => Object.entries(filters)
   .filter(([key, value]) => {
-    if (['latitude', 'longitude'].includes(key)) return false;
+    if (['latitude', 'longitude', 'minLat', 'maxLat', 'minLng', 'maxLng'].includes(key)) return false;
     if (Array.isArray(value)) return value.length > 0;
     return Boolean(value);
   })
@@ -91,6 +142,11 @@ const createEmptyFilters = () => {
     latitude: '',
     longitude: '',
     radius: '',
+    mapBounds: '',
+    minLat: '',
+    maxLat: '',
+    minLng: '',
+    maxLng: '',
     minRent: '',
     maxRent: '',
     maxDeposit: '',
@@ -116,6 +172,11 @@ const buildInitialFilters = (searchParams, preferredLocation = null) => {
   filters.latitude = searchParams.get('latitude') || '';
   filters.longitude = searchParams.get('longitude') || '';
   filters.radius = searchParams.get('radius') || '';
+  filters.mapBounds = searchParams.get('mapBounds') || '';
+  filters.minLat = searchParams.get('minLat') || '';
+  filters.maxLat = searchParams.get('maxLat') || '';
+  filters.minLng = searchParams.get('minLng') || '';
+  filters.maxLng = searchParams.get('maxLng') || '';
   filters.minRent = searchParams.get('minRent') || '';
   filters.maxRent = searchParams.get('maxRent') || '';
   filters.maxDeposit = searchParams.get('maxDeposit') || '';
@@ -167,7 +228,9 @@ const buildInitialSearchCriteria = (searchParams, preferredLocation = null) => {
   return {
     ...createEmptySearchCriteria(),
     location: preferredPlace || null,
-    locationQuery: searchParams.get('city') || searchParams.get('search') || (searchParams.get('latitude') && searchParams.get('longitude') ? 'Current location' : preferredQuery || ''),
+    locationQuery: searchParams.get('mapBounds')
+      ? 'Selected map area'
+      : searchParams.get('city') || searchParams.get('search') || (searchParams.get('latitude') && searchParams.get('longitude') ? 'Current location' : preferredQuery || ''),
     moveInDate: parseMoveInDate(searchParams.get('availableFrom')),
     availabilityWindow: searchParams.get('availabilityWindow') || '',
     radius: Number(searchParams.get('radius') || preferredRadius || 5) || 5,
@@ -469,6 +532,66 @@ const FilterPanel = ({ filters, setFilters, priceRange, onApply, onClear, isShee
   );
 };
 
+const CompareModal = ({ rooms, onClose, onRemove }) => {
+  const rows = [
+    { label: 'Monthly rent', render: (room) => money(room.rent) },
+    { label: 'Security deposit', render: (room) => money(parseMoneyValue(room.securityDeposit) ?? room.rent) },
+    { label: 'Location', render: getRoomAddress },
+    { label: 'Rating', render: (room) => Number(room.averageRating || room.rating || 0) ? `${Number(room.averageRating || room.rating).toFixed(1)} / 5` : 'New listing' },
+    { label: 'Beds', render: (room) => `${room.beds || 1} bed${Number(room.beds || 1) > 1 ? 's' : ''}` },
+    { label: 'Capacity', render: (room) => `${room.maxOccupants || room.maxGuests || room.beds || 1} occupant${Number(room.maxOccupants || room.maxGuests || room.beds || 1) > 1 ? 's' : ''}` },
+    { label: 'Trust', render: (room) => isLandlordVerified(room) ? 'Verified landlord' : room.verifications?.property ? 'Verified listing' : 'Standard listing' },
+    { label: 'Amenities', render: (room) => getAmenityLabels(room).join(', ') || 'Amenities not listed' },
+  ];
+
+  return (
+    <div className="fixed inset-0 z-[70] flex items-end bg-slate-950/60 p-0 backdrop-blur-sm sm:items-center sm:p-4" role="dialog" aria-modal="true">
+      <div className="max-h-[92vh] w-full overflow-hidden rounded-t-3xl border border-light-border bg-white shadow-2xl dark:border-dark-border dark:bg-dark-card sm:mx-auto sm:max-w-6xl sm:rounded-3xl">
+        <div className="flex items-center justify-between gap-3 border-b border-light-border px-4 py-4 dark:border-dark-border sm:px-6">
+          <div className="min-w-0">
+            <p className="text-[10px] font-black uppercase tracking-[0.16em] text-cyan-600 dark:text-cyan-300">Room comparison</p>
+            <h2 className="mt-1 truncate text-xl font-black sm:text-2xl">Compare selected rooms</h2>
+          </div>
+          <button type="button" onClick={onClose} className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-light-bg text-light-muted dark:bg-dark-input dark:text-dark-muted">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        <div className="max-h-[calc(92vh-86px)] overflow-auto p-4 sm:p-6">
+          <div className="grid min-w-[760px] gap-3" style={{ gridTemplateColumns: `180px repeat(${rooms.length}, minmax(180px, 1fr))` }}>
+            <div className="rounded-2xl bg-slate-50 p-4 text-sm font-black text-slate-500 dark:bg-dark-input dark:text-dark-muted">Room</div>
+            {rooms.map((room) => (
+              <div key={room._id} className="rounded-2xl border border-light-border bg-white p-3 dark:border-dark-border dark:bg-dark-bg">
+                <div className="flex gap-3">
+                  {getRoomImage(room) && <img src={getRoomImage(room)} alt={formatListingTitle(room.title, 'Room')} className="h-16 w-20 rounded-xl object-cover" />}
+                  <div className="min-w-0 flex-1">
+                    <p className="line-clamp-2 text-sm font-black">{formatListingTitle(room.title, 'Room listing')}</p>
+                    <p className="mt-1 text-xs font-bold text-light-muted dark:text-dark-muted">{getRoomAddress(room)}</p>
+                  </div>
+                </div>
+                <button type="button" onClick={() => onRemove(room._id)} className="mt-3 text-xs font-black text-rose-600 dark:text-rose-300">
+                  Remove
+                </button>
+              </div>
+            ))}
+
+            {rows.map((row) => (
+              <React.Fragment key={row.label}>
+                <div className="rounded-2xl bg-slate-50 p-4 text-sm font-black text-slate-600 dark:bg-dark-input dark:text-dark-muted">{row.label}</div>
+                {rooms.map((room) => (
+                  <div key={`${row.label}-${room._id}`} className="rounded-2xl border border-light-border bg-white p-4 text-sm font-bold leading-6 text-light-text dark:border-dark-border dark:bg-dark-bg dark:text-dark-text">
+                    {row.render(room)}
+                  </div>
+                ))}
+              </React.Fragment>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 function SearchPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const initialPreferredLocation = useMemo(() => (searchParams.toString() ? null : readCachedLocation()), []);
@@ -487,7 +610,31 @@ function SearchPage() {
   const [isFilterSheetOpen, setIsFilterSheetOpen] = useState(false);
   const [isMobileSearchDockOpen, setIsMobileSearchDockOpen] = useState(false);
   const [searchMeta, setSearchMeta] = useState(null);
+  const [searchAsMapMoves, setSearchAsMapMoves] = useState(false);
+  const [comparedRooms, setComparedRooms] = useState([]);
+  const [isCompareOpen, setIsCompareOpen] = useState(false);
+  const [savedSearchCount, setSavedSearchCount] = useState(() => getSavedSearches().length);
   const searchParamsKey = searchParams.toString();
+  const internalSearchParamsKeyRef = useRef(searchParamsKey);
+
+  const updateFilters = useCallback((updater) => {
+    setFilters((current) => (typeof updater === 'function' ? updater(current) : updater));
+    setPage(1);
+    setSearchMeta(null);
+  }, []);
+
+  useEffect(() => {
+    if (internalSearchParamsKeyRef.current === searchParamsKey) return;
+
+    const preferredLocation = searchParamsKey ? null : readCachedLocation();
+    internalSearchParamsKeyRef.current = searchParamsKey;
+    setFilters(buildInitialFilters(searchParams, preferredLocation));
+    setSearchCriteria(buildInitialSearchCriteria(searchParams, preferredLocation));
+    setSort(searchParams.get('sort') || 'recommended');
+    setPage(Math.max(Number(searchParams.get('page') || 1), 1));
+    setNaturalQuery(searchParams.get('q') || '');
+    setSearchMeta(null);
+  }, [searchParams, searchParamsKey]);
 
   useEffect(() => {
     const searchedLocation = getLocationSignalFromParams(searchParams);
@@ -535,15 +682,26 @@ function SearchPage() {
     const chips = [];
     Object.entries(filters).forEach(([key, value]) => {
       if (key === 'amenities') {
-        value.forEach((amenity) => chips.push({ key: `amenity-${amenity}`, label: amenities.find((item) => item.key === amenity)?.label || amenity, clear: () => setFilters((prev) => ({ ...prev, amenities: prev.amenities.filter((item) => item !== amenity) })) }));
+        value.forEach((amenity) => chips.push({ key: `amenity-${amenity}`, label: amenities.find((item) => item.key === amenity)?.label || amenity, clear: () => updateFilters((prev) => ({ ...prev, amenities: prev.amenities.filter((item) => item !== amenity) })) }));
         return;
       }
-      if (['latitude', 'longitude'].includes(key)) return;
+      if (['latitude', 'longitude', 'minLat', 'maxLat', 'minLng', 'maxLng'].includes(key)) return;
+      if (key === 'mapBounds' && value) {
+        chips.push({
+          key,
+          label: 'Map area',
+          clear: () => {
+            updateFilters((prev) => ({ ...prev, mapBounds: '', minLat: '', maxLat: '', minLng: '', maxLng: '' }));
+            setSearchCriteria((prev) => ({ ...prev, locationQuery: '' }));
+          },
+        });
+        return;
+      }
       if (key === 'verifiedOnly' && value) {
         chips.push({
           key,
           label: 'Verified rooms',
-          clear: () => setFilters((prev) => ({ ...prev, verifiedOnly: '' })),
+          clear: () => updateFilters((prev) => ({ ...prev, verifiedOnly: '' })),
         });
         return;
       }
@@ -551,7 +709,18 @@ function SearchPage() {
         chips.push({
           key,
           label: 'Verified landlord',
-          clear: () => setFilters((prev) => ({ ...prev, verifiedLandlord: '' })),
+          clear: () => updateFilters((prev) => ({ ...prev, verifiedLandlord: '' })),
+        });
+        return;
+      }
+      if (key === 'city' && value) {
+        chips.push({
+          key,
+          label: String(value),
+          clear: () => {
+            updateFilters((prev) => ({ ...prev, city: '', latitude: '', longitude: '', radius: '' }));
+            setSearchCriteria((prev) => ({ ...prev, location: null, locationQuery: '', radius: 5 }));
+          },
         });
         return;
       }
@@ -559,7 +728,7 @@ function SearchPage() {
         chips.push({
           key,
           label: availabilityWindowOptions.find((option) => String(option.value) === String(value))?.label || `Within ${value} days`,
-          clear: () => setFilters((prev) => ({ ...prev, availabilityWindow: '' })),
+          clear: () => updateFilters((prev) => ({ ...prev, availabilityWindow: '' })),
         });
         return;
       }
@@ -567,7 +736,7 @@ function SearchPage() {
         chips.push({
           key,
           label: `Deposit up to ${money(value)}`,
-          clear: () => setFilters((prev) => ({ ...prev, maxDeposit: '' })),
+          clear: () => updateFilters((prev) => ({ ...prev, maxDeposit: '' })),
         });
         return;
       }
@@ -576,7 +745,7 @@ function SearchPage() {
         chips.push({
           key,
           label: labelMap[value] || value,
-          clear: () => setFilters((prev) => ({ ...prev, occupancyType: '' })),
+          clear: () => updateFilters((prev) => ({ ...prev, occupancyType: '', maxOccupants: '', familyStatus: '' })),
         });
         return;
       }
@@ -584,7 +753,10 @@ function SearchPage() {
         chips.push({
           key,
           label: `Within ${value} km`,
-          clear: () => setFilters((prev) => ({ ...prev, radius: '', latitude: '', longitude: '' })),
+          clear: () => {
+            updateFilters((prev) => ({ ...prev, radius: '', latitude: '', longitude: '' }));
+            setSearchCriteria((prev) => ({ ...prev, location: null, radius: 5 }));
+          },
         });
         return;
       }
@@ -592,7 +764,7 @@ function SearchPage() {
         chips.push({
           key,
           label: `${value} occupant${Number(value) === 1 ? '' : 's'}`,
-          clear: () => setFilters((prev) => ({ ...prev, maxOccupants: '' })),
+          clear: () => updateFilters((prev) => ({ ...prev, maxOccupants: '' })),
         });
         return;
       }
@@ -600,7 +772,7 @@ function SearchPage() {
         chips.push({
           key,
           label: `Gender: ${formatPreferenceLabel(value)}`,
-          clear: () => setFilters((prev) => ({ ...prev, gender: '' })),
+          clear: () => updateFilters((prev) => ({ ...prev, gender: '' })),
         });
         return;
       }
@@ -608,7 +780,7 @@ function SearchPage() {
         chips.push({
           key,
           label: `Stay type: ${value}`,
-          clear: () => setFilters((prev) => ({ ...prev, familyStatus: '' })),
+          clear: () => updateFilters((prev) => ({ ...prev, familyStatus: '' })),
         });
         return;
       }
@@ -616,7 +788,7 @@ function SearchPage() {
         chips.push({
           key,
           label: value,
-          clear: () => setFilters((prev) => ({ ...prev, listingCategory: '' })),
+          clear: () => updateFilters((prev) => ({ ...prev, listingCategory: '' })),
         });
         return;
       }
@@ -624,7 +796,7 @@ function SearchPage() {
         chips.push({
           key,
           label: formatFilterOptionLabel({ key }, value),
-          clear: () => setFilters((prev) => ({ ...prev, [key]: '' })),
+          clear: () => updateFilters((prev) => ({ ...prev, [key]: '' })),
         });
         return;
       }
@@ -632,14 +804,14 @@ function SearchPage() {
         chips.push({
           key,
           label: 'Instant book',
-          clear: () => setFilters((prev) => ({ ...prev, instantBook: '' })),
+          clear: () => updateFilters((prev) => ({ ...prev, instantBook: '' })),
         });
         return;
       }
-      if (value) chips.push({ key, label: String(value), clear: () => setFilters((prev) => ({ ...prev, [key]: '' })) });
+      if (value) chips.push({ key, label: String(value), clear: () => updateFilters((prev) => ({ ...prev, [key]: '' })) });
     });
     return chips;
-  }, [filters]);
+  }, [filters, updateFilters]);
 
   const fetchRooms = useCallback(async () => {
     const params = new URLSearchParams();
@@ -656,6 +828,7 @@ function SearchPage() {
 
     const searchedLocation = getLocationSignalFromParams(params);
     if (searchedLocation) saveSearchedLocation(searchedLocation);
+    internalSearchParamsKeyRef.current = params.toString();
     setSearchParams(params, { replace: true });
     const cacheKey = `${SEARCH_ROOMS_CACHE_PREFIX}:${params.toString()}`;
     const cached = readTabCache(cacheKey)?.value;
@@ -715,7 +888,9 @@ function SearchPage() {
   }, []);
 
   useEffect(() => {
-    fetchRooms();
+    const delay = page === 1 ? 220 : 0;
+    const timeoutId = window.setTimeout(fetchRooms, delay);
+    return () => window.clearTimeout(timeoutId);
   }, [fetchRooms]);
 
   useEffect(() => {
@@ -758,6 +933,11 @@ function SearchPage() {
         latitude: '',
         longitude: '',
         radius: '',
+        mapBounds: '',
+        minLat: '',
+        maxLat: '',
+        minLng: '',
+        maxLng: '',
       }));
       setPage(1);
       setSearchMeta(null);
@@ -778,7 +958,6 @@ function SearchPage() {
     });
     setPage(1);
     setIsFilterSheetOpen(false);
-    fetchRooms();
   };
 
   const clearFilters = () => {
@@ -796,6 +975,11 @@ function SearchPage() {
       latitude: current.latitude,
       longitude: current.longitude,
       radius: current.radius,
+      mapBounds: current.mapBounds,
+      minLat: current.minLat,
+      maxLat: current.maxLat,
+      minLng: current.minLng,
+      maxLng: current.maxLng,
     }));
     setSearchCriteria((current) => ({
       ...createEmptySearchCriteria(),
@@ -820,6 +1004,11 @@ function SearchPage() {
       latitude: '',
       longitude: '',
       radius: '',
+      mapBounds: '',
+      minLat: '',
+      maxLat: '',
+      minLng: '',
+      maxLng: '',
       maxOccupants: '',
       gender: '',
       familyStatus: '',
@@ -844,6 +1033,11 @@ function SearchPage() {
       latitude: '',
       longitude: '',
       radius: nextCriteria.radius ? String(nextCriteria.radius) : '',
+      mapBounds: '',
+      minLat: '',
+      maxLat: '',
+      minLng: '',
+      maxLng: '',
     };
 
     if (Object.prototype.hasOwnProperty.call(nextCriteria, 'listingCategory')) nextFilters.listingCategory = nextCriteria.listingCategory || '';
@@ -914,26 +1108,80 @@ function SearchPage() {
     setIsMobileSearchDockOpen(false);
   };
 
-  const saveSearchAlert = () => {
+  const handleMapBoundsChange = useCallback((bounds) => {
+    const formatBound = (value) => Number(value).toFixed(5);
+    setFilters((current) => {
+      const nextBounds = {
+        minLat: formatBound(bounds.minLat),
+        maxLat: formatBound(bounds.maxLat),
+        minLng: formatBound(bounds.minLng),
+        maxLng: formatBound(bounds.maxLng),
+      };
+      const unchanged = Object.entries(nextBounds).every(([key, value]) => current[key] === value);
+      if (unchanged && current.mapBounds) return current;
+      return {
+        ...current,
+        city: '',
+        latitude: '',
+        longitude: '',
+        radius: '',
+        mapBounds: 'true',
+        ...nextBounds,
+      };
+    });
+    setSearchCriteria((current) => ({ ...current, location: null, locationQuery: 'Selected map area' }));
+    setPage(1);
+    setSearchMeta(null);
+    trackUsageEvent('search_run', {
+      metadata: {
+        source: 'map_bound_search',
+        activeFilterKeys: ['mapBounds'],
+      },
+    });
+  }, []);
+
+  const toggleCompareRoom = (room) => {
+    setComparedRooms((current) => {
+      if (current.some((item) => String(item._id) === String(room._id))) {
+        return current.filter((item) => String(item._id) !== String(room._id));
+      }
+      if (current.length >= MAX_COMPARE_ROOMS) {
+        toast.error(`You can compare up to ${MAX_COMPARE_ROOMS} rooms.`);
+        return current;
+      }
+      return [...current, room];
+    });
+  };
+
+  const removeComparedRoom = (roomId) => {
+    setComparedRooms((current) => current.filter((room) => String(room._id) !== String(roomId)));
+  };
+
+  const saveSearchAlert = (source = 'rooms_search_toolbar') => {
     if (typeof window === 'undefined') return;
+    const activeFilterKeys = getActiveFilterKeys(filters);
     const alertPayload = {
       id: `${Date.now()}`,
       filters,
       sort,
-      label: filters.city || searchCriteria.locationQuery || 'RoomRadar search',
+      label: filters.mapBounds ? 'Selected map area' : filters.city || searchCriteria.locationQuery || 'RoomRadar search',
       createdAt: new Date().toISOString(),
     };
     try {
-      const existing = JSON.parse(window.localStorage.getItem(SEARCH_ALERTS_KEY) || '[]');
-      window.localStorage.setItem(SEARCH_ALERTS_KEY, JSON.stringify([alertPayload, ...existing].slice(0, 20)));
+      const existing = getSavedSearches();
+      const signature = JSON.stringify({ filters, sort });
+      const withoutDuplicate = existing.filter((item) => JSON.stringify({ filters: item.filters, sort: item.sort }) !== signature);
+      const nextAlerts = [alertPayload, ...withoutDuplicate].slice(0, 20);
+      saveSearches(nextAlerts);
+      setSavedSearchCount(nextAlerts.length);
       trackUsageEvent('search_alert_save', {
         metadata: {
-          source: 'rooms_no_results',
+          source,
           city: filters.city,
-          activeFilterKeys: getActiveFilterKeys(filters),
+          activeFilterKeys,
         },
       });
-      toast.success('Search alert saved for this device.');
+      toast.success('Search saved for this device.');
     } catch {
       toast.error('Could not save this alert.');
     }
@@ -1064,6 +1312,11 @@ function SearchPage() {
               {showMap ? <List className="h-4 w-4 flex-shrink-0" /> : <Map className="h-4 w-4 flex-shrink-0" />}
               <span>{showMap ? 'List' : 'Map'}</span>
             </button>
+            <button onClick={() => saveSearchAlert('rooms_search_toolbar')} className="btn-outline col-span-2 inline-flex min-h-11 items-center justify-center gap-2 px-3 py-2 text-sm md:col-span-1">
+              <Bell className="h-4 w-4 flex-shrink-0" />
+              <span>Save search</span>
+              {savedSearchCount > 0 && <span className="rounded-full bg-brand px-2 py-0.5 text-[10px] font-black text-white">{savedSearchCount}</span>}
+            </button>
             <select value={sort} onChange={(event) => { setSort(event.target.value); setPage(1); }} className="input-field col-span-2 min-h-11 w-full py-2 text-sm md:col-span-1 md:w-auto">
               {sortOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
             </select>
@@ -1112,7 +1365,7 @@ function SearchPage() {
           <aside className="hidden lg:block">
             <FilterPanel
               filters={filters}
-              setFilters={setFilters}
+              setFilters={updateFilters}
               priceRange={priceRange}
               onApply={applyFilters}
               onClear={clearFilters}
@@ -1122,7 +1375,12 @@ function SearchPage() {
           <section className="min-w-0">
             {showMap ? (
               <Suspense fallback={<div className="h-[70vh] rounded-3xl bg-light-card dark:bg-dark-card" />}>
-                <RoomsMap rooms={rooms} />
+                <RoomsMap
+                  rooms={rooms}
+                  searchAsMove={searchAsMapMoves}
+                  onSearchAsMoveChange={setSearchAsMapMoves}
+                  onBoundsChange={handleMapBoundsChange}
+                />
               </Suspense>
             ) : loading ? (
               <div className="mobile-room-grid grid gap-3 sm:gap-5 lg:[grid-template-columns:repeat(auto-fill,minmax(280px,1fr))]">
@@ -1131,15 +1389,32 @@ function SearchPage() {
             ) : rooms.length ? (
               <>
                 <div className="mobile-room-grid grid gap-3 sm:gap-5 lg:[grid-template-columns:repeat(auto-fill,minmax(280px,1fr))]">
-                  {rooms.map((room, index) => (
-                    <RoomCard
-                      key={room._id}
-                      room={room}
-                      imagePriority={index < 4}
-                      position={(page - 1) * 12 + index + 1}
-                      trackingContext="search_results"
-                    />
-                  ))}
+                  {rooms.map((room, index) => {
+                    const isCompared = comparedRooms.some((item) => String(item._id) === String(room._id));
+                    return (
+                      <div key={room._id} className="relative">
+                        <button
+                          type="button"
+                          onClick={() => toggleCompareRoom(room)}
+                          className={`absolute left-3 top-3 z-20 inline-flex min-h-9 items-center gap-1.5 rounded-full px-3 text-xs font-black shadow-lg transition ${
+                            isCompared
+                              ? 'bg-cyan-500 text-white shadow-cyan-500/25'
+                              : 'bg-white/95 text-slate-700 shadow-slate-900/10 hover:bg-cyan-50 hover:text-cyan-700 dark:bg-dark-card/95 dark:text-dark-text'
+                          }`}
+                          aria-pressed={isCompared}
+                        >
+                          <Scale className="h-3.5 w-3.5" />
+                          {isCompared ? 'Added' : 'Compare'}
+                        </button>
+                        <RoomCard
+                          room={room}
+                          imagePriority={index < 4}
+                          position={(page - 1) * 12 + index + 1}
+                          trackingContext="search_results"
+                        />
+                      </div>
+                    );
+                  })}
                 </div>
                 <div className="mt-8 grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 sm:flex sm:justify-center sm:gap-3">
                   <button disabled={page <= 1} onClick={() => setPage((prev) => prev - 1)} className="btn-outline inline-flex min-h-11 min-w-0 items-center justify-center gap-1.5 rounded-2xl px-2.5 py-2 text-sm sm:min-w-28 sm:gap-2 sm:px-4">
@@ -1161,7 +1436,7 @@ function SearchPage() {
                 <h2 className="mt-5 text-2xl font-black">No rooms found</h2>
                 <p className="mt-2 text-sm font-semibold text-light-muted dark:text-dark-muted">Save this demand or loosen the filters to see nearby options.</p>
                 <div className="mt-6 flex flex-col justify-center gap-3 sm:flex-row">
-                  <button onClick={saveSearchAlert} className="btn-primary">Notify me</button>
+                  <button onClick={() => saveSearchAlert('rooms_no_results')} className="btn-primary">Notify me</button>
                   <button onClick={relaxFilters} className="btn-outline">Relax filters</button>
                   <button onClick={clearFilters} className="btn-outline">Clear all</button>
                 </div>
@@ -1171,11 +1446,43 @@ function SearchPage() {
         </div>
       </main>
 
+      {comparedRooms.length > 0 && (
+        <div className="fixed inset-x-3 bottom-[calc(var(--rr-bottom-nav-height)+env(safe-area-inset-bottom,0px)+0.75rem)] z-50 rounded-2xl border border-light-border bg-white/95 p-3 shadow-2xl shadow-slate-950/15 backdrop-blur-xl dark:border-dark-border dark:bg-dark-card/95 md:left-1/2 md:right-auto md:w-[min(720px,calc(100vw-2rem))] md:-translate-x-1/2">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0">
+              <p className="text-[10px] font-black uppercase tracking-[0.14em] text-cyan-600 dark:text-cyan-300">Compare shortlist</p>
+              <p className="truncate text-sm font-black">{comparedRooms.length}/{MAX_COMPARE_ROOMS} rooms selected</p>
+            </div>
+            <div className="flex min-w-0 flex-1 gap-2 overflow-x-auto sm:justify-end">
+              {comparedRooms.map((room) => (
+                <button
+                  key={room._id}
+                  type="button"
+                  onClick={() => removeComparedRoom(room._id)}
+                  className="inline-flex min-w-0 flex-shrink-0 items-center gap-2 rounded-full bg-slate-100 px-3 py-2 text-xs font-black text-slate-700 dark:bg-dark-input dark:text-dark-text"
+                >
+                  <span className="max-w-[130px] truncate">{formatListingTitle(room.title, 'Room')}</span>
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              ))}
+            </div>
+            <div className="grid grid-cols-2 gap-2 sm:flex">
+              <button type="button" onClick={() => setComparedRooms([])} className="btn-outline min-h-10 rounded-xl px-3 text-xs">Clear</button>
+              <button type="button" onClick={() => setIsCompareOpen(true)} className="btn-primary min-h-10 rounded-xl px-3 text-xs">Compare</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isCompareOpen && comparedRooms.length > 0 && (
+        <CompareModal rooms={comparedRooms} onClose={() => setIsCompareOpen(false)} onRemove={removeComparedRoom} />
+      )}
+
       {isFilterSheetOpen && (
         <div className="fixed inset-x-0 bottom-[calc(var(--rr-bottom-nav-height)+env(safe-area-inset-bottom,0px))] top-[var(--rr-mobile-header-offset)] z-40 bg-light-bg shadow-2xl dark:bg-dark-bg lg:hidden">
           <FilterPanel
             filters={filters}
-            setFilters={setFilters}
+            setFilters={updateFilters}
             priceRange={priceRange}
             onApply={applyFilters}
             onClear={clearFilters}

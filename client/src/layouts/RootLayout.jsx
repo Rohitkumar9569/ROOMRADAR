@@ -4,6 +4,8 @@ import ScrollToTop from '../components/common/ScrollToTop';
 import Spinner from '../components/common/Spinner';
 import MaintenancePage from '../pages/MaintenancePage';
 import PWAInstallPrompt from '../components/common/PWAInstallPrompt';
+import CommandPalette from '../components/common/CommandPalette';
+import InstantInteractionLayer from '../components/common/InstantInteractionLayer';
 import UsageAnalyticsTracker from '../components/common/UsageAnalyticsTracker';
 import TabScrollRestoration from '../components/common/TabScrollRestoration';
 import BottomNavBar from '../components/layout/student/BottomNavBar';
@@ -11,6 +13,7 @@ import SmartAppHeader from '../components/layout/mobile/SmartAppHeader';
 import SupportLauncher from '../components/support/SupportLauncher';
 import { useAuth } from '../context/AuthContext';
 import { useSettings } from '../context/SettingsContext';
+import { useSocket } from '../context/SocketContext';
 import AccountRestrictedPage from '../pages/AccountRestrictedPage';
 import { getAccessScopeForPath, isAccountRestricted, isScopeRestricted } from '../utils/roleRestrictions';
 
@@ -19,6 +22,7 @@ const RoomRadarChatbot = lazy(() => import('../components/chatbot/RoomRadarChatb
 function RootLayout() {
     const location = useLocation();
     const { user } = useAuth();
+    const { unreadNotificationCount = 0 } = useSocket() || {};
     const { settings, loading } = useSettings();
     
     const path = location.pathname;
@@ -66,6 +70,13 @@ function RootLayout() {
         return () => cancel(handle);
     }, [showChatbot]);
 
+    useEffect(() => {
+        const count = Number(unreadNotificationCount || 0);
+        document.title = count > 0
+            ? `(${count > 99 ? '99+' : count}) New Message - RoomRadar`
+            : 'RoomRadar';
+    }, [unreadNotificationCount, path]);
+
     if (loading) {
         return (
             <div className="flex min-h-screen items-center justify-center bg-light-bg dark:bg-dark-bg">
@@ -92,6 +103,8 @@ function RootLayout() {
         <div className={`app-route-surface min-h-screen bg-light-bg text-light-text dark:bg-dark-bg dark:text-dark-text ${wrapperClass}`}>
             <UsageAnalyticsTracker />
             <TabScrollRestoration />
+            <InstantInteractionLayer />
+            <CommandPalette />
             {showAppHeader && <SmartAppHeader />}
             <Outlet />
             {showStudentBottomNav && <BottomNavBar />}

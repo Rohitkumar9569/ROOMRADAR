@@ -8,7 +8,7 @@ const RoomFilterDropdown = ({ rooms, selectedRoomId, onSelectRoom }) => {
     const [isOpen, setIsOpen] = useState(false);
     const dropdownRef = useRef(null);
 
-    const selectedRoom = rooms.find(r => r._id === selectedRoomId) || { title: 'Show All Rooms' };
+    const selectedRoom = rooms.find(r => String(r._id) === String(selectedRoomId)) || { title: 'Show All Rooms' };
 
     useEffect(() => {
         const handleClickOutside = (event) => {

@@ -1,6 +1,6 @@
 // src/components/ImageGallery.jsx
 
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { XMarkIcon, ChevronLeftIcon, ChevronRightIcon } from '@heroicons/react/24/solid';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -8,6 +8,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 const ImageModal = ({ images, initialIndex, onClose }) => {
     const [currentIndex, setCurrentIndex] = useState(initialIndex);
     const touchStartX = useRef(null);
+    const thumbnailRefs = useRef([]);
 
     const handleNext = () => {
         setCurrentIndex((prevIndex) => (prevIndex + 1) % images.length);
@@ -28,43 +29,154 @@ const ImageModal = ({ images, initialIndex, onClose }) => {
         touchStartX.current = null;
     };
 
+    useEffect(() => {
+        const previousOverflow = document.body.style.overflow;
+        document.body.style.overflow = 'hidden';
+
+        const handleKeyDown = (event) => {
+            if (event.key === 'Escape') onClose();
+            if (event.key === 'ArrowRight' && images.length > 1) handleNext();
+            if (event.key === 'ArrowLeft' && images.length > 1) handlePrev();
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        return () => {
+            document.body.style.overflow = previousOverflow;
+            window.removeEventListener('keydown', handleKeyDown);
+        };
+    }, [images.length, onClose]);
+
+    useEffect(() => {
+        thumbnailRefs.current[currentIndex]?.scrollIntoView?.({
+            behavior: 'smooth',
+            block: 'nearest',
+            inline: 'center',
+        });
+    }, [currentIndex]);
+
+    const currentImage = images[currentIndex] || images[0];
+
     return (
         <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black bg-opacity-90 z-[100] flex items-center justify-center"
-            onClick={onClose}
+            className="fixed inset-0 z-[10050] flex flex-col bg-light-bg text-light-text dark:bg-[#050505] dark:text-white"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Room photo gallery"
         >
-            <button onClick={onClose} className="absolute top-4 right-4 text-white p-2 bg-black/50 rounded-full">
-                <XMarkIcon className="h-8 w-8" />
-            </button>
+            <div className="flex h-16 flex-shrink-0 items-center justify-between gap-3 border-b border-light-border bg-white/96 px-3 shadow-sm dark:border-white/10 dark:bg-[#050505] dark:shadow-none sm:h-20 sm:px-6">
+                <div className="min-w-0">
+                    <p className="text-xs font-black uppercase tracking-[0.18em] text-light-muted dark:text-white/55">RoomRadar gallery</p>
+                    <p className="mt-1 text-sm font-black text-light-text dark:text-white sm:text-base">
+                        Photo {currentIndex + 1} of {images.length}
+                    </p>
+                </div>
+                <button
+                    type="button"
+                    onClick={onClose}
+                    className="inline-flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full bg-slate-900/5 text-slate-900 shadow-sm transition hover:bg-slate-900/10 active:scale-95 dark:bg-white/10 dark:text-white dark:shadow-none dark:hover:bg-white/20"
+                    aria-label="Close photo gallery"
+                >
+                    <XMarkIcon className="h-6 w-6" />
+                </button>
+            </div>
 
             {images.length > 1 && (
                 <>
-                    <button 
-                        onClick={(e) => { e.stopPropagation(); handlePrev(); }} 
-                        className="absolute left-4 top-1/2 -translate-y-1/2 text-white p-2 bg-black/50 rounded-full"
+                    <button
+                        type="button"
+                        onClick={handlePrev}
+                        className="absolute left-3 top-1/2 z-10 hidden h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-slate-950 shadow-2xl ring-1 ring-slate-200 transition hover:bg-white active:scale-95 dark:bg-white/12 dark:text-white dark:ring-white/10 dark:hover:bg-white/22 sm:left-6 md:inline-flex"
+                        aria-label="Previous photo"
                     >
-                        <ChevronLeftIcon className="h-8 w-8" />
+                        <ChevronLeftIcon className="h-7 w-7" />
                     </button>
-                    <button 
-                        onClick={(e) => { e.stopPropagation(); handleNext(); }} 
-                        className="absolute right-4 top-1/2 -translate-y-1/2 text-white p-2 bg-black/50 rounded-full"
+                    <button
+                        type="button"
+                        onClick={handleNext}
+                        className="absolute right-3 top-1/2 z-10 hidden h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-slate-950 shadow-2xl ring-1 ring-slate-200 transition hover:bg-white active:scale-95 dark:bg-white/12 dark:text-white dark:ring-white/10 dark:hover:bg-white/22 sm:right-6 md:inline-flex"
+                        aria-label="Next photo"
                     >
-                        <ChevronRightIcon className="h-8 w-8" />
+                        <ChevronRightIcon className="h-7 w-7" />
                     </button>
                 </>
             )}
 
             <div
-                className="max-w-4xl max-h-[80vh]"
-                onClick={(e) => e.stopPropagation()}
+                className="relative flex min-h-0 flex-1 items-center justify-center overflow-hidden bg-slate-100/75 px-0 py-3 dark:bg-[#050505] sm:px-6 sm:py-5"
                 onTouchStart={(event) => { touchStartX.current = event.touches[0].clientX; }}
                 onTouchEnd={handleTouchEnd}
             >
-                <img src={images[currentIndex]} alt={`Room view ${currentIndex + 1}`} className="max-h-[80vh] w-auto object-contain" decoding="async" />
+                <AnimatePresence mode="wait">
+                    <motion.img
+                        key={currentImage}
+                        src={currentImage}
+                        alt={`Room view ${currentIndex + 1}`}
+                        initial={{ opacity: 0, scale: 0.985 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.985 }}
+                        transition={{ duration: 0.16, ease: 'easeOut' }}
+                        className="h-full max-h-full w-full max-w-[min(100vw,118rem)] object-contain select-none"
+                        decoding="async"
+                        draggable="false"
+                    />
+                </AnimatePresence>
+
+                {images.length > 1 && (
+                    <div className="pointer-events-none absolute inset-x-0 bottom-3 flex justify-between px-3 md:hidden">
+                        <button
+                        type="button"
+                        onClick={handlePrev}
+                            className="pointer-events-auto inline-flex h-11 w-11 items-center justify-center rounded-full bg-white/92 text-slate-950 shadow-xl ring-1 ring-slate-200 active:scale-95 dark:bg-black/55 dark:text-white dark:ring-white/10"
+                            aria-label="Previous photo"
+                        >
+                            <ChevronLeftIcon className="h-6 w-6" />
+                        </button>
+                        <button
+                        type="button"
+                        onClick={handleNext}
+                            className="pointer-events-auto inline-flex h-11 w-11 items-center justify-center rounded-full bg-white/92 text-slate-950 shadow-xl ring-1 ring-slate-200 active:scale-95 dark:bg-black/55 dark:text-white dark:ring-white/10"
+                            aria-label="Next photo"
+                        >
+                            <ChevronRightIcon className="h-6 w-6" />
+                        </button>
+                    </div>
+                )}
             </div>
+
+            {images.length > 1 && (
+                <div className="flex flex-shrink-0 items-center gap-2 border-t border-light-border bg-white/96 px-3 py-3 shadow-[0_-12px_30px_-26px_rgba(15,23,42,0.45)] dark:border-white/10 dark:bg-black/45 dark:shadow-none sm:px-6">
+                    <div className="flex min-w-0 flex-1 gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                        {images.map((image, index) => (
+                            <button
+                                key={`${image}-${index}`}
+                                ref={(element) => { thumbnailRefs.current[index] = element; }}
+                                type="button"
+                                onClick={() => setCurrentIndex(index)}
+                                className={`relative h-16 w-20 flex-shrink-0 overflow-hidden rounded-xl border transition sm:h-20 sm:w-28 ${
+                                    index === currentIndex
+                                        ? 'border-slate-950 ring-2 ring-slate-950/20 dark:border-white dark:ring-white/55'
+                                        : 'border-slate-200 opacity-70 hover:opacity-100 dark:border-white/12 dark:opacity-60'
+                                }`}
+                                aria-label={`Open photo ${index + 1}`}
+                            >
+                                <img
+                                    src={image}
+                                    alt={`Room thumbnail ${index + 1}`}
+                                    className="h-full w-full object-cover"
+                                    loading="lazy"
+                                    decoding="async"
+                                />
+                            </button>
+                        ))}
+                    </div>
+                    <div className="hidden flex-shrink-0 rounded-full bg-slate-900/5 px-3 py-1.5 text-xs font-black text-slate-700 dark:bg-white/10 dark:text-white/80 sm:block">
+                        Use arrows or swipe
+                    </div>
+                </div>
+            )}
         </motion.div>
     );
 };

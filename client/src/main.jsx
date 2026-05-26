@@ -229,6 +229,7 @@ const router = createBrowserRouter(
                     {
                         element: <Suspense fallback={<Spinner />}><LandlordProfileLayout /></Suspense>,
                         children: [
+                            { index: true, element: <Navigate to="overview" replace /> },
                             { path: 'overview', element: <Suspense fallback={<Spinner />}><LandlordOverviewPage /></Suspense> },
                             { path: 'my-rooms', element: <Suspense fallback={<Spinner />}><MyRoomsPage /></Suspense> },
                             { path: 'add-room', element: <Suspense fallback={<Spinner />}><AddRoomPage /></Suspense> },
@@ -236,6 +237,7 @@ const router = createBrowserRouter(
                             { path: 'profile', element: <Suspense fallback={<Spinner />}><LandlordAboutMe /></Suspense> },
                             { path: 'calendar', element: <Suspense fallback={<Spinner />}><LandlordCalendarPage /></Suspense> },
                             { path: 'applications', element: <Suspense fallback={<Spinner />}><LandlordApplicationsPage /></Suspense> },
+                            { path: 'agreement/:applicationId', element: <Suspense fallback={<Spinner />}><RentalAgreementPage /></Suspense> },
                             { path: 'inbox', element: <Suspense fallback={<Spinner />}><InboxPage /></Suspense> },
                             { path: 'inbox/:conversationId', element: <Suspense fallback={<Spinner />}><InboxPage /></Suspense> },
                             // Premium Feature
@@ -252,6 +254,7 @@ const router = createBrowserRouter(
                     {
                         element: <Suspense fallback={<Spinner />}><AdminLayout /></Suspense>,
                         children: [
+                            { index: true, element: <Navigate to="dashboard" replace /> },
                             { path: 'dashboard', element: <Suspense fallback={<Spinner />}><AdminDashboardPage /></Suspense> },
                             { path: 'analytics', element: <Suspense fallback={<Spinner />}><AdminInsightsPage section="analytics" /></Suspense> },
                             { path: 'users', element: <Suspense fallback={<Spinner />}><UserManagementPage /></Suspense> },

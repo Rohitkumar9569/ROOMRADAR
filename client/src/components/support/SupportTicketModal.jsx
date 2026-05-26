@@ -46,6 +46,14 @@ const issueTypesByCategory = {
 
 const MAX_PROOF_FILES = 5;
 const MAX_PROOF_FILE_SIZE = 8 * 1024 * 1024;
+const ALLOWED_PROOF_FILE_TYPES = new Set([
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'image/heic',
+  'image/heif',
+  'application/pdf',
+]);
 
 const trimText = (value, maxLength) => String(value || '').trim().slice(0, maxLength);
 
@@ -146,9 +154,9 @@ function SupportTicketModal({
 
     const validFiles = [];
     incomingFiles.forEach((file) => {
-      const allowed = file.type.startsWith('image/') || file.type === 'application/pdf';
+      const allowed = ALLOWED_PROOF_FILE_TYPES.has(file.type);
       if (!allowed) {
-        toast.error('Only photos and PDF proof files are supported right now.');
+        toast.error('Only JPG, PNG, WEBP, HEIC, and PDF proof files are supported right now.');
         return;
       }
       if (file.size > MAX_PROOF_FILE_SIZE) {
@@ -356,7 +364,7 @@ function SupportTicketModal({
                 id="support-proof-files"
                 type="file"
                 multiple
-                accept="image/*,application/pdf"
+                accept="image/jpeg,image/png,image/webp,image/heic,image/heif,application/pdf"
                 className="sr-only"
                 onChange={handleProofFileChange}
               />

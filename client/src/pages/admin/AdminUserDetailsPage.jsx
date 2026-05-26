@@ -7,6 +7,10 @@ import { AlertTriangle, ArrowLeft, BadgeCheck, Calendar, FileText, Home, Mail, S
 import { format } from 'date-fns';
 import { confirmToast } from '../../utils/confirmToast';
 import { getScopeLabel, getScopeStatus, normalizeRoleScope } from '../../utils/roleRestrictions';
+import { notifyAdminCountsChanged } from '../../utils/adminEvents';
+import { triggerHaptic } from '../../utils/haptics';
+import { useAuth } from '../../context/AuthContext';
+import { hasAdminPermission } from '../../utils/adminPermissions';
 
 const allRoles = ['Student', 'Landlord', 'Admin', 'Super_Admin', 'Moderator', 'Support'];
 
@@ -151,6 +155,7 @@ const UserDetailTabs = ({ user }) => {
 const AdminUserDetailsPage = () => {
   const { userId } = useParams();
   const navigate = useNavigate();
+  const { user: currentAdmin } = useAuth();
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -173,6 +178,10 @@ const AdminUserDetailsPage = () => {
   useEffect(() => {
     fetchUserDetails();
   }, [fetchUserDetails]);
+
+  const canRestrictUsers = hasAdminPermission(currentAdmin, 'users:restrict');
+  const canManageRoles = hasAdminPermission(currentAdmin, 'users:roles');
+  const canVerifyUsers = hasAdminPermission(currentAdmin, 'users:verify');
 
   const handleBanUser = async (scope = 'account') => {
     const roleScope = normalizeRoleScope(scope);
@@ -197,9 +206,12 @@ const AdminUserDetailsPage = () => {
             roleScope,
             reason: 'RoomRadar Trust & Safety restricted this account after an admin review. Please check your recent listings, bookings, messages, and verification details before requesting a review.',
           });
+          triggerHaptic(isBanned ? 'success' : 'warning');
           toast.success(`${scopeLabel} successfully ${action}ned.`);
           setUser((currentUser) => ({ ...currentUser, ...data }));
+          notifyAdminCountsChanged();
         } catch (err) {
+          triggerHaptic('error');
           toast.error(err.response?.data?.message || `Failed to ${action} ${scopeLabel.toLowerCase()}.`);
         }
       },
@@ -209,10 +221,13 @@ const AdminUserDetailsPage = () => {
   const handleUpdateRoles = async (id, newRoles) => {
     try {
       await api.patch(`/admin/users/${id}/roles`, { roles: newRoles });
+      triggerHaptic('success');
       toast.success('User roles updated successfully.');
       setUser((currentUser) => ({ ...currentUser, roles: newRoles }));
       setIsModalOpen(false);
+      notifyAdminCountsChanged();
     } catch (err) {
+      triggerHaptic('error');
       toast.error(err.response?.data?.message || 'Failed to update roles.');
     }
   };
@@ -229,9 +244,12 @@ const AdminUserDetailsPage = () => {
             ? `/admin/users/${user._id}/revoke-verification`
             : `/admin/users/${user._id}/verify`;
           await api.patch(endpoint);
+          triggerHaptic(isCurrentlyVerified ? 'warning' : 'success');
           toast.success(`User verification has been ${isCurrentlyVerified ? 'revoked' : 'confirmed'}.`);
           setUser((currentUser) => ({ ...currentUser, isVerified: !isCurrentlyVerified }));
+          notifyAdminCountsChanged();
         } catch (err) {
+          triggerHaptic('error');
           toast.error(err.response?.data?.message || 'Failed to update verification status.');
         }
       },
@@ -271,15 +289,21 @@ const AdminUserDetailsPage = () => {
                     </div>
                   </div>
                   <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-                    <button onClick={() => setIsModalOpen(true)} className="rounded-2xl bg-white/15 px-4 py-2 text-sm font-black backdrop-blur transition hover:bg-white/25">
-                      Edit roles
-                    </button>
-                    <button onClick={handleVerificationToggle} className="rounded-2xl bg-white/15 px-4 py-2 text-sm font-black backdrop-blur transition hover:bg-white/25">
-                      {user.isVerified ? 'Revoke verify' : 'Verify'}
-                    </button>
-                    <button onClick={() => handleBanUser('account')} className="rounded-2xl bg-red-500 px-4 py-2 text-sm font-black transition hover:bg-red-600">
-                      {user.status === 'Banned' ? 'Unban account' : 'Ban account'}
-                    </button>
+                    {canManageRoles && (
+                      <button onClick={() => setIsModalOpen(true)} className="rounded-2xl bg-white/15 px-4 py-2 text-sm font-black backdrop-blur transition hover:bg-white/25">
+                        Edit roles
+                      </button>
+                    )}
+                    {canVerifyUsers && (
+                      <button onClick={handleVerificationToggle} className="rounded-2xl bg-white/15 px-4 py-2 text-sm font-black backdrop-blur transition hover:bg-white/25">
+                        {user.isVerified ? 'Revoke verify' : 'Verify'}
+                      </button>
+                    )}
+                    {canRestrictUsers && (
+                      <button onClick={() => handleBanUser('account')} className="rounded-2xl bg-red-500 px-4 py-2 text-sm font-black transition hover:bg-red-600">
+                        {user.status === 'Banned' ? 'Unban account' : 'Ban account'}
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
@@ -306,7 +330,8 @@ const AdminUserDetailsPage = () => {
                       <button
                         type="button"
                         onClick={() => handleBanUser(role)}
-                        className={`inline-flex min-h-10 items-center justify-center rounded-2xl px-4 text-sm font-black text-white transition active:scale-[0.98] ${isBanned ? 'bg-emerald-500' : 'bg-red-500'}`}
+                        disabled={!canRestrictUsers}
+                        className={`inline-flex min-h-10 items-center justify-center rounded-2xl px-4 text-sm font-black text-white transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-45 ${isBanned ? 'bg-emerald-500' : 'bg-red-500'}`}
                       >
                         {getScopeActionLabel(role, isBanned)}
                       </button>

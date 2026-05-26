@@ -3,12 +3,19 @@ import { NavLink, Link, useLocation } from 'react-router-dom';
 import { LogOut, Moon, Sun } from 'lucide-react';
 import { useAuth } from '../../../context/AuthContext';
 import { useTheme } from '../../../context/ThemeContext';
-import { adminNavigation } from '../../../config/adminNavigation';
+import { adminNavigation, formatAdminBadgeCount, getAdminNavigationBadge } from '../../../config/adminNavigation';
+import { canAccessAdminItem } from '../../../utils/adminPermissions';
 
-const AdminSidebar = () => {
+const AdminSidebar = ({ counts = {} }) => {
     const { user, logout } = useAuth();
     const { isDarkMode, toggleTheme } = useTheme();
     const location = useLocation();
+    const visibleNavigation = adminNavigation
+        .map((section) => ({
+            ...section,
+            items: section.items.filter((item) => canAccessAdminItem(user, item)),
+        }))
+        .filter((section) => section.items.length > 0);
 
     const isItemActive = (path) => {
         const [pathname, query] = path.split('?');
@@ -44,7 +51,7 @@ const AdminSidebar = () => {
             </div>
 
             <nav className="min-h-0 flex-1 space-y-5 overflow-y-auto pr-1">
-                {adminNavigation.map((section) => (
+                {visibleNavigation.map((section) => (
                     <div key={section.section}>
                         <p className="mb-2 px-3 text-xs font-black uppercase tracking-[0.16em] text-light-muted dark:text-dark-muted">
                             {section.section}
@@ -52,6 +59,7 @@ const AdminSidebar = () => {
                         <div className="space-y-1">
                             {section.items.map((item) => {
                                 const active = isItemActive(item.path);
+                                const badge = getAdminNavigationBadge(item, counts);
                                 return (
                                     <NavLink
                                         key={item.name}
@@ -63,7 +71,16 @@ const AdminSidebar = () => {
                                         }`}
                                     >
                                         <item.icon className={`h-4 w-4 ${active ? 'text-cyan-500' : 'text-light-muted group-hover:text-cyan-500 dark:text-dark-muted'}`} />
-                                        <span>{item.name}</span>
+                                        <span className="min-w-0 flex-1 truncate">{item.name}</span>
+                                        {badge > 0 && (
+                                            <span className={`rounded-full px-2 py-0.5 text-[10px] font-black leading-none ${
+                                                active
+                                                    ? 'bg-cyan-500 text-white'
+                                                    : 'bg-red-500/10 text-red-600 dark:bg-red-500/15 dark:text-red-300'
+                                            }`}>
+                                                {formatAdminBadgeCount(badge)}
+                                            </span>
+                                        )}
                                     </NavLink>
                                 );
                             })}

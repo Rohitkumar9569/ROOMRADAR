@@ -34,6 +34,8 @@ const { notFound, errorHandler } = require('./middleware/errorMiddleware');
 const app = express();
 const server = http.createServer(app);
 
+app.disable('x-powered-by');
+
 const envOrigins = (process.env.CLIENT_URL || '')
   .split(',')
   .map((origin) => origin.trim())
@@ -62,6 +64,12 @@ const corsOptions = {
 };
 
 app.use(cors(corsOptions));
+app.use((req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader('Permissions-Policy', 'geolocation=(self), camera=(self), microphone=(self)');
+  next();
+});
 app.use(express.json({ limit: '10mb' }));
 app.use(compression());
 
@@ -74,6 +82,16 @@ const io = new Server(server, {
 });
 
 app.set('io', io);
+
+app.get('/api/health', (req, res) => {
+  res.json({
+    ok: true,
+    service: 'roomradar-api',
+    uptime: Math.round(process.uptime()),
+    database: mongoose.connection.readyState === 1 ? 'connected' : 'not_connected',
+    timestamp: new Date().toISOString(),
+  });
+});
 
 app.use('/api/auth', authRoutes);
 app.use('/api/rooms', roomRoutes);

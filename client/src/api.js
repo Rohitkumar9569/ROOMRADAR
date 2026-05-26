@@ -1,8 +1,36 @@
 import axios from 'axios';
+import toast from 'react-hot-toast';
 import { API_URL } from './config/env';
 
 const API_ROOT = API_URL;
 const BASE_URL = API_ROOT.endsWith('/api') ? API_ROOT : `${API_ROOT}/api`;
+const SLOW_API_TOAST_ID = 'roomradar-slow-api';
+const SLOW_API_NOTICE_MS = Math.max(Number(import.meta.env.VITE_SLOW_API_NOTICE_MS || 12000), 3000);
+
+const shouldShowSlowApiNotice = (config = {}) => {
+  const url = String(config.url || '');
+  return !config.skipSlowApiNotice
+    && !url.includes('/upload')
+    && !url.includes('/usage')
+    && !url.includes('/search/autocomplete');
+};
+
+const clearSlowApiNotice = (config, { failed = false } = {}) => {
+  const metadata = config?.metadata;
+  if (!metadata?.slowApiTimer) return;
+
+  if (typeof window !== 'undefined') window.clearTimeout(metadata.slowApiTimer);
+  else clearTimeout(metadata.slowApiTimer);
+  metadata.slowApiTimer = null;
+
+  if (metadata.slowApiToastShown) {
+    if (failed) {
+      toast.error('Could not reach RoomRadar server. Please retry once.', { id: SLOW_API_TOAST_ID, duration: 5000 });
+    } else {
+      toast.success('Connected.', { id: SLOW_API_TOAST_ID, duration: 1400 });
+    }
+  }
+};
 
 const api = axios.create({
   baseURL: BASE_URL, 
@@ -25,9 +53,35 @@ api.interceptors.request.use(
         localStorage.removeItem('userInfo');
       }
     }
+
+    if (typeof window !== 'undefined' && shouldShowSlowApiNotice(config)) {
+      config.metadata = {
+        ...(config.metadata || {}),
+        slowApiToastShown: false,
+      };
+      config.metadata.slowApiTimer = window.setTimeout(() => {
+        config.metadata.slowApiToastShown = true;
+        toast.loading('RoomRadar server is waking up. First request can take a few seconds.', {
+          id: SLOW_API_TOAST_ID,
+          duration: 30000,
+        });
+      }, SLOW_API_NOTICE_MS);
+    }
+
     return config;
   },
   (error) => {
+    return Promise.reject(error);
+  }
+);
+
+api.interceptors.response.use(
+  (response) => {
+    clearSlowApiNotice(response.config);
+    return response;
+  },
+  (error) => {
+    clearSlowApiNotice(error.config, { failed: !error.response });
     return Promise.reject(error);
   }
 );

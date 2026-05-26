@@ -4,10 +4,11 @@ import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { debounce } from 'lodash';
 import toast from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MagnifyingGlassIcon, MapPinIcon, XCircleIcon } from '@heroicons/react/24/solid';
+import { MagnifyingGlassIcon, MapPinIcon, MicrophoneIcon, XCircleIcon } from '@heroicons/react/24/solid';
 import api from '../../../api';
 import { indianCities } from '../../../data/indianCities';
 import { saveSearchedLocation } from '../../../utils/mobileLocationAutofill';
+import { triggerHaptic } from '../../../utils/haptics';
 
 const getPlaceTitle = (place) => (
     place?.properties?.address_line1 ||
@@ -97,7 +98,10 @@ function SearchBar({ criteria, onCriteriaChange, onSearch, onClear, inputId = 'h
     const [suggestions, setSuggestions] = useState([]);
     const [suggestionsLoading, setSuggestionsLoading] = useState(false);
     const [activePopover, setActivePopover] = useState(null);
+    const [listening, setListening] = useState(false);
     const searchBarRef = useRef(null);
+    const recognitionRef = useRef(null);
+    const supportsVoiceSearch = typeof window !== 'undefined' && (window.SpeechRecognition || window.webkitSpeechRecognition);
 
     useEffect(() => {
         if (criteria.location) {
@@ -156,6 +160,7 @@ function SearchBar({ criteria, onCriteriaChange, onSearch, onClear, inputId = 'h
     const handleClear = (event) => {
         event?.preventDefault?.();
         event?.stopPropagation?.();
+        triggerHaptic('tap');
         setQuery('');
         setSuggestions([]);
         setActivePopover(null);
@@ -178,7 +183,46 @@ function SearchBar({ criteria, onCriteriaChange, onSearch, onClear, inputId = 'h
 
     const handleSubmitSearch = (event) => {
         event.preventDefault();
+        triggerHaptic('tap');
         runSearch();
+    };
+
+    const handleVoiceSearch = () => {
+        triggerHaptic('tap');
+        if (!supportsVoiceSearch) {
+            toast.error('Voice search is not supported in this browser.');
+            return;
+        }
+
+        if (listening && recognitionRef.current) {
+            recognitionRef.current.stop();
+            return;
+        }
+
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        const recognition = new SpeechRecognition();
+        recognition.lang = 'en-IN';
+        recognition.interimResults = false;
+        recognition.maxAlternatives = 1;
+
+        recognition.onstart = () => setListening(true);
+        recognition.onresult = (event) => {
+            const transcript = event.results?.[0]?.[0]?.transcript?.trim();
+            if (!transcript) return;
+            setQuery(transcript);
+            onCriteriaChange({ location: null, locationQuery: transcript });
+            setActivePopover('location');
+            debouncedFetch(transcript);
+            triggerHaptic('success');
+        };
+        recognition.onerror = () => {
+            toast.error('Could not capture voice search.');
+            triggerHaptic('error');
+        };
+        recognition.onend = () => setListening(false);
+
+        recognitionRef.current = recognition;
+        recognition.start();
     };
 
     useEffect(() => {
@@ -189,6 +233,10 @@ function SearchBar({ criteria, onCriteriaChange, onSearch, onClear, inputId = 'h
         };
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    useEffect(() => () => {
+        recognitionRef.current?.abort?.();
     }, []);
 
     useEffect(() => {
@@ -237,6 +285,20 @@ function SearchBar({ criteria, onCriteriaChange, onSearch, onClear, inputId = 'h
                         {(criteria.location || query) && (
                             <button type="button" onClick={handleClear} className="mr-1 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full text-gray-400 transition hover:bg-slate-100 hover:text-gray-600 dark:hover:bg-slate-800" aria-label="Clear location">
                                 <XCircleIcon className="h-5 w-5" />
+                            </button>
+                        )}
+                        {supportsVoiceSearch && (
+                            <button
+                                type="button"
+                                onClick={handleVoiceSearch}
+                                className={`mr-1 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full transition ${
+                                    listening
+                                        ? 'bg-rose-500 text-white shadow-lg shadow-rose-500/20'
+                                        : 'text-slate-500 hover:bg-cyan-50 hover:text-cyan-600 dark:text-slate-300 dark:hover:bg-cyan-500/10 dark:hover:text-cyan-200'
+                                }`}
+                                aria-label={listening ? 'Stop voice search' : 'Search by voice'}
+                            >
+                                <MicrophoneIcon className="h-5 w-5" />
                             </button>
                         )}
                     </div>

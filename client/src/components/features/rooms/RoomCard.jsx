@@ -1,46 +1,29 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
+import toast from 'react-hot-toast';
 import {
     Award,
     Bath,
-    CalendarDays,
-    Car,
     BedDouble,
+    CalendarDays,
     ChevronLeft,
     ChevronRight,
     Heart,
-    Home,
-    MapPin,
-    ReceiptText,
     ShieldCheck,
-    Sofa,
     Star,
     Trash2,
-    Utensils,
-    User,
-    Users,
-    Users2,
-    WalletCards,
-    Wifi,
-    Wind,
-    Zap,
     ImageOff,
+    MapPin,
+    Users,
 } from 'lucide-react';
 import PropTypes from 'prop-types';
 import { useAuth } from '../../../context/AuthContext';
 import { formatListingTitle } from '../../../utils/listingDisplay';
 import { trackUsageEvent } from '../../../utils/usageAnalytics';
+import { triggerHaptic } from '../../../utils/haptics';
 
 const money = (value) => `\u20B9${Number(value || 0).toLocaleString('en-IN')}`;
 const DAY_MS = 24 * 60 * 60 * 1000;
-
-const compactMoney = (value) => {
-    const amount = Number(String(value ?? '').replace(/[^\d.-]/g, ''));
-    if (!Number.isFinite(amount) || amount < 0) return '';
-    if (amount >= 100000) return `\u20B9${(amount / 100000).toFixed(amount % 100000 === 0 ? 0 : 1)}L`;
-    if (amount >= 1000) return `\u20B9${Math.round(amount / 1000)}k`;
-    return `\u20B9${amount.toLocaleString('en-IN')}`;
-};
 
 const normalizeRoomTypeLabel = (type = '') => {
     const value = String(type || '').trim();
@@ -87,89 +70,10 @@ const getWashroomLabel = (room = {}) => {
     return '';
 };
 
-const getMoveInLabel = (value) => {
-    if (!value) return '';
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return '';
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    if (date <= today) return 'Available now';
-    return `Move-in ${date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}`;
-};
-
-const getElectricityLabel = (value = '') => {
-    if (/included/i.test(value)) return 'Electricity included';
-    if (/metered/i.test(value)) return 'Metered electricity';
-    if (/fixed/i.test(value)) return 'Fixed electricity';
-    if (/not included/i.test(value)) return 'Electricity extra';
-    return '';
-};
-
-const getDistanceLabel = (value) => {
-    const distance = Number(value);
-    if (!Number.isFinite(distance) || distance <= 0) return '';
-    if (distance < 1) return `${Math.max(100, Math.round(distance * 1000))} m away`;
-    return `${distance.toFixed(distance < 10 ? 1 : 0)} km away`;
-};
-
-const getCompactTagText = (key = '', text = '') => {
-    const value = String(text || '').trim();
-    if (!value) return '';
-
-    if (key === 'tenant') {
-        if (/women/i.test(value)) return 'Women';
-        if (/men/i.test(value)) return 'Men';
-        if (/family/i.test(value)) return 'Family';
-        if (/bachelor/i.test(value)) return 'Bachelors';
-    }
-
-    if (key === 'room-type') {
-        const bhkMatch = value.match(/(\d+)\s*BHK/i);
-        if (bhkMatch) return `${bhkMatch[1]} BHK`;
-        if (/shared/i.test(value)) return 'Shared room';
-        if (/single/i.test(value)) return 'Single room';
-        if (/pg/i.test(value)) return 'PG';
-        return value.replace(/\s*\([^)]*\)/g, '').replace(/\s+room\b/i, '').trim();
-    }
-
-    if (key === 'category') return value;
-    if (key === 'instant') return 'Instant';
-    if (key === 'washroom') return value;
-    if (key === 'deposit') return value;
-    if (key === 'electricity') return /included/i.test(value) ? 'Electricity' : 'Metered';
-    if (key === 'available') return value.replace(/^Move-in\s+/i, '');
-    if (key === 'distance') return value.replace(/\s+away$/i, '');
-    if (key === 'occupancy') return value.replace(/^Up to\s+/i, '').replace(/\s+people$/i, ' guests');
-    if (key === 'beds') return value.replace(/\s+beds?/i, ' bed');
-    if (key === 'wifi') return 'WiFi';
-    if (key === 'ac') return 'AC';
-    if (key === 'powerBackup') return 'Power';
-    if (key === 'security') return 'Security';
-    if (key === 'payment') return /offline/i.test(value) ? 'Offline pay' : 'Online pay';
-
-    return value.length > 12 ? `${value.slice(0, 11).trim()}...` : value;
-};
-
-const pushUniqueTag = (tags, tag) => {
-    if (!tag?.text) return;
-    const key = tag.key || tag.text.toLowerCase();
-    if (tags.some((item) => (item.key || item.text.toLowerCase()) === key)) return;
-    tags.push({ ...tag, key });
-};
-
 const getImageUrl = (image) => {
     if (!image) return '';
     if (typeof image === 'string') return image.trim();
     return String(image.url || image.secure_url || image.imageUrl || '').trim();
-};
-
-const normalizeStatusLabel = (status = '') => {
-    const value = String(status || '').replace(/_/g, ' ').trim();
-    if (!value) return '';
-    return value
-        .split(/\s+/)
-        .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
-        .join(' ');
 };
 
 const getRealLocationLabel = (room = {}) => {
@@ -179,7 +83,6 @@ const getRealLocationLabel = (room = {}) => {
         location.landmark,
         location.city || room.city,
         location.state,
-        location.pincode || location.postalCode,
     ]
         .map((item) => String(item || '').trim())
         .filter(Boolean);
@@ -350,9 +253,10 @@ function RoomCard({ room, context = 'default', trackingContext, onRemove, imageP
     const isWishlisted = Boolean(user?.wishlist?.some((item) => String(item?._id || item) === String(roomId)));
     const rating = cardRoom.averageRating || cardRoom.rating;
     const isGuestFavourite = Number(rating || 0) >= 4.8;
-    const handleWishlistClick = useCallback((event) => {
+    const handleWishlistClick = useCallback(async (event) => {
         event.preventDefault();
         event.stopPropagation();
+        triggerHaptic('tap');
         if (isSavedContext && onRemove) {
             onRemove(roomId);
             trackUsageEvent('wishlist_remove', {
@@ -364,9 +268,16 @@ function RoomCard({ room, context = 'default', trackingContext, onRemove, imageP
             });
             return;
         }
-        if (!user) return;
+        if (!user) {
+            toast.error('Please log in to save rooms.');
+            return;
+        }
         if (isWishlisted) {
-            removeFromWishlist(roomId);
+            const removed = await removeFromWishlist(roomId);
+            if (!removed) {
+                toast.error('Could not update wishlist.');
+                return;
+            }
             trackUsageEvent('wishlist_remove', {
                 metadata: {
                     roomId,
@@ -375,7 +286,11 @@ function RoomCard({ room, context = 'default', trackingContext, onRemove, imageP
                 },
             });
         } else {
-            addToWishlist(roomId);
+            const added = await addToWishlist(roomId);
+            if (!added) {
+                toast.error('Could not update wishlist.');
+                return;
+            }
             trackUsageEvent('wishlist_add', {
                 metadata: {
                     roomId,
@@ -549,101 +464,19 @@ function RoomCard({ room, context = 'default', trackingContext, onRemove, imageP
     const imageFetchPriority = imagePriority ? 'high' : 'auto';
     const indicatorCount = Math.min(imageUrls.length, 5);
     const activeIndicatorIndex = indicatorCount > 0 ? currentImageIndex % indicatorCount : 0;
-    const detailTags = useMemo(() => {
-        const tags = [];
-        const facilities = cardRoom.facilities || {};
-        const tenantLabel = getTenantLabel(cardRoom);
-        const washroomLabel = getWashroomLabel(cardRoom);
-        const depositAmount = Number(String(cardRoom.securityDeposit ?? '').replace(/[^\d.-]/g, ''));
-        const moveInLabel = getMoveInLabel(cardRoom.availableFrom);
-        const electricityLabel = getElectricityLabel(cardRoom.electricityBilling);
-        const distanceLabel = getDistanceLabel(cardRoom._match?.distanceKm ?? cardRoom._recommendation?.distanceKm);
-        const roomTypeLabel = cardRoom.roomType
-            ? normalizeRoomTypeLabel(cardRoom.roomType)
-            : '';
-        const listingCategory = String(cardRoom.listingCategory || '').trim();
-        const shouldShowCategory = listingCategory
-            && !['Room', 'Other'].includes(listingCategory)
-            && !String(roomTypeLabel || '').toLowerCase().includes(listingCategory.toLowerCase());
-
-        pushUniqueTag(tags, distanceLabel && { key: 'distance', Icon: MapPin, text: distanceLabel, tone: 'accent' });
-        pushUniqueTag(tags, shouldShowCategory && { key: 'category', Icon: Award, text: listingCategory, tone: 'accent' });
-        pushUniqueTag(tags, roomTypeLabel && { key: 'room-type', Icon: Home, text: roomTypeLabel, tone: 'accent' });
-        pushUniqueTag(tags, tenantLabel && {
-            key: 'tenant',
-            Icon: tenantLabel.includes('Women') || tenantLabel.includes('Men') ? User : Users2,
-            text: tenantLabel,
-            tone: 'accent',
-        });
-        pushUniqueTag(tags, cardRoom.instantBook && { key: 'instant', Icon: Zap, text: 'Instant book', tone: 'accent' });
-        pushUniqueTag(tags, washroomLabel && { key: 'washroom', Icon: Bath, text: washroomLabel, tone: 'accent' });
-        pushUniqueTag(tags, facilities.meals && { key: 'meals', Icon: Utensils, text: 'Meals included', tone: 'accent' });
-        pushUniqueTag(tags, Number.isFinite(depositAmount) && depositAmount > 0 && {
-            key: 'deposit',
-            Icon: ReceiptText,
-            text: `Deposit ${compactMoney(depositAmount)}`,
-            tone: 'muted',
-        });
-        pushUniqueTag(tags, electricityLabel && { key: 'electricity', Icon: Zap, text: electricityLabel, tone: /included/i.test(electricityLabel) ? 'accent' : 'muted' });
-        pushUniqueTag(tags, cardRoom.furnishingStatus && { key: 'furnishing', Icon: Sofa, text: cardRoom.furnishingStatus.replace('Semi Furnished', 'Semi furnished'), tone: 'muted' });
-        pushUniqueTag(tags, moveInLabel && { key: 'available', Icon: CalendarDays, text: moveInLabel, tone: 'muted' });
-        pushUniqueTag(tags, Number(cardRoom.maxOccupants || 0) > 1 && {
-            key: 'occupancy',
-            Icon: Users,
-            text: `Up to ${cardRoom.maxOccupants} people`,
-            tone: 'muted',
-        });
-        pushUniqueTag(tags, Number(cardRoom.beds || 0) > 0 && {
-            key: 'beds',
-            Icon: BedDouble,
-            text: `${cardRoom.beds} bed${Number(cardRoom.beds) > 1 ? 's' : ''}`,
-            tone: 'muted',
-        });
-
-        [
-            ['wifi', Wifi, 'WiFi included'],
-            ['ac', Wind, 'AC room'],
-            ['parking', Car, 'Parking'],
-            ['powerBackup', Zap, 'Power backup'],
-            ['security', ShieldCheck, '24x7 security'],
-        ].forEach(([key, Icon, text]) => {
-            pushUniqueTag(tags, facilities[key] && { key, Icon, text, tone: 'muted' });
-        });
-
-        pushUniqueTag(tags, cardRoom.paymentPreference && {
-            key: 'payment',
-            Icon: WalletCards,
-            text: /offline/i.test(cardRoom.paymentPreference) ? 'Offline pay ok' : 'Online payment',
-            tone: 'muted',
-        });
-
-        return tags.slice(0, 4);
-    }, [cardRoom]);
-
     const displayTitle = formatListingTitle(cardRoom.title, '');
     const rentAmount = Number(cardRoom.rent);
     const pricePerNight = Number(cardRoom.pricePerNight || 0);
     const pricingMode = String(cardRoom.pricingMode || 'monthly').toLowerCase();
     const displayPriceAmount = pricingMode !== 'monthly' && pricePerNight > 0 ? pricePerNight : rentAmount;
-    const priceUnitCompact = pricingMode === 'nightly' ? '/night' : pricingMode === 'daily' ? '/day' : '/mo';
     const priceUnitFull = pricingMode === 'nightly' ? '/night' : pricingMode === 'daily' ? '/day' : '/month';
     const city = String(cardRoom.location?.city || cardRoom.city || '').trim();
     const locationLabel = getRealLocationLabel(cardRoom);
-    const statusLabel = normalizeStatusLabel(cardRoom.status);
     const isBookedStatus = ['booked', 'confirmed'].includes(String(cardRoom.status || '').toLowerCase());
 
     if (!roomId || !displayTitle || !Number.isFinite(rentAmount) || rentAmount <= 0 || !city) return null;
 
     const landlord = room.landlord && typeof room.landlord === 'object' ? room.landlord : {};
-    const landlordProfile = landlord.roleProfiles?.landlord || {};
-    const hostName = landlordProfile.name || landlord.name || room.landlordName || '';
-    const hostAvatar = landlordProfile.avatarUrl || landlordProfile.profilePicture || landlord.avatarUrl || landlord.profilePicture;
-    const hostInitials = hostName
-        .split(' ')
-        .filter(Boolean)
-        .slice(0, 2)
-        .map((part) => part[0]?.toUpperCase())
-        .join('') || 'RR';
     const isVerifiedHost = Boolean(
         landlord.isVerified
         || landlord.kyc_status === 'Verified'
@@ -652,6 +485,34 @@ function RoomCard({ room, context = 'default', trackingContext, onRemove, imageP
         || landlord.verifications?.property
     );
     const showNewBadge = isRecentListing(cardRoom.createdAt);
+    const roomTypeSummary = cardRoom.roomType
+        ? normalizeRoomTypeLabel(cardRoom.roomType)
+        : String(cardRoom.listingCategory || 'Room').trim();
+    const tenantSummary = getTenantLabel(cardRoom);
+    const washroomSummary = getWashroomLabel(cardRoom);
+    const bedSummary = Number(cardRoom.beds || 0) > 0
+        ? `${cardRoom.beds} bed${Number(cardRoom.beds) > 1 ? 's' : ''}`
+        : '';
+    const detailHighlights = [
+        { key: 'tenant', label: tenantSummary, Icon: Users },
+        { key: 'bath', label: washroomSummary, Icon: Bath },
+        { key: 'beds', label: bedSummary, Icon: BedDouble },
+    ]
+        .map((item) => ({ ...item, label: String(item.label || '').trim() }))
+        .filter((item) => item.label)
+        .slice(0, 3);
+    const eyebrowLabel = `${roomTypeSummary || 'Room'} in ${city}`;
+    const isVerifiedListing = Boolean(isGuestFavourite || isVerifiedHost || cardRoom.verifications?.property);
+    const primaryBadge = isBookedStatus
+        ? { label: 'Booked', Icon: CalendarDays, className: 'rr-booked-badge' }
+        : isGuestFavourite
+            ? { label: 'Guest fav', Icon: Award, className: 'rr-verify-badge is-guest-fav' }
+            : isVerifiedListing
+                ? { label: 'Verified', Icon: ShieldCheck, className: 'rr-verify-badge' }
+                : showNewBadge
+                    ? { label: 'New', Icon: Star, className: 'rr-new-badge' }
+                    : null;
+    const PrimaryBadgeIcon = primaryBadge?.Icon;
 
     return (
         <article
@@ -674,14 +535,14 @@ function RoomCard({ room, context = 'default', trackingContext, onRemove, imageP
                                 key={imageUrls[currentImageIndex]}
                                 src={imageUrls[currentImageIndex]}
                                 alt={displayTitle}
-                                className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.025]"
+                                className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.018]"
                                 loading={imageLoading}
                                 decoding="async"
                                 fetchpriority={imageFetchPriority}
                                 sizes="(max-width: 639px) 100vw, (max-width: 1023px) 50vw, 280px"
                                 draggable="false"
                             />
-                            <div className="absolute inset-0 bg-gradient-to-t from-slate-950/52 via-transparent to-black/10 opacity-80" />
+                            <div className="absolute inset-0 bg-gradient-to-t from-slate-950/18 via-transparent to-black/8 opacity-70" />
                         </>
                     ) : (
                         <div className="flex h-full w-full flex-col items-center justify-center bg-zinc-100 text-center text-zinc-500 dark:bg-zinc-900 dark:text-zinc-400">
@@ -690,29 +551,19 @@ function RoomCard({ room, context = 'default', trackingContext, onRemove, imageP
                         </div>
                     )}
 
-                    {(isBookedStatus || isGuestFavourite || isVerifiedHost || room.verifications?.property) && (
-                        <div className="rr-card-badge-stack absolute left-2.5 top-2.5 flex max-w-[70%] flex-col items-start gap-1.5 sm:left-4 sm:top-4">
-                            {isBookedStatus && (
-                                <span className="rr-card-badge rr-booked-badge">
-                                    <span className="rr-card-badge-icon">
-                                        <CalendarDays />
-                                    </span>
-                                    <span className="rr-overlay-label">Booked</span>
+                    {primaryBadge && (
+                        <div className="rr-card-badge-stack absolute left-2.5 top-2.5 flex max-w-[70%] items-start sm:left-4 sm:top-4">
+                            <span className={`rr-card-badge ${primaryBadge.className}`}>
+                                <span className="rr-card-badge-icon">
+                                    {PrimaryBadgeIcon && <PrimaryBadgeIcon />}
                                 </span>
-                            )}
-                            {(isGuestFavourite || isVerifiedHost || room.verifications?.property) && (
-                                <span className={`rr-card-badge rr-verify-badge ${isGuestFavourite ? 'is-guest-fav' : ''}`}>
-                                    <span className="rr-card-badge-icon">
-                                        {isGuestFavourite ? <Award /> : <ShieldCheck />}
-                                    </span>
-                                    <span className="rr-overlay-label">{isGuestFavourite ? 'Guest fav' : 'Verified'}</span>
-                                </span>
-                            )}
+                                <span className="rr-overlay-label">{primaryBadge.label}</span>
+                            </span>
                         </div>
                     )}
 
                     <div className="absolute right-2.5 top-2.5 flex flex-col items-end gap-2 sm:right-4 sm:top-4">
-                        {showNewBadge && (
+                        {showNewBadge && primaryBadge?.label !== 'New' && (
                             <span className="rr-card-badge rr-new-badge">
                                 <span className="rr-card-badge-icon">
                                     <Star />
@@ -733,19 +584,6 @@ function RoomCard({ room, context = 'default', trackingContext, onRemove, imageP
                                     <Heart />
                                 )}
                             </button>
-                        )}
-                    </div>
-
-                    <div className="absolute bottom-2.5 left-2.5 right-2.5 flex items-end justify-between gap-2 sm:bottom-4 sm:left-4 sm:right-4">
-                        <span className={`rr-location-badge ${rating ? 'has-side-badge' : 'is-wide'}`}>
-                            <MapPin />
-                            <span>{city}</span>
-                        </span>
-                        {rating && (
-                            <span className="rr-rating-badge">
-                                <Star />
-                                {Number(rating).toFixed(1)}
-                            </span>
                         )}
                     </div>
 
@@ -786,84 +624,44 @@ function RoomCard({ room, context = 'default', trackingContext, onRemove, imageP
                     )}
                 </div>
 
-                <div className="rr-room-card-body flex flex-1 flex-col px-2.5 pb-2.5 pt-2.5 sm:p-5">
-                    <div className="min-w-0 flex-1">
-                        <div className="rr-card-title-row mb-1.5 min-w-0">
-                            <h3 className="rr-room-card-title rr-line-clamp-2 min-w-0 text-[12.5px] font-black leading-[1.18] text-light-text dark:text-dark-text min-[390px]:text-[13.25px] sm:text-[17px] sm:leading-[1.3]">
-                                {displayTitle}
-                            </h3>
-                        </div>
-                        <div className="rr-card-price-row mb-1.5 flex min-w-0 items-center justify-between gap-1.5 sm:hidden">
-                            <p className="rr-card-price-compact min-w-0">
-                                <span className="text-[13.5px] font-black leading-none text-light-text dark:text-dark-text">{money(displayPriceAmount)}</span>
-                                <span className="ml-0.5 text-[8.5px] font-bold leading-none text-light-muted dark:text-dark-muted">{priceUnitCompact}</span>
-                            </p>
-                            {statusLabel && <span className={`rr-card-mini-status ${isBookedStatus ? 'is-booked' : ''}`}>{isBookedStatus ? 'Booked' : statusLabel}</span>}
-                        </div>
-                        {locationLabel && (
-                            <p className="rr-room-card-location mb-2 flex min-w-0 items-start gap-1 text-[9.5px] font-semibold leading-[1.16] text-light-muted dark:text-dark-muted sm:text-[12px]">
-                                <MapPin className="h-3.5 w-3.5 flex-shrink-0 text-cyan-500" />
-                                <span className="rr-line-clamp-2 min-w-0">{locationLabel}</span>
-                            </p>
-                        )}
+                <div className="rr-room-card-body flex flex-1 flex-col p-3 sm:p-4">
+                    <p className="rr-card-eyebrow min-w-0 truncate text-[11px] font-bold leading-tight text-light-muted dark:text-dark-muted sm:text-[12px]">
+                        {eyebrowLabel}
+                    </p>
+
+                    <h3 className="rr-room-card-title rr-line-clamp-2 min-w-0 text-[15px] font-black leading-tight text-light-text dark:text-dark-text sm:text-[17px]">
+                        {displayTitle}
+                    </h3>
+
+                    <div className="rr-card-detail-chips">
+                        {(detailHighlights.length ? detailHighlights : [{ key: 'type', label: roomTypeSummary, Icon: ShieldCheck }]).slice(0, 3).map(({ key, label, Icon }) => (
+                            <span key={`${key}-${label}`} className="rr-card-detail-chip">
+                                <Icon className="rr-card-detail-icon" />
+                                <span>{label}</span>
+                            </span>
+                        ))}
                     </div>
 
-                    {hostName && (
-                        <div className="rr-host-inline rr-room-card-host mb-3 min-w-0 items-center gap-2">
-                            {hostAvatar ? (
-                                <img
-                                    src={hostAvatar}
-                                    alt={hostName}
-                                    className="h-5 w-5 flex-shrink-0 rounded-full object-cover ring-2 ring-white dark:ring-dark-border sm:h-6 sm:w-6"
-                                    loading="lazy"
-                                    decoding="async"
-                                />
-                            ) : (
-                                <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-cyan-500/15 text-[9px] font-bold text-cyan-700 dark:bg-cyan-500/20 dark:text-cyan-300 sm:h-6 sm:w-6 sm:text-[10px]">
-                                    {hostInitials}
-                                </span>
-                            )}
-                            <span className="min-w-0 truncate text-[11px] font-medium text-light-muted dark:text-dark-muted sm:text-[12px]">
-                                Host <span className="font-bold text-light-text dark:text-dark-text">{hostName}</span>
-                            </span>
-                            <ShieldCheck className={`h-4 w-4 flex-shrink-0 ${isVerifiedHost ? 'text-emerald-600' : 'text-amber-500'}`} />
-                        </div>
+                    {locationLabel && (
+                        <p className="rr-room-card-location min-w-0 text-[11px] font-semibold leading-5 text-light-muted/90 dark:text-dark-muted sm:text-xs">
+                            <MapPin className="h-3.5 w-3.5 flex-shrink-0" />
+                            <span>{locationLabel}</span>
+                        </p>
                     )}
 
-                    {detailTags.length > 0 && (
-                        <div className="rr-room-card-tags mb-1.5 grid min-w-0 grid-cols-2 gap-1.5 sm:mb-4 sm:flex sm:flex-wrap sm:gap-2.5">
-                            {detailTags.map(({ Icon, text, tone, key: tagKey }, tagIndex) => (
-                                <span
-                                    key={`${text}-${tagIndex}`}
-                                    title={text}
-                                    className={`rr-feature-pill inline-flex min-w-0 items-start gap-1 rounded-lg px-1.5 py-1.5 text-[9.5px] font-bold leading-tight sm:px-3 sm:py-2 sm:text-[11px] ${
-                                        tone === 'accent'
-                                            ? 'bg-cyan-50 text-cyan-700 dark:bg-cyan-500/15 dark:text-cyan-200'
-                                            : 'bg-light-bg text-light-muted dark:bg-dark-input dark:text-dark-muted'
-                                    } ${tagIndex > 2 ? 'rr-wide-only' : ''}`}
-                                >
-                                    <Icon className="mt-[1px] h-3.5 w-3.5 flex-shrink-0 sm:h-4 sm:w-4" />
-                                    <span className="rr-feature-label rr-feature-label-full min-w-0">{text}</span>
-                                    <span className="rr-feature-label rr-feature-label-compact min-w-0">{getCompactTagText(tagKey, text)}</span>
-                                </span>
-                            ))}
-                        </div>
-                    )}
-
-                    <div className="rr-room-card-footer mt-auto hidden items-end justify-between gap-3 border-t border-black/[0.08] pt-3 dark:border-white/[0.08] sm:flex sm:gap-4 sm:pt-4">
+                    <div className="rr-room-card-footer mt-auto flex items-end justify-between gap-3 pt-3 sm:pt-4">
                         <p className="min-w-0">
-                            <span className="rr-room-card-price text-[15px] font-bold leading-none text-light-text dark:text-dark-text min-[390px]:text-base sm:text-lg">
+                            <span className="rr-room-card-price text-[17px] font-black leading-none text-light-text dark:text-dark-text sm:text-xl">
                                 {money(displayPriceAmount)}
                             </span>
-                            <span className="rr-room-card-price-unit ml-1 text-[11px] font-normal text-light-muted dark:text-dark-muted sm:text-xs">{priceUnitFull}</span>
+                            <span className="rr-room-card-price-unit ml-1 text-xs font-semibold text-light-muted dark:text-dark-muted">{priceUnitFull}</span>
                         </p>
-                        <span className={`rr-room-card-view-btn hidden rounded-full px-3 py-2 text-xs font-bold transition sm:inline-flex ${
-                            isBookedStatus
-                                ? 'bg-slate-200 text-slate-700 group-hover:bg-slate-300 dark:bg-zinc-800 dark:text-zinc-200'
-                                : 'bg-brand text-white group-hover:bg-red-600'
-                        }`}>
-                            {isBookedStatus ? 'Booked' : 'View'}
-                        </span>
+                        {rating && (
+                            <span className="rr-card-body-rating inline-flex flex-shrink-0 items-center gap-1 text-[11px] font-black text-light-text dark:text-dark-text sm:text-xs">
+                                <Star className="h-3.5 w-3.5 fill-current text-amber-500" />
+                                {Number(rating).toFixed(1)}
+                            </span>
+                        )}
                     </div>
                 </div>
             </Link>

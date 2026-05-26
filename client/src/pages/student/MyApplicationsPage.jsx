@@ -87,12 +87,18 @@ const StayChangeModal = ({ application, onClose, onSuccess }) => {
     const currentDate = application?.checkOutDate ? format(new Date(application.checkOutDate), 'dd MMM yyyy') : 'Not set';
     const selectedDate = requestedCheckOutDate ? new Date(`${requestedCheckOutDate}T00:00:00`) : null;
     const currentDateObj = application?.checkOutDate ? new Date(application.checkOutDate) : null;
+    const minCheckOutDate = application?.checkInDate ? format(new Date(application.checkInDate), 'yyyy-MM-dd') : '';
+    const minCheckOutDateObj = minCheckOutDate ? new Date(`${minCheckOutDate}T00:00:00`) : null;
     const changeType = selectedDate && currentDateObj && selectedDate > currentDateObj ? 'Extension request' : 'Move-out request';
 
     const handleSubmit = async (event) => {
         event.preventDefault();
         if (!requestedCheckOutDate || requestedCheckOutDate === currentCheckOut) {
             toast.error('Choose a new move-out date.');
+            return;
+        }
+        if (selectedDate && minCheckOutDateObj && selectedDate <= minCheckOutDateObj) {
+            toast.error('Move-out date must be after move-in date.');
             return;
         }
 
@@ -141,6 +147,7 @@ const StayChangeModal = ({ application, onClose, onSuccess }) => {
                             <span className="text-[10px] font-black uppercase text-cyan-700 dark:text-cyan-200">New move-out</span>
                             <input
                                 type="date"
+                                min={minCheckOutDate}
                                 value={requestedCheckOutDate}
                                 onChange={(event) => setRequestedCheckOutDate(event.target.value)}
                                 className="mt-1 w-full rounded-xl border border-cyan-200 bg-white px-2 py-2 text-sm font-black outline-none dark:border-cyan-400/20 dark:bg-slate-950"

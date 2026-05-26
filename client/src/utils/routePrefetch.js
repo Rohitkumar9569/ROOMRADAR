@@ -1,4 +1,5 @@
 const prefetchedRoutes = new Set();
+const prefetchedLoaders = new WeakSet();
 
 const routePrefetchers = [
   {
@@ -10,6 +11,30 @@ const routePrefetchers = [
     load: () => Promise.all([
       import('../layouts/StudentPagesLayout.jsx'),
       import('../pages/student/SearchPage.jsx'),
+    ]),
+  },
+  {
+    test: (path) => /^\/room\/[^/]+\/book(?:[/?#]|$)/.test(path),
+    load: () => Promise.all([
+      import('../components/features/auth/ProtectedRoute.jsx'),
+      import('../layouts/StudentPagesLayout.jsx'),
+      import('../pages/student/BookingPage.jsx'),
+    ]),
+  },
+  {
+    test: (path) => /^\/room\/[^/]+(?:[/?#]|$)/.test(path),
+    load: () => Promise.all([
+      import('../layouts/StudentPagesLayout.jsx'),
+      import('../pages/student/RoomDetailsPage.jsx'),
+    ]),
+  },
+  {
+    test: (path) => path.startsWith('/profile/overview'),
+    load: () => Promise.all([
+      import('../components/features/auth/ProtectedRoute.jsx'),
+      import('../layouts/StudentPagesLayout.jsx'),
+      import('../layouts/StudentProfileLayout.jsx'),
+      import('../pages/student/OverviewPage.jsx'),
     ]),
   },
   {
@@ -26,6 +51,33 @@ const routePrefetchers = [
       import('../layouts/StudentPagesLayout.jsx'),
       import('../layouts/StudentProfileLayout.jsx'),
       import('../pages/student/MyApplicationsPage.jsx'),
+    ]),
+  },
+  {
+    test: (path) => path.startsWith('/profile/payment'),
+    load: () => Promise.all([
+      import('../components/features/auth/ProtectedRoute.jsx'),
+      import('../layouts/StudentPagesLayout.jsx'),
+      import('../layouts/StudentProfileLayout.jsx'),
+      import('../pages/student/PaymentPage.jsx'),
+    ]),
+  },
+  {
+    test: (path) => path.startsWith('/profile/agreement'),
+    load: () => Promise.all([
+      import('../components/features/auth/ProtectedRoute.jsx'),
+      import('../layouts/StudentPagesLayout.jsx'),
+      import('../layouts/StudentProfileLayout.jsx'),
+      import('../pages/student/RentalAgreementPage.jsx'),
+    ]),
+  },
+  {
+    test: (path) => path.startsWith('/profile/report-damage'),
+    load: () => Promise.all([
+      import('../components/features/auth/ProtectedRoute.jsx'),
+      import('../layouts/StudentPagesLayout.jsx'),
+      import('../layouts/StudentProfileLayout.jsx'),
+      import('../pages/student/ReportDamagesPage.jsx'),
     ]),
   },
   {
@@ -46,6 +98,15 @@ const routePrefetchers = [
   {
     test: (path) => path === '/login' || path === '/signup',
     load: () => import('../pages/auth/AuthPage.jsx'),
+  },
+  {
+    test: (path) => path === '/profile' || path.startsWith('/profile/about-me'),
+    load: () => Promise.all([
+      import('../components/features/auth/ProtectedRoute.jsx'),
+      import('../layouts/StudentPagesLayout.jsx'),
+      import('../layouts/StudentProfileLayout.jsx'),
+      import('../components/features/profile/AboutMe.jsx'),
+    ]),
   },
   {
     test: (path) => path.startsWith('/landlord/overview'),
@@ -69,10 +130,38 @@ const routePrefetchers = [
     ]),
   },
   {
+    test: (path) => path.startsWith('/landlord/edit-room'),
+    load: () => Promise.all([
+      import('../layouts/LandlordProfileLayout.jsx'),
+      import('../pages/landlord/AddRoomPage.jsx'),
+    ]),
+  },
+  {
     test: (path) => path.startsWith('/landlord/profile'),
     load: () => Promise.all([
       import('../layouts/LandlordProfileLayout.jsx'),
       import('../components/features/profile/LandlordAboutMe.jsx'),
+    ]),
+  },
+  {
+    test: (path) => path.startsWith('/landlord/calendar'),
+    load: () => Promise.all([
+      import('../layouts/LandlordProfileLayout.jsx'),
+      import('../pages/landlord/LandlordCalendarPage.jsx'),
+    ]),
+  },
+  {
+    test: (path) => path.startsWith('/landlord/applications'),
+    load: () => Promise.all([
+      import('../layouts/LandlordProfileLayout.jsx'),
+      import('../pages/landlord/LandlordApplicationsPage.jsx'),
+    ]),
+  },
+  {
+    test: (path) => path.startsWith('/landlord/insights'),
+    load: () => Promise.all([
+      import('../layouts/LandlordProfileLayout.jsx'),
+      import('../pages/landlord/LandlordInsightsPage.jsx'),
     ]),
   },
   {
@@ -90,24 +179,45 @@ const routePrefetchers = [
     ]),
   },
   {
-    test: (path) => path.startsWith('/admin/users'),
+    test: (path) => /^\/admin\/users(?:[?#]|$)/.test(path),
     load: () => Promise.all([
       import('../layouts/AdminLayout.jsx'),
       import('../pages/admin/UserManagementPage.jsx'),
     ]),
   },
   {
-    test: (path) => path.startsWith('/admin/rooms'),
+    test: (path) => /^\/admin\/rooms(?:[?#]|$)/.test(path),
     load: () => Promise.all([
       import('../layouts/AdminLayout.jsx'),
       import('../pages/admin/RoomManagementPage.jsx'),
     ]),
   },
   {
+    test: (path) => /^\/admin\/users\/[^/]+(?:[/?#]|$)/.test(path),
+    load: () => Promise.all([
+      import('../layouts/AdminLayout.jsx'),
+      import('../pages/admin/AdminUserDetailsPage.jsx'),
+    ]),
+  },
+  {
+    test: (path) => /^\/admin\/rooms\/[^/]+\/review(?:[/?#]|$)/.test(path),
+    load: () => Promise.all([
+      import('../layouts/AdminLayout.jsx'),
+      import('../pages/admin/AdminRoomReviewPage.jsx'),
+    ]),
+  },
+  {
+    test: (path) => /^\/admin\/(?:verifications|revenue|tickets|logs)(?:[/?#]|$)/.test(path),
+    load: () => Promise.all([
+      import('../layouts/AdminLayout.jsx'),
+      import('../pages/admin/AdminInsightsPage.jsx'),
+    ]),
+  },
+  {
     test: (path) => path.startsWith('/admin/settings'),
     load: () => Promise.all([
       import('../layouts/AdminLayout.jsx'),
-      import('../pages/admin/AdminProfilePage.jsx'),
+      import('../pages/admin/AdminInsightsPage.jsx'),
     ]),
   },
 ];
@@ -119,7 +229,11 @@ export const prefetchRoute = (path) => {
   if (!prefetcher) return;
 
   prefetchedRoutes.add(path);
+  if (prefetchedLoaders.has(prefetcher.load)) return;
+
+  prefetchedLoaders.add(prefetcher.load);
   prefetcher.load().catch(() => {
+    prefetchedLoaders.delete(prefetcher.load);
     prefetchedRoutes.delete(path);
   });
 };

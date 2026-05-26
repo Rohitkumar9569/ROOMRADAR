@@ -29,6 +29,10 @@ The language instruction at the start of this prompt overrides everything.
 - For room search results, always show prices with ₹ and keep explanation in the requested language.
 
 ROOM SEARCH INTELLIGENCE:
+- Only extract room filters when the latest user message is actually asking to search/list/rank rooms.
+- If the user asks about booking steps, pricing policy, support, platform features, tech stack, team, sentiment, or chatbot behavior, answer the question and leave filters empty.
+- "complain kaise kare", "admin ko report", "issue/problem", "support ticket", "booking kaise", "room search kaise", and similar how-to questions are information/help intents, not room-search intents. Do not return room filters for them.
+- A message is room_search only when the user wants actual listings/cards, such as city + room need, budget search, room type search, or ranked listings.
 - Extract city, max_price, min_price, room_type, gender, family_status, occupants, sort_by, and amenities.
 - "sabse sasta", "cheapest", "lowest price", "kam budget" means sort_by = price_asc.
 - "sabse mahanga", "sabse costly", "expensive", "premium", "luxury" means sort_by = price_desc.
@@ -67,6 +71,8 @@ RESPONSE FORMAT:
 const JSON_INSTRUCTIONS = `Return only this JSON shape:
 {
   "reply": "short helpful reply in the same language as the user",
+  "intent": "room_search, platform_help, booking_help, landlord_help, support, sentiment, team, or general",
+  "sentiment": { "label": "positive, neutral, concerned, or frustrated", "score": "number from -1 to 1" },
   "filters": {
     "city": "string or null",
     "max_price": "number or null",
@@ -117,6 +123,7 @@ const detectLanguage = (text = '') => {
     if (/[\u0900-\u097F]/.test(text)) return 'hindi';
     const hinglishWords = [
         'kya', 'hai', 'h', 'nahi', 'mujhe', 'chahiye', 'batao', 'hain', 'kar',
+        'kaise', 'kese', 'karu', 'kru', 'kare', 'karen', 'complain', 'admin',
         'mera', 'tera', 'yahan', 'wahan', 'acha', 'achha', 'theek', 'bhai',
         'yaar', 'karo', 'dedo', 'lelo', 'kaun', 'kisne', 'kisane', 'sasta',
         'mahanga', 'mehenga', 'andar', 'liye', 'mein', 'me', 'baare', 'bare',
@@ -278,6 +285,61 @@ const extractFiltersLocally = (text = '') => {
     return applyLocalRoomIntent(filters, text);
 };
 
+const getUserTexts = (messages = []) => messages
+    .filter((message) => message.role === 'user' && message.content)
+    .map((message) => String(message.content));
+
+const isAffirmation = (text = '') => /^(yes|yep|yeah|sure|ok|okay|done|go ahead|haan|ha|han|haa|ji|thik|theek|sahi|chalo)\.?$/i.test(text.trim());
+
+const getBareBudgetValue = (text = '') => {
+    const match = text.trim().match(/^(?:rs\.?|inr|₹)?\s*(\d{3,7})\s*(?:rs\.?|rupees?|rupaye|₹)?$/i);
+    return match ? Number(match[1]) : undefined;
+};
+
+const isBareCityText = (text = '') => {
+    const normalized = text.toLowerCase().replace(/[^\w\s-]/g, '').replace(/\s+/g, ' ').trim();
+    if (!normalized || normalized.length < 2 || normalized.length > 40) return false;
+    if (GENERIC_CITY_WORDS.has(normalized) || GENERIC_CITY_WORDS.has(normalized.replace(/\s+/g, ''))) return false;
+    if (/^\d+$/.test(normalized)) return false;
+    return /^[a-z][a-z\s-]+$/i.test(normalized);
+};
+
+const hasBudgetContext = (text = '') => /\b(max|maximum|budget|bugect|budegt|price|rent|kiraya|under|below|andar|kitne|kitna|kitni|cost|rs|rupees?)\b/i.test(text);
+
+const hasRoomSearchConversationContext = (messages = []) => {
+    const joined = getUserTexts(messages).join(' ');
+    return /\b(room|rooms|pg|flat|bhk|hostel|stay|rent|kiraya|budget|bugect|price|search|find|show|available|chahiye|need|want|kitne ka)\b/i.test(joined);
+};
+
+const extractContextualFiltersLocally = (messages = []) => {
+    const userTexts = getUserTexts(messages);
+    const filters = {};
+    let budgetContextSeen = false;
+    let roomContextSeen = false;
+
+    userTexts.forEach((text) => {
+        const local = extractFiltersLocally(text);
+        Object.assign(filters, local);
+
+        if (hasBudgetContext(text)) budgetContextSeen = true;
+        if (hasRoomEntity(text) || /\b(room|rooms|pg|flat|hostel|stay|search|find|available|chahiye|need|want)\b/i.test(text)) {
+            roomContextSeen = true;
+        }
+
+        const bareBudget = getBareBudgetValue(text);
+        if (bareBudget && (budgetContextSeen || roomContextSeen)) {
+            filters.max_price = bareBudget;
+            budgetContextSeen = false;
+        }
+
+        if (!local.city && roomContextSeen && isBareCityText(text)) {
+            filters.city = normalizeCityFilter(text) || filters.city;
+        }
+    });
+
+    return filters;
+};
+
 const buildExtractionPrompt = (messages) => {
     const conversation = messages.map((message) => `${message.role}: ${message.content}`).join('\n');
     return `${JSON_INSTRUCTIONS}\n\nConversation:\n${conversation}`;
@@ -414,13 +476,15 @@ const runAiExtraction = async (messages, systemPrompt) => {
         try {
             const result = await provider.run(messages, systemPrompt);
             if (result && (result.filters || result.reply)) {
-                return {
-                    provider: provider.name,
-                    fallback: false,
-                    reply: result.reply,
-                    filters: result.filters || {},
-                    errors
-                };
+            return {
+                provider: provider.name,
+                fallback: false,
+                reply: result.reply,
+                intent: result.intent,
+                sentiment: result.sentiment,
+                filters: result.filters || {},
+                errors
+            };
             }
             errors.push(`${provider.name}: empty response`);
         } catch (error) {
@@ -465,15 +529,270 @@ const mergeFilters = (aiFilters = {}, localFilters = {}) => {
     return merged;
 };
 
-const hasSearchIntent = (text = '', filters = {}) => {
-    const lower = text.toLowerCase();
-    if (isGreeting(text) || isCreatorQuestion(text) || isIdentityQuestion(text) || getTeamProfileKey(text) || isTeamOverviewQuestion(text)) return false;
-    return Object.keys(filters).length > 0
-        || hasRoomRankingIntent(text)
-        || /\b(room|rooms|pg|flat|bhk|rent|budget|under|below|andar|search|find|show|give|list|best|top|price|chahiye|available|boys|girls|family|sasta|saste|sasti|cheapest|cheap|affordable|costly|expensive|mahanga|mahinga|mehanga|mehenga|high price|low price|people|logo)\b/i.test(lower);
+const isHinglish = (text = '') => detectLanguage(text) === 'hinglish';
+
+const ROOM_ENTITY_REGEX = /\b(room|rooms|pg|p\.g\.|flat|flats|bhk|1\s*bhk|2\s*bhk|studio|hostel|accommodation|stay|stays|rental|rent|kiraya|listing|listings)\b/i;
+const ROOM_SEARCH_ACTION_REGEX = /\b(search|find|show|give|list|display|dikhao|dikhaye|batao|bataye|de\s*do|dedo|chahiye|chaheye|need|want|available|availability|near|in|mein|me|under|below|upto|within|budget|andar|boys|girls|male|female|family|bachelor|students?|people|logo|persons?)\b/i;
+
+const hasRoomEntity = (text = '') => ROOM_ENTITY_REGEX.test(text);
+
+const hasUsefulSearchFilters = (filters = {}) => (
+    Boolean(filters.max_price || filters.min_price || filters.room_type || filters.gender || filters.family_status || filters.occupants || filters.sort_by || filters.limit)
+    || (Array.isArray(filters.amenities) && filters.amenities.length > 0)
+);
+
+const isStandaloneRoomShortcut = (text = '') => {
+    const normalized = text.toLowerCase().replace(/[^\w\s]/g, ' ').replace(/\s+/g, ' ').trim();
+    return /^(best rated|top rated|recommended rooms?|best rooms?|cheapest|cheapest room|sabse sasta|sabse saste|sabse sasti|sabse mehenga|sabse mahanga|lowest price|highest price|for \d{1,2} people|\d{1,2} logo ke liye)$/.test(normalized);
 };
 
-const isHinglish = (text = '') => detectLanguage(text) === 'hinglish';
+const hasExplicitRoomSearchRequest = (text = '', filters = {}) => {
+    const lower = text.toLowerCase();
+    const roomEntity = hasRoomEntity(text);
+    const hasSearchVerb = /\b(search|find|show|list|display|dikhao|dikhaye|chahiye|chaheye|need|want|available|availability|near|under|below|upto|within|budget|andar|recommend|recommended)\b/i.test(lower);
+    return isStandaloneRoomShortcut(text)
+        || (roomEntity && hasSearchVerb)
+        || (roomEntity && hasUsefulSearchFilters(filters))
+        || (Boolean(filters.city) && roomEntity);
+};
+
+const isOperationalHelpQuestion = (text = '') => {
+    const lower = text.toLowerCase();
+    const processAsk = /\b(how|kaise|kese|process|steps?|guide|tutorial|explain|samjhao|samjha|kya\s+karu|kya\s+kare|karu|kru|kare|karen)\b/i.test(lower);
+    const adminSupport = /\b(admin|support|ticket|complain|complaint|report|issue|problem|helpdesk|contact|moderator|moderation)\b/i.test(lower);
+    const workflowTopic = /\b(room|booking|book|application|landlord|host|listing|payment|refund|cancel|policy|verify|verification|document|upload|login|signup|password|profile|dashboard|approval|approve|reject|status|review)\b/i.test(lower);
+    const pureSearchAsk = hasExplicitRoomSearchRequest(text, {}) && !processAsk && !adminSupport;
+
+    return !pureSearchAsk && (adminSupport || (processAsk && workflowTopic));
+};
+
+const isBookingGuidanceQuestion = (text = '') => {
+    const lower = text.toLowerCase();
+    const asksProcess = /\b(how|kaise|process|steps?|guide|samjhao|samjha|help|what happens|kya hota)\b/i.test(lower);
+    return /\b(book|booking|request|confirm|application|apply)\b/i.test(lower) && asksProcess;
+};
+
+const isLandlordGuidanceQuestion = (text = '') => {
+    const lower = text.toLowerCase();
+    return /\b(landlord|host|owner|listing|list|add room|publish|property)\b/i.test(lower)
+        && /\b(how|kaise|process|steps?|guide|samjhao|help|dashboard|manage|update|edit|delete)\b/i.test(lower);
+};
+
+const isCancellationQuestion = (text = '') => /\b(cancel|cancellation|refund|policy)\b/i.test(text);
+
+const isSupportQuestion = (text = '') => /\b(support|ticket|complaint|complain|issue|problem|report|helpdesk|contact)\b/i.test(text);
+
+const isPaymentQuestion = (text = '') => /\b(payment|pay|transaction|upi|wallet|advance|deposit|security deposit|fees?|charge|payment card|card payment|credit card|debit card)\b/i.test(text);
+
+const isSecurityQuestion = (text = '') => /\b(security|safe|safety|verify|verification|verified|document|upload|privacy|trust|fraud|fake)\b/i.test(text);
+
+const isFeatureQuestion = (text = '') => /\b(feature|features|module|modules|work|works|use|uses|kya kar sakta|kya karta|kaam kya|facility|facilities|workflow)\b/i.test(text)
+    && /\b(roomradar|room radar|platform|app|website|project|system|chatbot|ai|assistant|isme|is app|ye app|this app)\b/i.test(text);
+
+const isProjectOverviewQuestion = (text = '') => /\b(roomradar|room radar|platform|app|website|project|system|chatbot|ai assistant)\b/i.test(text)
+    && /\b(kya hai|what is|about|baare|bare|intro|introduction|overview|explain|describe|synopsis|summary|details|detail)\b/i.test(text);
+
+const isTechStackQuestion = (text = '') => /\b(tech stack|technology|technologies|mern|react|vite|node|express|mongodb|mongoose|socket|socket\.io|cloudinary|multer|jwt|api|database|architecture|frontend|backend)\b/i.test(text);
+
+const isSentimentQuestion = (text = '') => /\b(sentiment|mood|tone|emotion|feeling|analysis|analyze|analyse|samjha|samjho)\b/i.test(text)
+    && /\b(my|mera|meri|user|message|text|baat|tone|sentiment|mood)\b/i.test(text);
+
+const isFeedbackOrComplaint = (text = '') => {
+    const lower = text.toLowerCase();
+    return /\b(irritating|annoying|bad|wrong|galat|bekar|bakwas|problem|issue|bug|not working|nahi chal|confusing|spam|faltu|unhelpful|useless|card|cards|result|answer|reply)\b/i.test(lower)
+        && /\b(bot|chatbot|assistant|ai|roomradar|room radar|app|website|platform|card|cards|answer|reply|result|response|ye|this|it)\b/i.test(lower);
+};
+
+const isAnswerOnlyIntent = (text = '') => (
+    isGreeting(text)
+    || isCreatorQuestion(text)
+    || isIdentityQuestion(text)
+    || getTeamProfileKey(text)
+    || isTeamOverviewQuestion(text)
+    || isPriceNegotiationQuestion(text)
+    || isBookingGuidanceQuestion(text)
+    || isLandlordGuidanceQuestion(text)
+    || isCancellationQuestion(text)
+    || isFeedbackOrComplaint(text)
+    || isOperationalHelpQuestion(text)
+    || isSupportQuestion(text)
+    || isPaymentQuestion(text)
+    || isSecurityQuestion(text)
+    || isFeatureQuestion(text)
+    || isProjectOverviewQuestion(text)
+    || isTechStackQuestion(text)
+    || isSentimentQuestion(text)
+    || isFeedbackOrComplaint(text)
+);
+
+const hasSearchIntent = (text = '', filters = {}) => {
+    const lower = text.toLowerCase();
+    if (isAnswerOnlyIntent(text)) return false;
+
+    const roomEntity = hasRoomEntity(text);
+    const searchAction = ROOM_SEARCH_ACTION_REGEX.test(lower);
+    const usefulFilters = hasUsefulSearchFilters(filters);
+    const city = Boolean(filters.city);
+    const bareShortcut = isStandaloneRoomShortcut(text);
+
+    if (bareShortcut) return true;
+    if (roomEntity && (searchAction || usefulFilters || city || hasRoomRankingIntent(text))) return true;
+    if (city && roomEntity) return true;
+    if (filters.occupants && /\b(for|liye|people|persons|log|logo|students?)\b/i.test(lower)) return true;
+    if ((filters.max_price || filters.min_price) && (roomEntity || /\b(chahiye|chaheye|need|want|under|below|andar|budget)\b/i.test(lower))) return true;
+
+    return false;
+};
+
+const hasContextualSearchIntent = (messages = [], filters = {}, lastUserText = '') => {
+    if (isAnswerOnlyIntent(lastUserText)) return false;
+    if (!hasRoomSearchConversationContext(messages)) return false;
+
+    const hasCity = Boolean(filters.city);
+    const hasBudget = Boolean(filters.max_price || filters.min_price);
+    const hasPreference = hasUsefulSearchFilters(filters);
+    const lastIsContinuation = isAffirmation(lastUserText) || getBareBudgetValue(lastUserText) || isBareCityText(lastUserText);
+
+    if (hasCity && (hasBudget || hasPreference)) return true;
+    if (hasCity && lastIsContinuation) return true;
+    return false;
+};
+
+const analyzeSentiment = (text = '') => {
+    const lower = text.toLowerCase();
+    const signals = [];
+    let score = 0;
+
+    const addSignal = (matched, label, weight) => {
+        if (!matched) return;
+        signals.push(label);
+        score += weight;
+    };
+
+    addSignal(/\b(thanks|thank you|great|good|nice|awesome|perfect|helpful|love|best|achha|accha|badhiya|sahi|mast|shukriya)\b/i.test(lower), 'positive', 0.45);
+    addSignal(/\b(irritating|annoying|angry|frustrated|bad|wrong|galat|bekar|bakwas|useless|faltu|spam|confusing|hate)\b/i.test(lower), 'frustration', -0.65);
+    addSignal(/\b(problem|issue|bug|error|not working|nahi chal|nahi ho raha|fail|failed|stuck|broken)\b/i.test(lower), 'problem', -0.5);
+    addSignal(/\b(urgent|jaldi|asap|immediately|abhi|fast|quick)\b/i.test(lower), 'urgent', -0.15);
+    addSignal(/\b(confused|samajh nahi|doubt|question|kaise|how)\b/i.test(lower), 'needs clarity', -0.1);
+
+    const normalizedScore = Math.max(-1, Math.min(1, Number(score.toFixed(2))));
+    let label = 'neutral';
+    let intensity = 'low';
+    if (normalizedScore <= -0.55) {
+        label = 'frustrated';
+        intensity = 'high';
+    } else if (normalizedScore < -0.15) {
+        label = 'concerned';
+        intensity = 'medium';
+    } else if (normalizedScore >= 0.4) {
+        label = 'positive';
+        intensity = 'medium';
+    }
+
+    return {
+        label,
+        score: normalizedScore,
+        intensity,
+        signals: [...new Set(signals)].slice(0, 4),
+        summary: label === 'frustrated'
+            ? 'User sounds frustrated; answer directly and avoid irrelevant cards.'
+            : label === 'concerned'
+                ? 'User needs a clear, reassuring answer.'
+                : label === 'positive'
+                    ? 'User sentiment is positive.'
+                    : 'User sentiment is neutral.'
+    };
+};
+
+const intentLabels = {
+    greeting: 'Greeting',
+    creator: 'Creator info',
+    identity: 'Assistant identity',
+    team_profile: 'Team profile',
+    team_overview: 'Team overview',
+    price_negotiation: 'Price guidance',
+    booking_help: 'Booking help',
+    landlord_help: 'Landlord help',
+    cancellation: 'Cancellation policy',
+    support: 'Support help',
+    platform_help: 'Platform help',
+    payment: 'Payment info',
+    safety: 'Trust and safety',
+    platform_features: 'Platform features',
+    project_overview: 'Project overview',
+    tech_stack: 'Technical info',
+    sentiment: 'Sentiment analysis',
+    feedback: 'User feedback',
+    room_search: 'Room search',
+    general: 'General answer'
+};
+
+const classifyUserIntent = (text = '', filters = {}) => {
+    if (isGreeting(text)) return 'greeting';
+    if (isCreatorQuestion(text)) return 'creator';
+    if (isIdentityQuestion(text)) return 'identity';
+    if (getTeamProfileKey(text)) return 'team_profile';
+    if (isTeamOverviewQuestion(text)) return 'team_overview';
+    if (isPriceNegotiationQuestion(text)) return 'price_negotiation';
+    if (isBookingGuidanceQuestion(text)) return 'booking_help';
+    if (isLandlordGuidanceQuestion(text)) return 'landlord_help';
+    if (isCancellationQuestion(text)) return 'cancellation';
+    if (isFeedbackOrComplaint(text)) return 'feedback';
+    if (isOperationalHelpQuestion(text)) return isSupportQuestion(text) ? 'support' : 'platform_help';
+    if (isSupportQuestion(text)) return 'support';
+    if (isPaymentQuestion(text)) return 'payment';
+    if (isSecurityQuestion(text)) return 'safety';
+    if (isFeatureQuestion(text)) return 'platform_features';
+    if (isProjectOverviewQuestion(text)) return 'project_overview';
+    if (isTechStackQuestion(text)) return 'tech_stack';
+    if (isSentimentQuestion(text)) return 'sentiment';
+    if (hasSearchIntent(text, filters)) return 'room_search';
+    return 'general';
+};
+
+const normalizeAiIntent = (intent = '') => {
+    const normalized = String(intent || '').toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+    if (!normalized) return '';
+    if (['room_search', 'search', 'listing_search', 'listings', 'rooms'].includes(normalized)) return 'room_search';
+    if (['booking', 'booking_help', 'booking_process'].includes(normalized)) return 'booking_help';
+    if (['landlord', 'landlord_help', 'listing_help'].includes(normalized)) return 'landlord_help';
+    if (['support', 'complaint', 'complain', 'report', 'issue'].includes(normalized)) return 'support';
+    if (['sentiment', 'sentiment_analysis', 'tone'].includes(normalized)) return 'sentiment';
+    if (['team', 'team_profile', 'creator'].includes(normalized)) return 'team_profile';
+    if (['platform_help', 'platform', 'features', 'general', 'information', 'info', 'question_answer'].includes(normalized)) return 'platform_help';
+    return normalized;
+};
+
+const shouldUseAiAnswerOnly = ({ aiIntent, sourceText, localFilters, contextualSearch = false }) => {
+    if (contextualSearch) return false;
+    const normalizedIntent = normalizeAiIntent(aiIntent);
+    if (!normalizedIntent || normalizedIntent === 'room_search') return false;
+    return !hasExplicitRoomSearchRequest(sourceText, localFilters);
+};
+
+const withAssistantMeta = (payload, sourceText, forcedIntent) => {
+    const intentKey = forcedIntent || classifyUserIntent(sourceText, payload.filters || {});
+    const sentiment = analyzeSentiment(sourceText);
+    const roomsShown = Array.isArray(payload.rooms) && payload.rooms.length > 0;
+
+    return {
+        ...payload,
+        intent: {
+            key: intentKey,
+            label: intentLabels[intentKey] || intentLabels.general,
+            roomCards: roomsShown
+        },
+        sentiment,
+        analysis: {
+            tone: sentiment.label,
+            intent: intentLabels[intentKey] || intentLabels.general,
+            roomCards: roomsShown ? 'shown' : 'not_shown',
+            reason: roomsShown
+                ? 'Room cards are shown because the user asked for listings or ranking.'
+                : 'Answer-only response; room cards were intentionally skipped.'
+        }
+    };
+};
 
 const getDeveloperCredit = () => process.env.PLATFORM_DEVELOPERS || 'Rohit Kumar, Shubhanshu, Kamal Kumar, and Samrat Prajapati';
 
@@ -938,8 +1257,79 @@ const createPriceNegotiationReply = (text = '') => {
     return 'RoomRadar se rent automatic kam nahi hota. Final price landlord/host confirm karta hai. Agar listing negotiable hai, room open karke booking request ya chat me politely better price/discount ask kar sakte ho. Budget bata doge to main cheaper verified options bhi dikha dunga.';
 };
 
-const createKnowledgeReply = (text = '') => {
+const createSentimentReportReply = (text = '') => {
+    const sentiment = analyzeSentiment(text);
+    if (detectLanguage(text) === 'english') {
+        return `Sentiment analysis: ${sentiment.label} (${sentiment.intensity} intensity, score ${sentiment.score}). ${sentiment.summary}`;
+    }
+    return `Sentiment analysis: ${sentiment.label} tone detect hua (${sentiment.intensity} intensity, score ${sentiment.score}). ${sentiment.summary}`;
+};
+
+const createFeedbackReply = (text = '') => {
+    if (detectLanguage(text) === 'english') {
+        return 'You are right. Sending room cards for every question feels noisy. I will answer the actual question first and show room cards only when you clearly ask for listings, budget options, city search, or room ranking.';
+    }
+    return 'Bilkul sahi point hai. Har question par room card bhejna irritating lag sakta hai. Ab main pehle actual answer dunga, aur room cards sirf tab dikhaunga jab user clearly listings, budget, city search ya room ranking maange.';
+};
+
+const createFeatureReply = (text = '') => {
+    if (detectLanguage(text) === 'english') {
+        return 'RoomRadar supports traveller search, room details, booking requests, landlord listing management, real-time chat, wishlist, reviews, notifications, support tickets, verification, admin moderation, insights, and AI assistance.';
+    }
+    return 'RoomRadar me traveller search, room details, booking request, landlord listing management, real-time chat, wishlist, reviews, notifications, support tickets, verification, admin moderation, insights aur AI assistance available hai.';
+};
+
+const createProjectOverviewReply = (text = '') => {
+    if (detectLanguage(text) === 'english') {
+        return 'RoomRadar is an AI-powered room rental and booking platform. Travellers can discover rooms, landlords can manage listings and applications, and admins can moderate users, rooms, verification, support, and trust workflows.';
+    }
+    return 'RoomRadar ek AI-powered room rental aur booking platform hai. Travellers rooms discover kar sakte hain, landlords listings aur applications manage kar sakte hain, aur admins users, rooms, verification, support aur trust workflows moderate kar sakte hain.';
+};
+
+const createTechStackReply = (text = '') => {
+    if (detectLanguage(text) === 'english') {
+        return 'RoomRadar uses React + Vite + Tailwind CSS on the frontend, Node.js + Express on the backend, MongoDB + Mongoose for data, JWT for auth, Socket.IO for real-time chat, Multer/Cloudinary for uploads, and chatbot assistance for smart guidance.';
+    }
+    return 'RoomRadar ka tech stack MERN based hai: frontend me React, Vite aur Tailwind CSS; backend me Node.js aur Express; database me MongoDB/Mongoose; auth ke liye JWT; real-time chat ke liye Socket.IO; uploads ke liye Multer/Cloudinary; aur smart help ke liye chatbot assistance.';
+};
+
+const createSupportReply = (text = '') => {
+    if (detectLanguage(text) === 'english') {
+        return 'For support, open the support option, describe the issue clearly, attach relevant details if needed, and submit a ticket. Admin can review the ticket, track the case, and respond from the moderation workflow.';
+    }
+    return 'Room ya landlord ke against complain karne ke liye room details/support option open karo, issue clearly likho, room name ya booking/application detail add karo, aur support ticket submit karo. Admin ticket review karke action/update de sakta hai.';
+};
+
+const createOperationalHelpReply = (text = '') => {
     const lower = text.toLowerCase();
+    if (isSupportQuestion(text) || /\b(admin|complain|complaint|report|issue|problem)\b/i.test(lower)) {
+        return createSupportReply(text);
+    }
+    if (/\b(search|find|room|rooms|pg|flat|listing)\b/i.test(lower)) {
+        return detectLanguage(text) === 'english'
+            ? 'To search rooms, use the search page or ask me with a clear city, budget, room type, or preference. I will show room cards only when you ask for listings.'
+            : 'Room search karne ke liye city, budget, room type ya preference clearly bhejo. Main room cards sirf tab dikhaunga jab tum listings/search maangoge.';
+    }
+    return detectLanguage(text) === 'english'
+        ? 'Tell me the exact workflow you need: booking, listing, support, payment, verification, or admin review. I will answer the steps directly without showing room cards.'
+        : 'Jo workflow chahiye woh clearly likho: booking, listing, support, payment, verification ya admin review. Main direct steps bataunga, room cards nahi bhejunga.';
+};
+
+const createPaymentReply = (text = '') => {
+    if (detectLanguage(text) === 'english') {
+        return 'In the current RoomRadar version, final rent/payment confirmation is handled through the landlord and booking workflow. A real payment gateway is planned as future scope.';
+    }
+    return 'Current RoomRadar version me final rent/payment confirmation landlord aur booking workflow ke through handle hota hai. Real payment gateway future scope me planned hai.';
+};
+
+const createSafetyReply = (text = '') => {
+    if (detectLanguage(text) === 'english') {
+        return 'RoomRadar improves trust using role-based access, protected routes, upload validation, listing verification signals, reviews, support tickets, admin moderation, and secure JWT authentication.';
+    }
+    return 'RoomRadar trust improve karne ke liye role-based access, protected routes, upload validation, listing verification signals, reviews, support tickets, admin moderation aur secure JWT authentication use karta hai.';
+};
+
+const createKnowledgeReply = (text = '') => {
     const language = detectLanguage(text);
     const hinglish = isHinglish(text);
 
@@ -968,19 +1358,46 @@ const createKnowledgeReply = (text = '') => {
     if (isPriceNegotiationQuestion(text)) {
         return createPriceNegotiationReply(text);
     }
-    if (/book|booking|request|confirm|kaise/i.test(lower)) {
+    if (isSentimentQuestion(text)) {
+        return createSentimentReportReply(text);
+    }
+    if (isFeedbackOrComplaint(text)) {
+        return createFeedbackReply(text);
+    }
+    if (isFeatureQuestion(text)) {
+        return createFeatureReply(text);
+    }
+    if (isProjectOverviewQuestion(text)) {
+        return createProjectOverviewReply(text);
+    }
+    if (isTechStackQuestion(text)) {
+        return createTechStackReply(text);
+    }
+    if (isSupportQuestion(text)) {
+        return createSupportReply(text);
+    }
+    if (isOperationalHelpQuestion(text)) {
+        return createOperationalHelpReply(text);
+    }
+    if (isPaymentQuestion(text)) {
+        return createPaymentReply(text);
+    }
+    if (isSecurityQuestion(text)) {
+        return createSafetyReply(text);
+    }
+    if (isBookingGuidanceQuestion(text)) {
         if (language === 'hindi') return 'Room book करने के लिए room card open करें, Request to Book दबाएँ, stay details fill करें, फिर landlord approval के बाद final confirmation complete होता है।';
         return hinglish
             ? 'Room book karne ke liye room card open karo, Request to Book dabao, stay details fill karo, phir landlord approval ke baad final confirmation complete hota hai.'
             : 'To book, open a room, click Request to Book, fill stay details, then complete confirmation after landlord approval.';
     }
-    if (/landlord|host|list|add room|listing/i.test(lower)) {
+    if (isLandlordGuidanceQuestion(text)) {
         if (language === 'hindi') return 'Room list करने के लिए Hosting dashboard में Add Room open करें, photos, rent, location, amenities और rules add करें, फिर publish करें।';
         return hinglish
             ? 'Room list karne ke liye Hosting dashboard me Add Room open karo, photos, rent, location aur rules add karo, phir publish karo.'
             : 'To list a room, open the Hosting dashboard, add photos, rent, location, amenities, rules, and publish the listing.';
     }
-    if (/cancel|refund|policy/i.test(lower)) {
+    if (isCancellationQuestion(text)) {
         if (language === 'hindi') return 'Cancellation policy room और booking status के हिसाब से apply होती है। Booking summary में final policy दिख जाएगी।';
         return hinglish
             ? 'Cancellation policy room aur booking status ke hisaab se apply hoti hai. Booking summary me final policy dikh jayegi.'
@@ -1099,7 +1516,7 @@ const buildRoomSearchPayload = async ({ filters, lastUserText, provider = 'local
         }
     }
 
-    return {
+    return withAssistantMeta({
         message,
         rooms,
         filters,
@@ -1107,7 +1524,7 @@ const buildRoomSearchPayload = async ({ filters, lastUserText, provider = 'local
         matchType,
         provider,
         fallback: fallback || matchType === 'relaxed',
-    };
+    }, lastUserText, 'room_search');
 };
 
 exports.chat = asyncHandler(async (req, res) => {
@@ -1119,27 +1536,27 @@ exports.chat = asyncHandler(async (req, res) => {
     const lastUserText = getLastUserText(messages);
     const detectedLanguage = detectLanguage(lastUserText);
     const dynamicSystemPrompt = getDynamicSystemPrompt(detectedLanguage);
-    const localFilters = extractFiltersLocally(lastUserText);
+    const localFilters = mergeFilters(extractFiltersLocally(lastUserText), extractContextualFiltersLocally(messages));
     const extremeIntent = getExtremeIntent(lastUserText);
 
-    if (isGreeting(lastUserText) || isCreatorQuestion(lastUserText) || isIdentityQuestion(lastUserText) || isPriceNegotiationQuestion(lastUserText) || getTeamProfileKey(lastUserText) || isTeamOverviewQuestion(lastUserText)) {
-        return res.json({
+    if (isAnswerOnlyIntent(lastUserText)) {
+        return res.json(withAssistantMeta({
             message: createKnowledgeReply(lastUserText),
             rooms: [],
             provider: 'local',
             fallback: false
-        });
+        }, lastUserText));
     }
 
     if (extremeIntent === 'both') {
         const rooms = await findExtremeRooms(extremeIntent);
-        return res.json({
+        return res.json(withAssistantMeta({
             message: createExtremeMessage(extremeIntent, rooms, lastUserText),
             rooms,
             sort: 'price_asc',
             provider: 'local-db',
             fallback: false
-        });
+        }, lastUserText, 'room_search'));
     }
 
     if (hasRoomRankingIntent(lastUserText) && hasSearchIntent(lastUserText, localFilters)) {
@@ -1154,14 +1571,25 @@ exports.chat = asyncHandler(async (req, res) => {
 
     const aiResult = await runAiExtraction(messages, dynamicSystemPrompt);
     const filters = applyLocalRoomIntent(mergeFilters(aiResult.filters, localFilters), lastUserText);
+    const contextualSearch = hasContextualSearchIntent(messages, filters, lastUserText);
 
-    if (!hasSearchIntent(lastUserText, filters)) {
-        return res.json({
+    if (shouldUseAiAnswerOnly({ aiIntent: aiResult.intent, sourceText: lastUserText, localFilters: filters, contextualSearch })) {
+        const intentKey = normalizeAiIntent(aiResult.intent);
+        return res.json(withAssistantMeta({
             message: aiResult.reply || createKnowledgeReply(lastUserText),
             rooms: [],
             provider: aiResult.provider,
             fallback: aiResult.fallback
-        });
+        }, lastUserText, intentKey));
+    }
+
+    if (!hasSearchIntent(lastUserText, filters) && !contextualSearch) {
+        return res.json(withAssistantMeta({
+            message: aiResult.reply || createKnowledgeReply(lastUserText),
+            rooms: [],
+            provider: aiResult.provider,
+            fallback: aiResult.fallback
+        }, lastUserText));
     }
 
     const payload = await buildRoomSearchPayload({

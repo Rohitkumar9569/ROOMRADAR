@@ -4,6 +4,7 @@ const mongoose = require('mongoose');
 const asyncHandler = require('express-async-handler');
 const Application = require('../models/Application');
 const Notification = require('../models/Notification');
+const PlatformSetting = require('../models/PlatformSetting');
 const jwt = require('jsonwebtoken');
 const { getFilterableFields } = require('../utils/roomConfigUtils');
 const { sanitizeDateRange, toOptionalDate } = require('../utils/dateUtils');
@@ -43,7 +44,7 @@ const handledRoomQueryKeys = new Set([
     'checkInDate', 'checkOutDate', 'moveInDate', 'latitude', 'longitude', 'radius', 'verifiedOnly',
     'strictLocation', 'listingCategory', 'pricingMode', 'stayType', 'maxGuests', 'instantBook',
     'minPricePerNight', 'maxPricePerNight', 'occupancyType', 'availabilityWindow', 'maxDeposit',
-    'verifiedLandlord',
+    'verifiedLandlord', 'mapBounds', 'minLat', 'maxLat', 'minLng', 'maxLng',
 ]);
 const lockedInventoryStatuses = ['approved', 'confirmed', 'external', 'blocked'];
 const DISCOVERABLE_ROOM_STATUSES = [
@@ -63,6 +64,8 @@ const AVAILABLE_ROOM_STATUSES = [
     'available',
 ];
 const BOOKED_DISCOVERY_STATUSES = new Set(['booked', 'confirmed']);
+const TRUSTED_HOST_MIN_APPROVED_LISTINGS = 5;
+const TRUSTED_HOST_APPROVED_STATUSES = ['Published', 'Available', 'Booked', 'Confirmed'];
 
 const createDiscoverableBaseQuery = () => ({
     status: { $in: DISCOVERABLE_ROOM_STATUSES },
@@ -82,6 +85,58 @@ const prioritizeAvailableRooms = (rooms = []) => rooms
     .map((room, index) => ({ room, index, availabilityRank: getAvailabilityRank(room) }))
     .sort((a, b) => a.availabilityRank - b.availabilityRank || a.index - b.index)
     .map(({ room }) => room);
+
+const isLandlordVerifiedForFastTrack = (landlord = {}) => Boolean(
+    landlord.isVerified
+    || landlord.kyc_status === 'Verified'
+    || ['verified', 'premium'].includes(String(landlord.verificationLevel || '').toLowerCase())
+    || landlord.verifications?.identity
+    || landlord.verifications?.address
+    || landlord.verifications?.property
+);
+
+const getPlatformReviewSettings = async () => {
+    const settings = await PlatformSetting.findOne({ key: 'platform' }).lean();
+    return {
+        verificationRequired: true,
+        autoPublishVerifiedLandlords: false,
+        ...(settings || {}),
+    };
+};
+
+const evaluateListingReviewMode = async (landlordId) => {
+    const [settings, landlord, approvedListingsCount, rejectedListingsCount] = await Promise.all([
+        getPlatformReviewSettings(),
+        User.findById(landlordId).select('status roleRestrictions isVerified kyc_status verificationLevel verifications trustScore').lean(),
+        Room.countDocuments({
+            landlord: landlordId,
+            isDeleted: { $ne: true },
+            status: { $in: TRUSTED_HOST_APPROVED_STATUSES },
+        }),
+        Room.countDocuments({
+            landlord: landlordId,
+            isDeleted: { $ne: true },
+            status: { $in: ['Rejected', 'Suspended'] },
+        }),
+    ]);
+
+    const landlordActive = landlord?.status !== 'Banned' && landlord?.roleRestrictions?.landlord?.status !== 'Banned';
+    const verifiedLandlord = isLandlordVerifiedForFastTrack(landlord);
+    const strongHistory = approvedListingsCount >= TRUSTED_HOST_MIN_APPROVED_LISTINGS;
+    const cleanHistory = rejectedListingsCount === 0 || rejectedListingsCount / Math.max(approvedListingsCount, 1) <= 0.15;
+    const eligible = Boolean(settings.autoPublishVerifiedLandlords && landlordActive && verifiedLandlord && strongHistory && cleanHistory);
+
+    return {
+        status: eligible ? 'Published' : 'Pending',
+        autoPublished: eligible,
+        reviewReason: eligible
+            ? `Auto-published: verified trusted host with ${approvedListingsCount} approved listings.`
+            : 'Submitted for RoomRadar admin review.',
+        approvedListingsCount,
+        rejectedListingsCount,
+        verifiedLandlord,
+    };
+};
 
 const discoverableMatchStage = () => ({
     status: { $in: DISCOVERABLE_ROOM_STATUSES },
@@ -666,6 +721,24 @@ const getGeoSearch = (raw = {}, defaultRadius = 8) => {
     };
 };
 
+const getBoundsSearch = (raw = {}) => {
+    const minLat = toFiniteQueryNumber(raw.minLat);
+    const maxLat = toFiniteQueryNumber(raw.maxLat);
+    const minLng = toFiniteQueryNumber(raw.minLng);
+    const maxLng = toFiniteQueryNumber(raw.maxLng);
+    const hasBoundsSearch = [minLat, maxLat, minLng, maxLng].every(Number.isFinite)
+        && minLat < maxLat
+        && minLng < maxLng;
+
+    return {
+        hasBoundsSearch,
+        minLat,
+        maxLat,
+        minLng,
+        maxLng,
+    };
+};
+
 const rankLocationAwareRooms = (rooms, rawFilters = {}, { limit } = {}) => {
     if (!rooms.length) return rooms;
     return rankRoomsByDiscovery(rooms, rawFilters, { limit: limit || rooms.length });
@@ -754,6 +827,8 @@ exports.createRoom = asyncHandler(async (req, res) => {
         const familyStatus = roomPayload.familyStatus || roomPayload.tenantPreferences?.familyStatus || 'Any';
         const normalizedFamilyStatus = familyStatus === 'Bachelors Only' ? 'Bachelors' : familyStatus === 'Family Only' ? 'Family' : familyStatus;
         const allowedGender = roomPayload.gender || roomPayload.tenantPreferences?.allowedGender || 'Any';
+        const reviewMode = await evaluateListingReviewMode(req.user._id);
+        const now = new Date();
 
         const room = new Room({
             ...roomPayload,
@@ -770,7 +845,17 @@ exports.createRoom = asyncHandler(async (req, res) => {
                 postalCode: roomPayload.location.postalCode || roomPayload.location.pincode,
                 pincode: roomPayload.location.pincode || roomPayload.location.postalCode,
             },
-            status: 'Pending'
+            status: reviewMode.status,
+            reviewReason: reviewMode.reviewReason,
+            submittedForReviewAt: reviewMode.autoPublished ? undefined : now,
+            publishedAt: reviewMode.autoPublished ? now : undefined,
+            autoPublishedAt: reviewMode.autoPublished ? now : undefined,
+            autoPublishReason: reviewMode.autoPublished ? reviewMode.reviewReason : undefined,
+            autoPublishSignals: reviewMode.autoPublished ? {
+                approvedListingsCount: reviewMode.approvedListingsCount,
+                rejectedListingsCount: reviewMode.rejectedListingsCount,
+                verifiedLandlord: reviewMode.verifiedLandlord,
+            } : undefined,
         });
 
         const createdRoom = await room.save();
@@ -820,6 +905,10 @@ exports.getAllRooms = asyncHandler(async (req, res) => {
             latitude,
             longitude,
             radius,
+            minLat,
+            maxLat,
+            minLng,
+            maxLng,
             verifiedOnly,
             strictLocation,
         } = req.query;
@@ -830,14 +919,24 @@ exports.getAllRooms = asyncHandler(async (req, res) => {
 
         const cityKeyword = getLocationKeyword(city, keyword);
         const geoSearch = getGeoSearch(req.query, 8);
+        const boundsSearch = getBoundsSearch(req.query);
         const strictLocationMode = isStrictLocationRequest(strictLocation);
-        if (cityKeyword && (strictLocationMode || !geoSearch.hasGeoSearch)) {
+        if (cityKeyword && !boundsSearch.hasBoundsSearch && (strictLocationMode || !geoSearch.hasGeoSearch)) {
             const locationQuery = strictLocationMode
                 ? buildStrictLocationQuery(cityKeyword)
                 : buildLocationQuery(cityKeyword, { matchAll: true });
             if (locationQuery) appendAndClause(query, locationQuery);
         }
-        if (geoSearch.hasGeoSearch && !(strictLocationMode && cityKeyword)) {
+        if (boundsSearch.hasBoundsSearch) {
+            query.location = {
+                $geoWithin: {
+                    $box: [
+                        [boundsSearch.minLng, boundsSearch.minLat],
+                        [boundsSearch.maxLng, boundsSearch.maxLat],
+                    ],
+                },
+            };
+        } else if (geoSearch.hasGeoSearch && !(strictLocationMode && cityKeyword)) {
             const radiusInMeters = geoSearch.radiusKm * 1000;
             query.location = {
                 $geoWithin: {
@@ -981,13 +1080,17 @@ exports.getAllRooms = asyncHandler(async (req, res) => {
         ]);
         let fallbackMeta = null;
         const exactTotal = pageNumber ? total : rooms.length;
-        const hasLocationIntent = Boolean(cityKeyword || geoSearch.hasGeoSearch);
+        const hasLocationIntent = Boolean(cityKeyword || geoSearch.hasGeoSearch || boundsSearch.hasBoundsSearch);
         const rankedFilterPayload = {
             ...req.query,
             city: cityKeyword,
             latitude: geoSearch.hasGeoSearch ? geoSearch.latitudeNumber : latitude,
             longitude: geoSearch.hasGeoSearch ? geoSearch.longitudeNumber : longitude,
             radius: geoSearch.hasGeoSearch ? geoSearch.radiusKm : radius,
+            minLat: boundsSearch.hasBoundsSearch ? boundsSearch.minLat : minLat,
+            maxLat: boundsSearch.hasBoundsSearch ? boundsSearch.maxLat : maxLat,
+            minLng: boundsSearch.hasBoundsSearch ? boundsSearch.minLng : minLng,
+            maxLng: boundsSearch.hasBoundsSearch ? boundsSearch.maxLng : maxLng,
             sort,
             limit: rooms.length || limitNumber || undefined,
         };
@@ -996,7 +1099,7 @@ exports.getAllRooms = asyncHandler(async (req, res) => {
             rooms = rankLocationAwareRooms(rooms, rankedFilterPayload, { limit: rooms.length });
         }
 
-        if (!strictLocationMode && (!pageNumber || pageNumber === 1) && hasLocationIntent && limitNumber && rooms.length < limitNumber) {
+        if (!boundsSearch.hasBoundsSearch && !strictLocationMode && (!pageNumber || pageNumber === 1) && hasLocationIntent && limitNumber && rooms.length < limitNumber) {
             let fallbackRooms = await findDiscoveryFallbackRooms(Room, {
                 ...rankedFilterPayload,
                 limit: limitNumber - rooms.length,
@@ -1022,7 +1125,7 @@ exports.getAllRooms = asyncHandler(async (req, res) => {
             }
         }
 
-        if (!strictLocationMode && (!pageNumber || pageNumber === 1) && rooms.length === 0) {
+        if (!boundsSearch.hasBoundsSearch && !strictLocationMode && (!pageNumber || pageNumber === 1) && rooms.length === 0) {
             let fallbackRooms = await findDiscoveryFallbackRooms(Room, {
                 ...req.query,
                 sort,
@@ -1603,11 +1706,13 @@ exports.getMyRooms = asyncHandler(async (req, res) => {
         const roomsWithStats = await Promise.all(
             rooms.map(async (room) => {
                 const applicationCount = await Application.countDocuments({ room: room._id });
+                const trackedViews = Number(room.views || 0);
                 return {
                     ...room,
                     landlord,
                     stats: {
-                        views: room.views || 0,
+                        views: Math.max(trackedViews, applicationCount),
+                        trackedViews,
                         applications: applicationCount,
                         messages: applicationCount
                     }
@@ -1724,13 +1829,26 @@ exports.updateRoom = asyncHandler(async (req, res) => {
             }
         }
         if (isMajorChange) {
-            newRoomData.status = 'Pending';
+            const reviewMode = await evaluateListingReviewMode(req.user._id);
+            const now = new Date();
+
+            newRoomData.status = reviewMode.status;
             newRoomData.rejectionReason = '';
             newRoomData.rejection_reason = '';
-            newRoomData.submittedForReviewAt = new Date();
-            newRoomData.reviewReason = room.status === 'Published'
-                ? 'Landlord edited live listing details.'
-                : 'Landlord submitted updated listing details.';
+            newRoomData.submittedForReviewAt = reviewMode.autoPublished ? undefined : now;
+            newRoomData.publishedAt = reviewMode.autoPublished ? now : null;
+            newRoomData.autoPublishedAt = reviewMode.autoPublished ? now : null;
+            newRoomData.autoPublishReason = reviewMode.autoPublished ? reviewMode.reviewReason : '';
+            newRoomData.autoPublishSignals = reviewMode.autoPublished ? {
+                approvedListingsCount: reviewMode.approvedListingsCount,
+                rejectedListingsCount: reviewMode.rejectedListingsCount,
+                verifiedLandlord: reviewMode.verifiedLandlord,
+            } : null;
+            newRoomData.reviewReason = reviewMode.autoPublished
+                ? reviewMode.reviewReason
+                : room.status === 'Published'
+                    ? 'Landlord edited live listing details.'
+                    : 'Landlord submitted updated listing details.';
         }
 
         const updatedRoom = await Room.findByIdAndUpdate(

@@ -1,8 +1,12 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../../api';
 import toast from 'react-hot-toast';
-import { FaCloudUploadAlt, FaFileImage, FaTimesCircle } from 'react-icons/fa';
+import { FaCloudUploadAlt, FaTimesCircle } from 'react-icons/fa';
+
+const MAX_PROOF_IMAGES = 5;
+const MAX_IMAGE_SIZE = 8 * 1024 * 1024;
+const allowedProofImageTypes = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif']);
 
 function ReportDamagesPage() {
     const { applicationId } = useParams();
@@ -13,35 +17,111 @@ function ReportDamagesPage() {
     const [images, setImages] = useState([]);
     const [submitting, setSubmitting] = useState(false);
 
+    const imagePreviews = useMemo(
+        () => images.map((image) => ({ image, url: URL.createObjectURL(image) })),
+        [images]
+    );
+
+    useEffect(() => () => {
+        imagePreviews.forEach(({ url }) => URL.revokeObjectURL(url));
+    }, [imagePreviews]);
+
     const handleFileChange = (e) => {
-        const files = Array.from(e.target.files);
-        setImages(files);
+        const files = Array.from(e.target.files || []);
+        e.target.value = '';
+        if (!files.length) return;
+
+        const validImages = files.filter((file) => {
+            if (!allowedProofImageTypes.has(file.type)) {
+                toast.error('Only JPG, PNG, WEBP, or HEIC proof images are supported here.');
+                return false;
+            }
+            if (file.size > MAX_IMAGE_SIZE) {
+                toast.error(`${file.name} is larger than 8 MB.`);
+                return false;
+            }
+            return true;
+        });
+
+        setImages((current) => {
+            const remainingSlots = MAX_PROOF_IMAGES - current.length;
+            if (remainingSlots <= 0) {
+                toast.error(`You can upload up to ${MAX_PROOF_IMAGES} images.`);
+                return current;
+            }
+            if (validImages.length > remainingSlots) {
+                toast.error(`Only ${remainingSlots} more image${remainingSlots === 1 ? '' : 's'} can be added.`);
+            }
+            return [...current, ...validImages.slice(0, remainingSlots)];
+        });
     };
 
     const handleRemoveImage = (indexToRemove) => {
-        setImages(images.filter((_, index) => index !== indexToRemove));
+        setImages((current) => current.filter((_, index) => index !== indexToRemove));
+    };
+
+    const uploadDamageImages = async () => {
+        const uploadedEvidence = [];
+
+        for (const image of images) {
+            const formData = new FormData();
+            formData.append('image', image);
+
+            const { data } = await api.post('/upload', formData, {
+                headers: { 'Content-Type': 'multipart/form-data' },
+            });
+
+            const url = data?.fileUrl || data?.imageUrl;
+            if (url) {
+                uploadedEvidence.push({
+                    url,
+                    type: 'image',
+                    caption: image.name,
+                });
+            }
+        }
+
+        return uploadedEvidence;
     };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        setSubmitting(true);
 
-        const formData = new FormData();
-        formData.append('description', description);
-        formData.append('deductionAmount', deductionAmount);
-        
-        images.forEach(image => {
-            formData.append('images', image);
-        });
+        const cleanDescription = description.trim();
+        const requestedAmount = Number(deductionAmount);
+
+        if (cleanDescription.length < 20) {
+            toast.error('Please describe the damage in a little more detail.');
+            return;
+        }
+        if (!Number.isFinite(requestedAmount) || requestedAmount < 0) {
+            toast.error('Please enter a valid deduction amount.');
+            return;
+        }
+
+        setSubmitting(true);
+        const uploadToastId = images.length ? toast.loading('Uploading damage proof...') : null;
 
         try {
-            await api.put(`/applications/${applicationId}/report-damages`, formData, {
-                headers: { 'Content-Type': 'multipart/form-data' },
+            const uploadedEvidence = await uploadDamageImages();
+            if (uploadToastId) toast.dismiss(uploadToastId);
+
+            await api.post('/support', {
+                subject: 'Damage report for confirmed booking',
+                issueDescription: `${cleanDescription}\n\nRequested deduction amount: INR ${requestedAmount.toLocaleString('en-IN')}`,
+                category: 'damage',
+                issueType: 'damage_claim',
+                priority: 'high',
+                applicationId,
+                requestedAmount,
+                evidence: uploadedEvidence,
             });
-            toast.success("Damage report submitted successfully!");
+
+            toast.success('Damage report sent to admin support.');
             navigate('/profile/my-applications');
         } catch (error) {
-            toast.error(error.response?.data?.message || "Failed to submit report.");
+            if (uploadToastId) toast.dismiss(uploadToastId);
+            toast.error(error.response?.data?.message || 'Failed to submit report.');
         } finally {
             setSubmitting(false);
         }
@@ -92,7 +172,7 @@ function ReportDamagesPage() {
                             </label>
                             <input
                                 type="file"
-                                accept="image/*"
+                                accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
                                 multiple
                                 onChange={handleFileChange}
                                 className="hidden"
@@ -104,10 +184,10 @@ function ReportDamagesPage() {
                                 </label>
                             </div>
                             <div className="mt-4 grid grid-cols-2 md:grid-cols-3 gap-4">
-                                {images.map((image, index) => (
+                                {imagePreviews.map(({ image, url }, index) => (
                                     <div key={index} className="relative h-24 w-full overflow-hidden rounded-2xl shadow-sm">
                                         <img
-                                            src={URL.createObjectURL(image)}
+                                            src={url}
                                             alt={`upload-preview-${index}`}
                                             className="w-full h-full object-cover"
                                         />

@@ -302,6 +302,10 @@ exports.getDashboardStats = asyncHandler(async (req, res) => {
         publishedRoomsCount,
         totalApplications,
         usage,
+        supportOpenCount,
+        urgentSupportTicketsCount,
+        pendingKycUsersCount,
+        restrictedAccountsCount,
     ] = await Promise.all([
         User.countDocuments(),
         User.countDocuments({ roles: 'Landlord' }),
@@ -310,6 +314,13 @@ exports.getDashboardStats = asyncHandler(async (req, res) => {
         Room.countDocuments({ status: 'Published', isDeleted: { $ne: true } }),
         Application.countDocuments(),
         buildUsageSummary(req),
+        SupportTicket.countDocuments({ status: { $in: ['open', 'in_progress'] } }),
+        SupportTicket.countDocuments({
+            status: { $in: ['open', 'in_progress'] },
+            priority: { $in: ['urgent', 'high'] },
+        }),
+        User.countDocuments({ kyc_status: 'Pending' }),
+        User.countDocuments({ status: 'Banned' }),
     ]);
 
     res.json({
@@ -319,6 +330,11 @@ exports.getDashboardStats = asyncHandler(async (req, res) => {
         pendingRoomsCount,
         publishedRoomsCount,
         totalApplications,
+        supportOpenCount,
+        urgentSupportTicketsCount,
+        pendingKycUsersCount,
+        restrictedAccountsCount,
+        urgentOpsCount: pendingRoomsCount + urgentSupportTicketsCount + pendingKycUsersCount,
         usage,
     });
 });

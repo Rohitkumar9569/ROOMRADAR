@@ -29,6 +29,7 @@ import { useUI } from '../../context/UIContext';
 import { readTabCache, setTabCache } from '../../utils/tabDataCache';
 import { readScroll, saveScroll } from '../../utils/scrollStore';
 import { formatListingTitle } from '../../utils/listingDisplay';
+import { triggerHaptic } from '../../utils/haptics';
 
 const FILTERS_BY_ROLE = {
     landlord: ['All', 'Admin', 'Requests', 'Inquiries', 'Upcoming', 'Archived'],
@@ -141,6 +142,57 @@ const getStatusBadge = (status) => {
     );
 };
 
+const getSystemMessageTone = (message) => {
+    const text = String(message?.text || '');
+
+    if (message?.messageType === 'admin_update') {
+        return {
+            className: 'border-violet-200 bg-violet-50 text-violet-800 dark:border-violet-400/20 dark:bg-violet-500/10 dark:text-violet-100',
+            label: 'Admin update',
+        };
+    }
+
+    if (
+        message?.messageType !== 'system_update' &&
+        !/\b(booking request|stay change|approved|declined|rejected|cancelled|confirmed|agreement|move-out|extension)\b/i.test(text)
+    ) {
+        return null;
+    }
+
+    if (/\b(declined|rejected|unfortunately|not approved)\b/i.test(text)) {
+        return {
+            className: 'border-rose-200 bg-rose-50 text-rose-800 dark:border-rose-400/20 dark:bg-rose-500/10 dark:text-rose-100',
+            label: 'Request declined',
+        };
+    }
+
+    if (/\b(approved|confirm your booking|lock the room)\b/i.test(text)) {
+        return {
+            className: 'border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-400/20 dark:bg-emerald-500/10 dark:text-emerald-100',
+            label: 'Request approved',
+        };
+    }
+
+    if (/\b(cancelled|expired)\b/i.test(text)) {
+        return {
+            className: 'border-slate-200 bg-slate-50 text-slate-700 dark:border-white/10 dark:bg-white/[0.06] dark:text-slate-200',
+            label: 'Booking update',
+        };
+    }
+
+    if (/\b(confirmed|agreement|guidebook|checked in|checked out)\b/i.test(text)) {
+        return {
+            className: 'border-cyan-200 bg-cyan-50 text-cyan-800 dark:border-cyan-400/20 dark:bg-cyan-500/10 dark:text-cyan-100',
+            label: 'Stay update',
+        };
+    }
+
+    return {
+        className: 'border-cyan-200 bg-cyan-50 text-cyan-800 dark:border-cyan-400/20 dark:bg-cyan-500/10 dark:text-cyan-100',
+        label: 'System update',
+    };
+};
+
 const areChatMetaEqual = (left, right) => {
     if (!left && !right) return true;
     if (!left || !right) return false;
@@ -250,25 +302,40 @@ const ConversationCard = ({ convo, onClick, isSelected, currentUser, isOnline })
 
 const MessageBubble = ({ message, isOwnMessage }) => {
     const sentAt = message.createdAt ? format(new Date(message.createdAt), 'h:mm a') : '';
+    const systemTone = getSystemMessageTone(message);
+
+    if (systemTone) {
+        return (
+            <div className="flex justify-center px-2">
+                <div className={`max-w-[min(34rem,92%)] rounded-2xl border px-4 py-2.5 text-center shadow-sm backdrop-blur-sm ${systemTone.className}`}>
+                    <p className="text-[10px] font-black uppercase tracking-[0.14em] opacity-75">{systemTone.label}</p>
+                    <p className="mt-1 whitespace-pre-wrap break-words text-[13px] font-bold leading-5 [overflow-wrap:anywhere] sm:text-sm">
+                        {message.text}
+                    </p>
+                    {sentAt && <span className="mt-1 block text-[10px] font-black opacity-60">{sentAt}</span>}
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className={`flex ${isOwnMessage ? 'justify-end' : 'justify-start'}`}>
             <div className={`flex max-w-[75%] flex-col ${isOwnMessage ? 'items-end' : 'items-start'}`}>
                 <div
-                    className={`relative rounded-2xl px-3.5 py-2 shadow-sm after:absolute after:top-0 after:h-3 after:w-3 ${
+                    className={`relative rounded-2xl border px-3.5 py-2 shadow-sm after:absolute after:top-0 after:h-3 after:w-3 ${
                         isOwnMessage
-                            ? 'rounded-tr-sm bg-brand text-white after:-right-1 after:bg-brand dark:bg-[#005c4b] dark:text-[#e9edef] dark:after:bg-[#005c4b]'
-                            : 'rounded-tl-sm bg-light-card text-light-text after:-left-1 after:bg-light-card dark:bg-[#1f2c34] dark:text-[#e9edef] dark:after:bg-[#1f2c34]'
+                            ? 'rounded-tr-sm border-emerald-200 bg-[#d9fdd3] text-[#111b21] after:-right-1 after:bg-[#d9fdd3] dark:border-emerald-400/15 dark:bg-[#005c4b] dark:text-[#e9edef] dark:after:bg-[#005c4b]'
+                            : 'rounded-tl-sm border-slate-200 bg-white text-[#111b21] after:-left-1 after:bg-white dark:border-white/10 dark:bg-[#202c33] dark:text-[#e9edef] dark:after:bg-[#202c33]'
                     }`}
                 >
                     <p
-                        className="whitespace-pre-wrap break-all text-[15px] leading-6 [overflow-wrap:anywhere]"
-                        style={{ wordBreak: 'break-all', overflowWrap: 'anywhere' }}
+                        className="whitespace-pre-wrap break-words text-[15px] leading-6 [overflow-wrap:anywhere]"
+                        style={{ overflowWrap: 'anywhere' }}
                     >
                         {message.text}
                     </p>
                     {sentAt && (
-                        <span className={`ml-3 mt-1 block text-right text-[10px] font-medium ${isOwnMessage ? 'text-white/70' : 'text-light-muted dark:text-[#8696a0]'}`}>
+                        <span className={`ml-3 mt-1 block text-right text-[10px] font-bold ${isOwnMessage ? 'text-emerald-900/55 dark:text-[#d9fdd3]/70' : 'text-light-muted dark:text-[#8696a0]'}`}>
                             {sentAt}
                         </span>
                     )}
@@ -324,19 +391,19 @@ const ContactInfoDrawer = ({ isOpen, onClose, conversation, currentUser, isLandl
                 className={`hidden flex-1 bg-black/30 transition-opacity md:block ${isOpen ? 'opacity-100' : 'opacity-0'}`}
             />
             <aside
-                className={`h-full w-full max-w-full bg-[#f0f2f5] shadow-2xl transition-transform duration-300 dark:bg-[#111b21] md:w-[390px] ${
+                className={`h-full max-h-full w-full max-w-full overflow-hidden bg-[#f0f2f5] shadow-2xl transition-transform duration-300 dark:bg-[#111b21] md:w-[390px] ${
                     isOpen ? 'translate-x-0' : 'translate-x-full'
                 }`}
             >
-                <div className="flex h-full flex-col">
-                    <div className="flex h-16 items-center gap-3 bg-[#202c33] px-4 text-white">
+                <div className="flex h-full min-h-0 flex-col">
+                    <div className="flex h-16 flex-shrink-0 items-center gap-3 bg-[#202c33] px-4 text-white">
                         <button type="button" onClick={onClose} className="rounded-full p-2 transition hover:bg-white/10" title="Close">
                             <XMarkIcon className="h-5 w-5" />
                         </button>
                         <h3 className="text-base font-bold">Contact info</h3>
                     </div>
 
-                    <div className="flex-1 overflow-y-auto">
+                    <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-[calc(1rem+env(safe-area-inset-bottom))]">
                         <section className="bg-white px-6 py-8 text-center dark:bg-[#111b21]">
                             <ConversationAvatar
                                 name={displayMember.name}
@@ -671,8 +738,10 @@ const InboxPage = () => {
                 setTabCache(conversationsCacheKey, { conversations: nextConversations });
                 return nextConversations;
             });
+            triggerHaptic('success');
             fetchConversations({ silent: true });
         } catch (error) {
+            triggerHaptic('error');
             toast.error('Failed to save message.');
             setNewMessage(text);
             setMessages((prev) => {

@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Outlet, useLocation } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 import { useUI } from '../context/UIContext';
 import ProfileSidebar from '../components/layout/student/ProfileSidebar';
+import RouteTransition from '../components/common/RouteTransition';
 
 const FilterTabs = ({ tabs, counts, activeFilter, onFilterChange }) => (
     <div className="rr-filter-tabs sticky top-14 z-30 border-b border-light-border bg-light-bg/95 backdrop-blur-xl dark:border-dark-border dark:bg-dark-bg/90 md:top-0">
@@ -108,7 +109,7 @@ const StudentProfileLayout = () => {
                             ? ''
                             : 'md:pt-0'
                 }>
-                    <Outlet context={outletContext} />
+                    <RouteTransition context={outletContext} />
                 </div>
             </main>
         </div>

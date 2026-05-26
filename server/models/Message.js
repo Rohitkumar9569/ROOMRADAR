@@ -13,13 +13,13 @@ const messageSchema = new mongoose.Schema({
     },
     messageType: {
         type: String,
-        enum: ['text', 'booking_request', 'admin_update'], // Can be a regular text, booking request, or admin review update
+        enum: ['text', 'booking_request', 'admin_update', 'system_update'],
         default: 'text',
         required: true,
     },
     text: {
         type: String,
-        required: function () { return ['text', 'admin_update'].includes(this.messageType); }
+        required: function () { return ['text', 'admin_update', 'system_update'].includes(this.messageType); }
     },
     // server/models/Message.js
 

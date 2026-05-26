@@ -1,11 +1,14 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { format } from 'date-fns';
 import toast from 'react-hot-toast';
-import { CalendarClock, CalendarDays, CheckCircle2, MessageCircle, Search, Star, Timer, XCircle } from 'lucide-react';
+import { BadgeCheck, CalendarClock, CalendarDays, CheckCircle2, FileText, MessageCircle, Search, ShieldCheck, Star, Timer, XCircle, Zap } from 'lucide-react';
 import api from '../../api';
 import Spinner from '../../components/common/Spinner';
+import ApplicationReviewDrawer from '../../components/features/booking/ApplicationReviewDrawer';
 import GuestReviewModal from '../../components/features/reviews/GuestReviewModal';
+import { triggerHaptic } from '../../utils/haptics';
+import { calculateLeadScore, daysUntil } from '../../utils/leadScore';
 
 const statusMeta = {
   pending: { label: 'Pending', Icon: Timer, badge: 'bg-amber-500/10 text-amber-600 dark:text-amber-300' },
@@ -18,12 +21,12 @@ const statusMeta = {
 const getRoomImage = (room) => room?.images?.[0]?.url || room?.images?.[0] || room?.imageUrl || null;
 
 function LandlordApplicationsPage() {
-  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [applications, setApplications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
   const [reviewApplication, setReviewApplication] = useState(null);
+  const [detailApplication, setDetailApplication] = useState(null);
   const activeStatus = searchParams.get('status') || 'all';
 
   const fetchApplications = async () => {
@@ -60,8 +63,22 @@ function LandlordApplicationsPage() {
           application.room?.title?.toLowerCase().includes(term) ||
           application.student?.name?.toLowerCase().includes(term)
         );
+      })
+      .sort((a, b) => {
+        const scoreDiff = calculateLeadScore(b).score - calculateLeadScore(a).score;
+        if (scoreDiff !== 0) return scoreDiff;
+        return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
       });
   }, [applications, activeStatus, query]);
+
+  const leadSummary = useMemo(() => {
+    const scored = applications.map(calculateLeadScore);
+    return {
+      highlyQualified: scored.filter((lead) => lead.score >= 75).length,
+      urgentMoveIns: applications.filter((application) => application.status === 'pending' && daysUntil(application.checkInDate) !== null && daysUntil(application.checkInDate) <= 7 && daysUntil(application.checkInDate) >= 0).length,
+      missingDetails: scored.filter((lead) => lead.score < 55).length,
+    };
+  }, [applications]);
 
   const setStatus = (status) => {
     if (status === 'all') setSearchParams({});
@@ -73,18 +90,22 @@ function LandlordApplicationsPage() {
     try {
       const { data } = await api.patch(`/applications/${applicationId}/${action}`);
       const updatedApplication = data.application || data;
+      const mergeApplication = (application) => ({
+        ...application,
+        ...updatedApplication,
+        room: updatedApplication.room && typeof updatedApplication.room === 'object' ? updatedApplication.room : application.room,
+        student: updatedApplication.student && typeof updatedApplication.student === 'object' ? updatedApplication.student : application.student,
+        hasGuestReview: application.hasGuestReview,
+        guestReview: application.guestReview,
+      });
       setApplications((prev) => prev.map((application) => (
-        application._id === applicationId
-          ? {
-              ...application,
-              ...updatedApplication,
-              hasGuestReview: application.hasGuestReview,
-              guestReview: application.guestReview,
-            }
-          : application
+        application._id === applicationId ? mergeApplication(application) : application
       )));
+      setDetailApplication((current) => (current?._id === applicationId ? mergeApplication(current) : current));
+      triggerHaptic(action === 'approve' ? 'success' : 'warning');
       toast.success(`Request ${action === 'approve' ? 'approved' : 'rejected'}.`, { id: toastId });
     } catch (error) {
+      triggerHaptic('error');
       toast.error(error.response?.data?.message || 'Could not update request.', { id: toastId });
     }
   };
@@ -95,8 +116,10 @@ function LandlordApplicationsPage() {
       const { data } = await api.patch(`/applications/${applicationId}/stay-change/respond`, { action });
       const updatedApplication = data.application || data;
       setApplications((prev) => prev.map((application) => (application._id === applicationId ? updatedApplication : application)));
+      triggerHaptic(action === 'approve' ? 'success' : 'warning');
       toast.success(data.message || 'Stay change updated.', { id: toastId });
     } catch (error) {
+      triggerHaptic('error');
       toast.error(error.response?.data?.message || 'Could not update stay change.', { id: toastId });
     }
   };
@@ -115,6 +138,19 @@ function LandlordApplicationsPage() {
         },
       };
     }));
+    setDetailApplication((current) => {
+      if (current?._id !== reviewApplication?._id) return current;
+      return {
+        ...current,
+        hasGuestReview: true,
+        guestReview: review,
+        student: {
+          ...(current.student || {}),
+          guestAverageRating: stats?.guestAverageRating ?? current.student?.guestAverageRating,
+          guestReviewsCount: stats?.guestReviewsCount ?? current.student?.guestReviewsCount,
+        },
+      };
+    });
     setReviewApplication(null);
   };
 
@@ -144,6 +180,36 @@ function LandlordApplicationsPage() {
                 className="input-field pl-11"
                 placeholder="Search applicant or room"
               />
+            </div>
+          </div>
+        </div>
+
+        <div className="mb-6 grid gap-3 md:grid-cols-3">
+          <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 dark:border-emerald-400/20 dark:bg-emerald-400/10">
+            <div className="flex items-center gap-3">
+              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-600 text-white"><BadgeCheck className="h-5 w-5" /></span>
+              <div>
+                <p className="text-2xl font-black text-emerald-700 dark:text-emerald-200">{leadSummary.highlyQualified}</p>
+                <p className="text-xs font-black uppercase tracking-[0.12em] text-emerald-700/75 dark:text-emerald-200/75">Highly qualified</p>
+              </div>
+            </div>
+          </div>
+          <div className="rounded-2xl border border-cyan-200 bg-cyan-50 p-4 dark:border-cyan-300/20 dark:bg-cyan-300/10">
+            <div className="flex items-center gap-3">
+              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-600 text-white"><Zap className="h-5 w-5" /></span>
+              <div>
+                <p className="text-2xl font-black text-cyan-700 dark:text-cyan-200">{leadSummary.urgentMoveIns}</p>
+                <p className="text-xs font-black uppercase tracking-[0.12em] text-cyan-700/75 dark:text-cyan-200/75">Move-ins this week</p>
+              </div>
+            </div>
+          </div>
+          <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-400/20 dark:bg-amber-400/10">
+            <div className="flex items-center gap-3">
+              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-500 text-white"><ShieldCheck className="h-5 w-5" /></span>
+              <div>
+                <p className="text-2xl font-black text-amber-700 dark:text-amber-200">{leadSummary.missingDetails}</p>
+                <p className="text-xs font-black uppercase tracking-[0.12em] text-amber-700/75 dark:text-amber-200/75">Need screening</p>
+              </div>
             </div>
           </div>
         </div>
@@ -178,19 +244,20 @@ function LandlordApplicationsPage() {
               const meta = statusMeta[application.status] || statusMeta.pending;
               const StatusIcon = meta.Icon;
               const roomImage = getRoomImage(application.room);
-              const target = application.conversation ? `/landlord/inbox/${application.conversation}` : application.room?._id ? `/room/${application.room._id}` : '/landlord/inbox';
+              const lead = calculateLeadScore(application);
               return (
                 <article
                   key={application._id || `${application.room?._id || 'room'}-${application.student?._id || 'student'}-${index}`}
-                  role="link"
+                  role="button"
                   tabIndex={0}
-                  onClick={() => navigate(target)}
+                  onClick={() => setDetailApplication(application)}
                   onKeyDown={(event) => {
                     if (event.key === 'Enter' || event.key === ' ') {
                       event.preventDefault();
-                      navigate(target);
+                      setDetailApplication(application);
                     }
                   }}
+                  aria-label={`Review details for ${application.student?.name || application.fullName || 'applicant'}`}
                   className="cursor-pointer rounded-3xl border border-light-border bg-light-card p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-cyan-300 hover:shadow-lg dark:border-dark-border dark:bg-dark-card dark:hover:border-cyan-700/60"
                 >
                   <div className="flex flex-col gap-4 md:flex-row md:items-center">
@@ -210,6 +277,23 @@ function LandlordApplicationsPage() {
                             <span className="font-bold opacity-70">({application.student.guestReviewsCount || 0})</span>
                           </p>
                         )}
+                        <div className="mt-2 flex flex-wrap gap-1.5">
+                          <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-black ${
+                            lead.tone === 'emerald'
+                              ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
+                              : lead.tone === 'cyan'
+                                ? 'bg-cyan-500/10 text-cyan-700 dark:text-cyan-300'
+                                : 'bg-amber-500/10 text-amber-700 dark:text-amber-300'
+                          }`}>
+                            <ShieldCheck className="h-3.5 w-3.5" />
+                            {lead.label} {lead.score}
+                          </span>
+                          {lead.signals.slice(0, 2).map((signal) => (
+                            <span key={signal} className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-black text-slate-500 dark:bg-slate-800 dark:text-slate-300">
+                              {signal}
+                            </span>
+                          ))}
+                        </div>
                       </div>
                     </div>
                     <div className="grid flex-1 grid-cols-2 gap-3 text-sm md:grid-cols-5">
@@ -274,6 +358,18 @@ function LandlordApplicationsPage() {
                                 Reviewed
                               </span>
                             )}
+                            {application.status === 'confirmed' && (
+                              <Link onClick={(event) => event.stopPropagation()} to={`/landlord/agreement/${application._id}`} className="inline-flex items-center gap-1 rounded-xl bg-sky-600 px-3 py-2 text-xs font-black text-white transition hover:bg-sky-700">
+                                <FileText className="h-4 w-4" />
+                                Agreement
+                              </Link>
+                            )}
+                            {application.status === 'approved' && (
+                              <span className="inline-flex items-center gap-1 rounded-xl bg-cyan-500/10 px-3 py-2 text-xs font-black text-cyan-700 dark:text-cyan-300">
+                                <ShieldCheck className="h-4 w-4" />
+                                Awaiting tenant
+                              </span>
+                            )}
                             <Link onClick={(event) => event.stopPropagation()} to={application.conversation ? `/landlord/inbox/${application.conversation}` : '/landlord/inbox'} className="btn-outline inline-flex items-center gap-2 px-3 py-2 text-xs">
                               <MessageCircle className="h-4 w-4" />
                               Chat
@@ -294,6 +390,13 @@ function LandlordApplicationsPage() {
         application={reviewApplication}
         onClose={() => setReviewApplication(null)}
         onSuccess={handleGuestReviewSuccess}
+      />
+      <ApplicationReviewDrawer
+        isOpen={Boolean(detailApplication)}
+        application={detailApplication}
+        onClose={() => setDetailApplication(null)}
+        onApprove={(applicationId) => updateApplicationStatus(applicationId, 'approve')}
+        onReject={(applicationId) => updateApplicationStatus(applicationId, 'reject')}
       />
     </div>
   );

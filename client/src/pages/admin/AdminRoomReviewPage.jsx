@@ -29,9 +29,13 @@ import toast from 'react-hot-toast';
 import api from '../../api';
 import Spinner from '../../components/common/Spinner';
 import ReviewsSection from '../../components/features/rooms/ReviewsSection';
+import { useAuth } from '../../context/AuthContext';
 import { roomConfig } from '../../config/roomConfig';
 import { formatRoomFieldValue, getRoomFieldValue } from '../../utils/roomFieldUtils';
 import { formatListingTitle } from '../../utils/listingDisplay';
+import { notifyAdminCountsChanged } from '../../utils/adminEvents';
+import { triggerHaptic } from '../../utils/haptics';
+import { hasAdminPermission } from '../../utils/adminPermissions';
 import fallbackRoomImage from '../../assets/background_img.jpg';
 
 const money = (value) => new Intl.NumberFormat('en-IN', {
@@ -107,7 +111,7 @@ const isMissingField = (room, field) => {
   return value === undefined || value === null || value === '';
 };
 
-const AdminDecisionPanel = ({ room, onApprove, onReject }) => {
+const AdminDecisionPanel = ({ room, onApprove, onReject, canModerate }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [rejectionReason, setRejectionReason] = useState('');
   const [showRejectionBox, setShowRejectionBox] = useState(false);
@@ -163,7 +167,7 @@ const AdminDecisionPanel = ({ room, onApprove, onReject }) => {
 
         <button
           onClick={handleApproveClick}
-          disabled={isSubmitting}
+          disabled={isSubmitting || !canModerate}
           className="rr-approve-action flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 px-4 text-sm font-black text-white shadow-lg shadow-emerald-500/20 transition hover:bg-emerald-600 disabled:opacity-50"
         >
           <Check className="h-5 w-5" /> Approve & publish
@@ -172,7 +176,7 @@ const AdminDecisionPanel = ({ room, onApprove, onReject }) => {
         {showRejectionBox ? (
           <button
             onClick={handleRejectClick}
-            disabled={isSubmitting}
+            disabled={isSubmitting || !canModerate}
             className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-rose-600 px-4 text-sm font-black text-white shadow-lg shadow-rose-500/20 transition hover:bg-rose-700 disabled:opacity-50"
           >
             Confirm rejection
@@ -180,11 +184,16 @@ const AdminDecisionPanel = ({ room, onApprove, onReject }) => {
         ) : (
           <button
             onClick={() => setShowRejectionBox(true)}
-            disabled={isSubmitting}
+            disabled={isSubmitting || !canModerate}
             className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 text-sm font-black text-rose-600 transition hover:bg-rose-500 hover:text-white disabled:opacity-50 dark:text-rose-200"
           >
             <X className="h-5 w-5" /> Reject listing
           </button>
+        )}
+        {!canModerate && (
+          <p className="rounded-2xl bg-amber-500/10 px-3 py-2 text-xs font-bold leading-5 text-amber-700 dark:text-amber-200">
+            Your admin role can inspect this listing, but approve/reject actions need listing moderation access.
+          </p>
         )}
       </div>
     </aside>
@@ -512,6 +521,7 @@ const RecentApplications = ({ applications = [] }) => (
 
 const AdminRoomReviewPage = () => {
   const { id: roomId } = useParams();
+  const { user: currentAdmin } = useAuth();
   const navigate = useNavigate();
   const [room, setRoom] = useState(null);
   const [stats, setStats] = useState({});
@@ -519,6 +529,7 @@ const AdminRoomReviewPage = () => {
   const [reviews, setReviews] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const canModerateRooms = hasAdminPermission(currentAdmin, 'rooms:moderate');
 
   useEffect(() => {
     const fetchRoomAndReviews = async () => {
@@ -550,8 +561,11 @@ const AdminRoomReviewPage = () => {
     try {
       const { data } = await api.patch(`/admin/rooms/${roomId}/approve`);
       setRoom(data);
+      triggerHaptic('success');
       toast.success('Room published.', { id: toastId });
+      notifyAdminCountsChanged();
     } catch (err) {
+      triggerHaptic('error');
       toast.error(err.response?.data?.message || 'Could not approve the room.', { id: toastId });
     }
   };
@@ -561,8 +575,11 @@ const AdminRoomReviewPage = () => {
     try {
       const { data } = await api.patch(`/admin/rooms/${roomId}/reject`, { reason });
       setRoom(data);
+      triggerHaptic('success');
       toast.success('Room rejected.', { id: toastId });
+      notifyAdminCountsChanged();
     } catch (err) {
+      triggerHaptic('error');
       toast.error(err.response?.data?.message || 'Could not reject the room.', { id: toastId });
     }
   };
@@ -651,7 +668,7 @@ const AdminRoomReviewPage = () => {
           </main>
 
           <aside className="order-1 space-y-4 xl:sticky xl:top-4 xl:order-2 xl:max-h-[calc(100vh-2rem)] xl:self-start xl:overflow-y-auto xl:pr-1">
-            <AdminDecisionPanel room={room} onApprove={handleApprove} onReject={handleReject} />
+            <AdminDecisionPanel room={room} onApprove={handleApprove} onReject={handleReject} canModerate={canModerateRooms} />
             <HostCard host={room.landlord} />
             <RecentApplications applications={recentApplications} />
 

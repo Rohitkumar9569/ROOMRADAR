@@ -30,6 +30,8 @@ import { useSettings } from '../../context/SettingsContext';
 import { useAuth } from '../../context/AuthContext';
 import { useSocket } from '../../context/SocketContext';
 import { formatListingTitle } from '../../utils/listingDisplay';
+import { notifyAdminCountsChanged } from '../../utils/adminEvents';
+import { triggerHaptic } from '../../utils/haptics';
 
 const money = (value = 0) =>
   new Intl.NumberFormat('en-IN', {
@@ -592,8 +594,13 @@ const TicketsPanel = ({ data }) => {
       const sorted = sortTicketsForAdmin(response?.tickets || []);
       setTickets(sorted);
       setSelectedTicketId((current) => (current && sorted.some((ticket) => ticket._id === current) ? current : sorted[0]?._id || ''));
-      if (!silent) toast.success('Support queue refreshed.');
+      notifyAdminCountsChanged();
+      if (!silent) {
+        triggerHaptic('success');
+        toast.success('Support queue refreshed.');
+      }
     } catch (error) {
+      if (!silent) triggerHaptic('error');
       toast.error(error.response?.data?.message || 'Could not refresh support queue.');
     } finally {
       setRefreshing(false);
@@ -603,7 +610,9 @@ const TicketsPanel = ({ data }) => {
   useEffect(() => {
     if (!socket) return undefined;
     const handleNewTicket = () => {
+      triggerHaptic('warning');
       toast.success('New support ticket received.');
+      notifyAdminCountsChanged();
       refreshTickets({ silent: true });
     };
     socket.on('admin_support_ticket_created', handleNewTicket);
@@ -615,8 +624,11 @@ const TicketsPanel = ({ data }) => {
       const { data: updatedTicket } = await api.patch(`/admin/tickets/${ticketId}`, updates);
       setTickets((current) => sortTicketsForAdmin(current.map((ticket) => (ticket._id === ticketId ? updatedTicket : ticket))));
       setSelectedTicketId(updatedTicket._id);
+      triggerHaptic('success');
       toast.success('Ticket updated.');
+      notifyAdminCountsChanged();
     } catch (error) {
+      triggerHaptic('error');
       toast.error(error.response?.data?.message || 'Could not update ticket.');
     }
   };
@@ -820,8 +832,10 @@ const SettingsPanel = ({ data, setData }) => {
       };
       const response = await updateSettings(payload);
       setData(response);
+      triggerHaptic('success');
       toast.success('Platform settings updated.');
     } catch (err) {
+      triggerHaptic('error');
       toast.error('Could not update settings.');
     } finally {
       setSaving(false);
@@ -837,9 +851,11 @@ const SettingsPanel = ({ data, setData }) => {
     try {
       const response = await updateSettings({ [key]: nextValue });
       setData(response);
+      triggerHaptic('success');
       toast.success(`${key.replace(/([A-Z])/g, ' $1')} is ${nextValue ? 'ON' : 'OFF'}.`);
     } catch (error) {
       setForm(form);
+      triggerHaptic('error');
       toast.error('Could not update platform switch.');
     } finally {
       setSavingSwitch('');

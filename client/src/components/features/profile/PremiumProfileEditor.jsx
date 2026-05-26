@@ -7,6 +7,8 @@ import { useAuth } from '../../../context/AuthContext';
 import { isValidIndianMobile, phoneInputProps, sanitizePhoneInput } from '../../../utils/phoneUtils';
 import { switchRoleSmoothly } from '../../../utils/roleSwitch';
 
+const ALLOWED_PROFILE_PHOTO_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
+
 const studentFields = [
   { key: 'name', label: 'Full name', type: 'text', required: true },
   { key: 'mobileNumber', label: 'Mobile number', type: 'tel' },
@@ -133,8 +135,8 @@ function PremiumProfileEditor({ mode = 'student' }) {
     event.target.value = '';
     if (!file) return;
 
-    if (!file.type?.startsWith('image/')) {
-      toast.error('Please choose an image file.');
+    if (!ALLOWED_PROFILE_PHOTO_TYPES.has(file.type)) {
+      toast.error('Please choose a JPG, PNG, or WEBP image.');
       return;
     }
     if (file.size > 8 * 1024 * 1024) {
@@ -274,7 +276,7 @@ function PremiumProfileEditor({ mode = 'student' }) {
             </div>
 
             <div className="relative mt-9 flex items-end gap-3 md:mt-12 md:gap-5">
-              <input ref={photoInputRef} type="file" accept="image/png,image/jpeg,image/webp,image/*" className="sr-only" onChange={handleProfilePhotoChange} />
+              <input ref={photoInputRef} type="file" accept="image/png,image/jpeg,image/webp" className="sr-only" onChange={handleProfilePhotoChange} />
               <button
                 type="button"
                 onClick={handleAvatarPhotoClick}

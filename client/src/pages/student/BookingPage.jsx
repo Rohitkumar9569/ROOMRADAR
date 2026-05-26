@@ -23,6 +23,7 @@ import fallbackRoomImage from '../../assets/background_img.jpg';
 import { isValidIndianMobile, phoneInputProps, sanitizePhoneInput } from '../../utils/phoneUtils';
 import { formatListingTitle } from '../../utils/listingDisplay';
 import { trackUsageEvent } from '../../utils/usageAnalytics';
+import { triggerHaptic } from '../../utils/haptics';
 
 const durations = [
     { label: '1M', months: 1 },
@@ -34,6 +35,19 @@ const durations = [
 const steps = ['Stay', 'Details', 'Review', 'Sent'];
 
 const money = (value) => `\u20B9${Number(value || 0).toLocaleString('en-IN')}`;
+const MAX_ID_PROOF_MB = 8;
+const MAX_ID_PROOF_BYTES = MAX_ID_PROOF_MB * 1024 * 1024;
+const MAX_BOOKING_MESSAGE_LENGTH = 500;
+const allowedIdProofTypes = new Set(['image/jpeg', 'image/png', 'image/webp']);
+const bookableRoomStatuses = new Set(['published', 'available']);
+
+const isRoomBookable = (room) => bookableRoomStatuses.has(String(room?.status || '').toLowerCase());
+
+const parseMoneyValue = (value) => {
+    if (value === undefined || value === null || value === '') return undefined;
+    const numericValue = Number(String(value).replace(/[^\d.-]/g, ''));
+    return Number.isFinite(numericValue) && numericValue >= 0 ? numericValue : undefined;
+};
 
 const toDateInputValue = (date) => {
     const copy = new Date(date);
@@ -97,7 +111,13 @@ const BookingPage = () => {
                 setLoading(true);
                 const { data } = await api.get(`/rooms/${id}`);
                 if (active) {
-                    setRoom(data);
+                    const roomData = data?.data || data;
+                    if (!isRoomBookable(roomData)) {
+                        setRoom(null);
+                        setError('This room is not accepting booking requests right now.');
+                        return;
+                    }
+                    setRoom(roomData);
                     setError('');
                 }
             } catch (err) {
@@ -116,7 +136,8 @@ const BookingPage = () => {
     }, [id]);
 
     const rent = Number(room?.rent || 0);
-    const securityDeposit = Number(String(room?.securityDeposit || '').replace(/[^\d.]/g, '')) || rent;
+    const parsedSecurityDeposit = parseMoneyValue(room?.securityDeposit);
+    const securityDeposit = parsedSecurityDeposit ?? rent;
     const totalRent = rent * Number(form.durationMonths || 1);
     const total = totalRent + securityDeposit;
     const checkOutDate = addMonths(form.moveInDate, form.durationMonths);
@@ -133,6 +154,7 @@ const BookingPage = () => {
     const validateStep = () => {
         if (step === 0) {
             if (!form.moveInDate) return 'Please select your move-in date.';
+            if (form.moveInDate < tomorrow) return 'Move-in date must be tomorrow or later.';
             if (Number(form.durationMonths) < 1 || Number(form.durationMonths) > 36) return 'Please choose a stay duration between 1 and 36 months.';
             if (Number(form.occupants) < 1) return 'Please add at least one occupant.';
         }
@@ -144,6 +166,7 @@ const BookingPage = () => {
             if (!idProofFile && !form.idProofImage) return 'Please upload your ID proof image.';
             if (!form.emergencyName.trim()) return 'Please enter an emergency contact name.';
             if (!isValidIndianMobile(form.emergencyPhone)) return 'Please enter a valid emergency contact number.';
+            if (form.message.trim().length > MAX_BOOKING_MESSAGE_LENGTH) return `Message must be ${MAX_BOOKING_MESSAGE_LENGTH} characters or shorter.`;
         }
 
         if (step === 2 && !form.agreedToTerms) {
@@ -151,6 +174,29 @@ const BookingPage = () => {
         }
 
         return '';
+    };
+
+    const handleIdProofChange = (event) => {
+        const file = event.target.files?.[0] || null;
+        event.target.value = '';
+        if (!file) {
+            setIdProofFile(null);
+            return;
+        }
+
+        if (!allowedIdProofTypes.has(file.type)) {
+            setIdProofFile(null);
+            toast.error('Please upload JPG, PNG, or WEBP ID proof.');
+            return;
+        }
+
+        if (file.size > MAX_ID_PROOF_BYTES) {
+            setIdProofFile(null);
+            toast.error(`ID proof must be ${MAX_ID_PROOF_MB} MB or smaller.`);
+            return;
+        }
+
+        setIdProofFile(file);
     };
 
     const goNext = () => {
@@ -221,8 +267,10 @@ const BookingPage = () => {
                 },
             });
             setStep(3);
+            triggerHaptic('success');
             toast.success('Booking request sent to the landlord.');
         } catch (err) {
+            triggerHaptic('error');
             toast.error(err.response?.data?.message || 'Could not send booking request.');
         } finally {
             setSubmitting(false);
@@ -387,8 +435,8 @@ const BookingPage = () => {
                                             <label className="flex min-h-[132px] cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed border-light-border bg-light-bg px-4 text-center transition hover:border-brand dark:border-dark-border dark:bg-dark-input">
                                                 <UploadCloud className="h-8 w-8 text-brand" />
                                                 <span className="mt-3 text-sm font-semibold">{idProofFile ? idProofFile.name : 'Upload a clear ID proof image'}</span>
-                                                <span className="mt-1 text-xs text-light-muted dark:text-dark-muted">JPG, PNG, or WEBP accepted</span>
-                                                <input type="file" accept="image/*" className="hidden" onChange={(event) => setIdProofFile(event.target.files?.[0] || null)} />
+                                                <span className="mt-1 text-xs text-light-muted dark:text-dark-muted">JPG, PNG, or WEBP up to {MAX_ID_PROOF_MB} MB</span>
+                                                <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={handleIdProofChange} />
                                             </label>
                                         </div>
                                         <Field label="Emergency contact name" icon={ShieldCheck}>
@@ -403,9 +451,13 @@ const BookingPage = () => {
                                                 value={form.message}
                                                 onChange={(event) => updateForm('message', event.target.value)}
                                                 rows="4"
+                                                maxLength={MAX_BOOKING_MESSAGE_LENGTH}
                                                 className="input-field resize-none"
                                                 placeholder="Share your moving timeline, occupation, or any question."
                                             />
+                                            <p className="mt-1 text-xs text-light-muted dark:text-dark-muted">
+                                                {form.message.length}/{MAX_BOOKING_MESSAGE_LENGTH}
+                                            </p>
                                         </div>
                                     </motion.div>
                                 )}

@@ -86,28 +86,58 @@ const getCalendarData = asyncHandler(async (req, res) => {
         landlord: landlordId,
         status: { $in: ['confirmed', 'pending'] }
     })
-    .populate('room', 'title color') 
-    .populate('student', 'name');
+    .populate('room', 'title color rent imageUrl images')
+    .populate('student', 'name email mobileNumber phone');
 
     //Format the applications into events for FullCalendar
     const bookings = applications.map(app => {
+        const roomTitle = app.room?.title || 'Room';
+        const studentName = app.student?.name || app.fullName || 'Applicant';
         let title = '';
 
         if (app.status === 'confirmed') {
-            title = `${app.room.title} - Booked by ${app.student.name}`;
+            title = `${roomTitle} - Booked by ${studentName}`;
         } else { // 'pending'
-            title = `${app.room.title} - Pending Request`;
+            title = `${roomTitle} - Pending Request`;
         }
+
+        const roomId = app.room?._id || app.room;
         
         return {
             id: app._id,
-            roomId: app.room._id,
+            _id: app._id,
+            applicationId: app._id,
+            roomId,
             title: title,
             start: app.checkInDate,
             end: app.checkOutDate,
+            checkInDate: app.checkInDate,
+            checkOutDate: app.checkOutDate,
+            status: app.status,
+            type: app.type,
+            message: app.message,
+            durationMonths: app.durationMonths,
+            room: app.room ? {
+                _id: app.room._id,
+                title: app.room.title,
+                color: app.room.color,
+                rent: app.room.rent,
+                imageUrl: app.room.imageUrl,
+                images: app.room.images || [],
+            } : null,
+            student: app.student ? {
+                _id: app.student._id,
+                name: app.student.name,
+                email: app.student.email,
+                phone: app.student.mobileNumber || app.student.phone || app.mobileNumber,
+            } : {
+                name: app.fullName || 'Applicant',
+                phone: app.mobileNumber,
+            },
+            url: `/landlord/applications?status=${app.status}`,
             // Using the color from the Room model 
-            backgroundColor: app.room.color || '#3b82f6',
-            borderColor: app.room.color || '#3b82f6',
+            backgroundColor: app.room?.color || '#3b82f6',
+            borderColor: app.room?.color || '#3b82f6',
         };
     });
 

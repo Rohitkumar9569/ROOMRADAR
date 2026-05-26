@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { FaStar } from 'react-icons/fa';
 import { createReview } from '../../../api';
 import toast from 'react-hot-toast';
@@ -66,6 +66,14 @@ function ReviewModal({ isOpen, onClose, booking, onSuccess }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
+  useEffect(() => {
+    if (!isOpen) return;
+    setRating(0);
+    setCategoryRatings({});
+    setComment('');
+    setError('');
+  }, [booking?._id, isOpen]);
+
   if (!isOpen) return null;
   const displayTitle = formatListingTitle(booking?.room?.title, 'this room');
 
@@ -78,8 +86,9 @@ function ReviewModal({ isOpen, onClose, booking, onSuccess }) {
       return;
     }
 
-    if (!comment.trim()) {
-      setError('Please write a comment for your review.');
+    const cleanComment = comment.trim();
+    if (cleanComment.length < 10) {
+      setError('Please write at least 10 characters for your review.');
       return;
     }
 
@@ -87,7 +96,7 @@ function ReviewModal({ isOpen, onClose, booking, onSuccess }) {
     try {
       await createReview(booking.room._id, {
         rating,
-        comment,
+        comment: cleanComment,
         bookingId: booking._id,
         categoryRatings,
       });

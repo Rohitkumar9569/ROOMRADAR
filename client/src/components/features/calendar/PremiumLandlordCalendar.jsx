@@ -22,6 +22,16 @@ import {
 } from '@heroicons/react/24/solid';
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addDays, addMonths, subMonths, isSameMonth, isSameDay, isToday, parseISO } from 'date-fns';
 
+const getBookingKey = (booking) => booking._id || booking.id || booking.applicationId;
+const getBookingStartValue = (booking) => booking.checkInDate || booking.start;
+const getBookingEndValue = (booking) => booking.checkOutDate || booking.end;
+const parseBookingDate = (value) => {
+  if (!value) return null;
+  if (value instanceof Date) return value;
+  const parsed = parseISO(String(value));
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+};
+
 const PremiumLandlordCalendar = ({ bookings = [], highlightThisWeek = false, onEventClick, onApprove, onReject }) => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [viewMode, setViewMode] = useState('month'); // 'month' or 'week'
@@ -31,8 +41,8 @@ const PremiumLandlordCalendar = ({ bookings = [], highlightThisWeek = false, onE
 
   // Calculate calendar dates
   const calendarDays = useMemo(() => {
-    const monthStart = startOfMonth(currentDate);
-    const monthEnd = endOfMonth(currentDate);
+    const monthStart = viewMode === 'week' ? startOfWeek(currentDate) : startOfMonth(currentDate);
+    const monthEnd = viewMode === 'week' ? endOfWeek(currentDate) : endOfMonth(currentDate);
     const startDate = startOfWeek(monthStart);
     const endDate = endOfWeek(monthEnd);
     
@@ -45,13 +55,13 @@ const PremiumLandlordCalendar = ({ bookings = [], highlightThisWeek = false, onE
     }
     
     return days;
-  }, [currentDate]);
+  }, [currentDate, viewMode]);
 
   // Filter bookings by date
   const getBookingsForDay = useCallback((day) => {
     return bookings.filter(booking => {
-      if (!booking.checkInDate) return false;
-      const bookingDate = parseISO(booking.checkInDate);
+      const bookingDate = parseBookingDate(getBookingStartValue(booking));
+      if (!bookingDate) return false;
       return isSameDay(bookingDate, day);
     });
   }, [bookings]);
@@ -84,7 +94,7 @@ const PremiumLandlordCalendar = ({ bookings = [], highlightThisWeek = false, onE
 
   const handleApprove = useCallback(async () => {
     if (selectedEvent && onApprove) {
-      await onApprove(selectedEvent._id);
+      await onApprove(getBookingKey(selectedEvent));
       setShowEventDrawer(false);
       setSelectedEvent(null);
     }
@@ -92,7 +102,7 @@ const PremiumLandlordCalendar = ({ bookings = [], highlightThisWeek = false, onE
 
   const handleReject = useCallback(async () => {
     if (selectedEvent && onReject) {
-      await onReject(selectedEvent._id);
+      await onReject(getBookingKey(selectedEvent));
       setShowEventDrawer(false);
       setSelectedEvent(null);
     }
@@ -240,7 +250,7 @@ const PremiumLandlordCalendar = ({ bookings = [], highlightThisWeek = false, onE
                           confirmed: 'bg-sky-500',
                           rejected: 'bg-rose-500'
                         }[booking.status] || 'bg-brand';
-                        return <span key={booking._id} className={`h-2 w-2 rounded-full ${dotColor}`} />;
+                        return <span key={getBookingKey(booking)} className={`h-2 w-2 rounded-full ${dotColor}`} />;
                       })}
                     </div>
                   )}
@@ -250,7 +260,7 @@ const PremiumLandlordCalendar = ({ bookings = [], highlightThisWeek = false, onE
                     
                     return (
                       <motion.div
-                        key={booking._id}
+                        key={getBookingKey(booking)}
                         initial={{ opacity: 0, scale: 0.8 }}
                         animate={{ opacity: 1, scale: 1 }}
                         whileHover={{ scale: 1.02 }}
@@ -321,15 +331,15 @@ const PremiumLandlordCalendar = ({ bookings = [], highlightThisWeek = false, onE
               <div className="p-6 space-y-6">
                 {/* Status Badge */}
                 <div className="flex items-center justify-center">
-                  <div className={`
-                    ${eventStatusConfig[selectedEvent.status]?.bgColor} 
-                    ${eventStatusConfig[selectedEvent.status]?.borderColor} 
-                    ${eventStatusConfig[selectedEvent.status]?.textColor}
-                    border rounded-full px-4 py-2 font-medium flex items-center gap-2
-                  `}>
-                    {React.createElement(eventStatusConfig[selectedEvent.status]?.icon, { className: 'h-5 w-5' })}
-                    {eventStatusConfig[selectedEvent.status]?.label}
-                  </div>
+                  {(() => {
+                    const config = eventStatusConfig[selectedEvent.status] || eventStatusConfig.pending;
+                    return (
+                      <div className={`${config.bgColor} ${config.borderColor} ${config.textColor} flex items-center gap-2 rounded-full border px-4 py-2 font-medium`}>
+                        {React.createElement(config.icon, { className: 'h-5 w-5' })}
+                        {config.label}
+                      </div>
+                    );
+                  })()}
                 </div>
 
                 {/* Room Info */}
@@ -343,7 +353,8 @@ const PremiumLandlordCalendar = ({ bookings = [], highlightThisWeek = false, onE
                     <div className="flex items-center gap-2">
                       <CalendarIcon className="h-4 w-4 text-light-muted dark:text-dark-muted" />
                       <span className="text-sm text-light-muted dark:text-dark-muted">
-                        {selectedEvent.checkInDate ? format(parseISO(selectedEvent.checkInDate), 'MMM dd, yyyy') : 'N/A'}
+                        {parseBookingDate(getBookingStartValue(selectedEvent)) ? format(parseBookingDate(getBookingStartValue(selectedEvent)), 'MMM dd, yyyy') : 'N/A'}
+                        {parseBookingDate(getBookingEndValue(selectedEvent)) ? ` - ${format(parseBookingDate(getBookingEndValue(selectedEvent)), 'MMM dd, yyyy')}` : ''}
                       </span>
                     </div>
                     <div className="flex items-center gap-2">
@@ -457,7 +468,7 @@ const PremiumLandlordCalendar = ({ bookings = [], highlightThisWeek = false, onE
                   const StatusIcon = config.icon;
                   return (
                     <button
-                      key={booking._id}
+                      key={getBookingKey(booking)}
                       type="button"
                       onClick={() => {
                         setSelectedDay(null);

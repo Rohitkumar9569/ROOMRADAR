@@ -47,8 +47,24 @@ const bookingRateLimiter = createRateLimiter({
   message: 'Too many booking actions. Please slow down and try again.',
 });
 
+const chatbotRateLimiter = createRateLimiter({
+  windowMs: 60 * 1000,
+  max: 5,
+  scope: 'chatbot',
+  message: 'RoomRadar AI is getting too many messages. Please wait a minute and try again.',
+});
+
+const uploadRateLimiter = createRateLimiter({
+  windowMs: 10 * 60 * 1000,
+  max: 40,
+  scope: 'upload',
+  message: 'Too many uploads. Please wait a few minutes and try again.',
+});
+
 module.exports = {
   createRateLimiter,
   authRateLimiter,
   bookingRateLimiter,
+  chatbotRateLimiter,
+  uploadRateLimiter,
 };

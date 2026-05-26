@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { NavLink, useLocation, useNavigate } from 'react-router-dom';
+import { NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '../../../context/AuthContext';
 import { prefetchRoute, warmRoutesWhenIdle } from '../../../utils/routePrefetch';
 
@@ -18,7 +18,6 @@ const getProfile = (user, activeRole) => {
 
 const MobileBottomNav = ({ items, hidden = false, currentPath, className = '', variant = 'student' }) => {
   const { user, activeRole } = useAuth();
-  const navigate = useNavigate();
   const location = useLocation();
   const path = currentPath || location.pathname;
   const profileRole = variant === 'landlord' || path.startsWith('/landlord') ? 'landlord' : activeRole;
@@ -48,26 +47,24 @@ const MobileBottomNav = ({ items, hidden = false, currentPath, className = '', v
         {items.map((item) => {
           const Icon = item.Icon;
           const isProtected = Boolean(item.protected);
+          const targetPath = isProtected && !user ? '/login' : item.path;
+          const targetState = isProtected && !user ? { from: { pathname: item.path } } : undefined;
           const badge = Number(item.count || 0);
-          const handlePrefetch = () => prefetchRoute(isProtected && !user ? '/login' : item.path);
+          const handlePrefetch = () => prefetchRoute(targetPath);
 
           return (
             <NavLink
               key={item.label}
-              to={item.path}
+              to={targetPath}
+              state={targetState}
               end={item.end}
               preventScrollReset
               onPointerEnter={handlePrefetch}
               onPointerDown={handlePrefetch}
               onTouchStart={handlePrefetch}
               onClick={(event) => {
-                if (path === item.path) {
+                if (path === targetPath) {
                   event.preventDefault();
-                  return;
-                }
-                if (isProtected && !user) {
-                  event.preventDefault();
-                  navigate('/login', { state: { from: item.path } });
                 }
               }}
               className={`rr-bottom-item ${item.center ? 'rr-bottom-item--center' : ''}`}

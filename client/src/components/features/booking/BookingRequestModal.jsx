@@ -185,7 +185,8 @@ function BookingRequestModal({ mode = 'create', applicationData = null, room, on
                 ...restOfFormData,
                 roomId: room._id,
                 landlordId: room.landlord._id || room.landlord,
-                occupants: { adults, children, males, females }
+                occupants: { adults, children, males, females },
+                agreedToTerms: true,
             };
 
             if (mode === 'edit') {

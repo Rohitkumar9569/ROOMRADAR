@@ -7,6 +7,10 @@ import { ArrowRight, Building2, FileClock, Home, Search, Trash2 } from 'lucide-r
 import { format } from 'date-fns';
 import { confirmToast } from '../../utils/confirmToast';
 import { formatListingTitle } from '../../utils/listingDisplay';
+import { notifyAdminCountsChanged } from '../../utils/adminEvents';
+import { triggerHaptic } from '../../utils/haptics';
+import { useAuth } from '../../context/AuthContext';
+import { hasAdminPermission } from '../../utils/adminPermissions';
 
 const TABS = ['All', 'Published', 'Pending', 'Pending_Review', 'Unpublished', 'Rejected', 'Suspended'];
 
@@ -28,12 +32,14 @@ const statusTone = (status) => {
 
 const RoomManagementPage = () => {
   const navigate = useNavigate();
+  const { user: currentAdmin } = useAuth();
   const [rooms, setRooms] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [searchParams, setSearchParams] = useSearchParams();
 
   const activeStatus = searchParams.get('status') || 'All';
+  const canDeleteRooms = hasAdminPermission(currentAdmin, 'rooms:delete');
 
   const fetchRooms = useCallback(async () => {
     setLoading(true);
@@ -87,9 +93,12 @@ const RoomManagementPage = () => {
         const toastId = toast.loading('Deleting room...');
         try {
           await api.delete(`/admin/rooms/${roomId}`);
+          triggerHaptic('success');
           toast.success('Room permanently deleted.', { id: toastId });
+          notifyAdminCountsChanged();
           fetchRooms();
         } catch (error) {
+          triggerHaptic('error');
           toast.error('Failed to delete room.', { id: toastId });
         }
       },
@@ -185,7 +194,9 @@ const RoomManagementPage = () => {
                         <td className="px-5 py-4">
                           <div className="flex items-center gap-2">
                             <Link to={`/admin/rooms/${room._id}/review`} className="rounded-xl p-2 text-cyan-500 transition hover:bg-cyan-500/10" title="View details"><ArrowRight className="h-4 w-4" /></Link>
-                            <button onClick={() => handleDelete(room._id)} className="rounded-xl p-2 text-red-500 transition hover:bg-red-500/10" title="Permanently delete"><Trash2 className="h-4 w-4" /></button>
+                            {canDeleteRooms && (
+                              <button onClick={() => handleDelete(room._id)} className="rounded-xl p-2 text-red-500 transition hover:bg-red-500/10" title="Permanently delete"><Trash2 className="h-4 w-4" /></button>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -232,7 +243,9 @@ const RoomManagementPage = () => {
                   </div>
                   <div className="mt-4 grid grid-cols-2 gap-2 border-t border-light-border pt-3 dark:border-dark-border">
                     <Link onClick={(event) => event.stopPropagation()} to={`/admin/rooms/${room._id}/review`} className="rounded-2xl bg-cyan-500/10 px-3 py-2 text-center text-xs font-black text-cyan-600 dark:text-cyan-300">Review</Link>
-                    <button onClick={(event) => { event.stopPropagation(); handleDelete(room._id); }} className="rounded-2xl bg-red-500/10 px-3 py-2 text-xs font-black text-red-600 dark:text-red-300">Delete</button>
+                    {canDeleteRooms && (
+                      <button onClick={(event) => { event.stopPropagation(); handleDelete(room._id); }} className="rounded-2xl bg-red-500/10 px-3 py-2 text-xs font-black text-red-600 dark:text-red-300">Delete</button>
+                    )}
                   </div>
                 </article>
               ))}

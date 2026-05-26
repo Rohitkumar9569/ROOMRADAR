@@ -12,7 +12,47 @@ const getContextFromPath = (path = '') => {
       scope: 'landlord',
     };
   }
-  if (path.includes('/applications') || path.includes('/book') || path.startsWith('/payment')) {
+  if (path.startsWith('/landlord/applications') || path.startsWith('/landlord/calendar')) {
+    return {
+      category: 'booking',
+      subject: 'Landlord booking or guest issue',
+      message: 'I need help with a guest booking, application, or stay schedule. Details:\n',
+      scope: 'landlord',
+    };
+  }
+  if (path.includes('/inbox')) {
+    return {
+      category: 'booking',
+      subject: 'Chat or booking conversation issue',
+      message: 'I need help with a chat or booking conversation. Details:\n',
+      scope: path.startsWith('/landlord') ? 'landlord' : 'travelling',
+    };
+  }
+  if (path.includes('/report-damage')) {
+    return {
+      category: 'damage',
+      subject: 'Damage report or deposit issue',
+      message: 'I need help with a damage report or security deposit issue. Details:\n',
+      scope: 'travelling',
+    };
+  }
+  if (path.includes('/payment')) {
+    return {
+      category: 'payment',
+      subject: 'Booking payment or confirmation issue',
+      message: 'I need help with a booking payment or confirmation issue. Details:\n',
+      scope: 'travelling',
+    };
+  }
+  if (path.includes('/agreement')) {
+    return {
+      category: 'booking',
+      subject: 'Agreement or confirmed booking issue',
+      message: 'I need help with my rental agreement or confirmed booking. Details:\n',
+      scope: 'travelling',
+    };
+  }
+  if (path.includes('/applications') || path.includes('/book')) {
     return {
       category: 'booking',
       subject: 'Booking or payment issue',

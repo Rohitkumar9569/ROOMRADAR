@@ -13,6 +13,37 @@ const { normalizeOptionalIndianMobile, requireValidIndianMobile } = require('../
 
 const ACTIVE_APPLICATION_STATUSES = ['pending', 'approved', 'confirmed'];
 const LOCKED_INVENTORY_STATUSES = ['approved', 'confirmed', 'external', 'blocked'];
+const BOOKABLE_ROOM_STATUSES = new Set(['published', 'available']);
+const INQUIRY_ROOM_STATUSES = new Set(['published', 'available', 'booked', 'confirmed']);
+
+const hasRoomStatus = (room, statuses) => statuses.has(String(room?.status || '').toLowerCase());
+
+const getDateInputValue = (date) => {
+    const copy = new Date(date);
+    copy.setMinutes(copy.getMinutes() - copy.getTimezoneOffset());
+    return copy.toISOString().slice(0, 10);
+};
+
+const getTomorrowDateInputValue = () => {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    return getDateInputValue(tomorrow);
+};
+
+const normalizeOccupantsPayload = (occupants) => {
+    const source = occupants && typeof occupants === 'object' ? occupants : { adults: occupants };
+    const normalizeCount = (value, fallback, minimum = 0) => {
+        const count = Number(value);
+        return Number.isFinite(count) ? Math.max(count, minimum) : fallback;
+    };
+
+    return {
+        adults: normalizeCount(source.adults, 1, 1),
+        children: normalizeCount(source.children, 0, 0),
+        males: normalizeCount(source.males, 0, 0),
+        females: normalizeCount(source.females, 0, 0),
+    };
+};
 
 const makeHttpError = (statusCode, message) => {
     const error = new Error(message);
@@ -241,6 +272,12 @@ const normalizeMoney = (value) => {
     return 0;
 };
 
+const hasExplicitMoneyValue = (value) => (
+    value !== undefined
+    && value !== null
+    && String(value).trim() !== ''
+);
+
 const getPlatformSettings = async () => {
     const defaults = {
         platformFee: Number(process.env.PLATFORM_FEE || 500),
@@ -257,7 +294,9 @@ const getPlatformSettings = async () => {
 
 const buildAmountBreakdown = async (room, durationMonths = 1) => {
     const rent = normalizeMoney(room?.rent);
-    const securityDeposit = normalizeMoney(room?.securityDeposit) || rent;
+    const securityDeposit = hasExplicitMoneyValue(room?.securityDeposit)
+        ? normalizeMoney(room.securityDeposit)
+        : rent;
     const months = Math.max(Number(durationMonths) || 1, 1);
     const settings = await getPlatformSettings();
     const rentVolume = rent * months;
@@ -518,7 +557,7 @@ const postSystemMessage = async ({ landlordId, studentId, roomId, text, senderId
         const systemMessage = new Message({
             conversationId: conversation._id,
             sender: messageSender,
-            messageType: 'text',
+            messageType: 'system_update',
             text,
             readBy: [messageSender]
         });
@@ -532,7 +571,7 @@ const postSystemMessage = async ({ landlordId, studentId, roomId, text, senderId
             senderId: messageSender,
             receiverIds: [landlordId, studentId].filter((memberId) => memberId?.toString() !== messageSender.toString()),
             text,
-            messageType: 'text',
+            messageType: 'system_update',
             senderName: 'RoomRadar',
         });
     } catch (error) {}
@@ -559,10 +598,16 @@ const syncBookingRequestMessage = async (application) => {
 const createInquiry = asyncHandler(async (req, res) => {
     const { roomId, message } = req.body;
     const studentId = req.user._id;
+    const cleanMessage = String(message || '').trim();
 
     if (!roomId) {
         res.status(400);
         throw new Error('Room ID is required.');
+    }
+
+    if (cleanMessage.length < 10) {
+        res.status(400);
+        throw new Error('Please write at least 10 characters before contacting the landlord.');
     }
 
     const room = await Room.findOne({ _id: roomId, isDeleted: { $ne: true } });
@@ -571,9 +616,9 @@ const createInquiry = asyncHandler(async (req, res) => {
         throw new Error('Room not found');
     }
 
-    if (!['Published', 'Available'].includes(room.status)) {
+    if (!hasRoomStatus(room, INQUIRY_ROOM_STATUSES)) {
         res.status(409);
-        throw new Error('This room is not currently accepting booking requests.');
+        throw new Error('This room is not currently accepting inquiries.');
     }
 
     const landlordId = room.landlord;
@@ -582,11 +627,26 @@ const createInquiry = asyncHandler(async (req, res) => {
         throw new Error('You cannot inquire about your own room.');
     }
 
+    const existingInquiry = await Application.findOne({
+        room: roomId,
+        student: studentId,
+        landlord: landlordId,
+        type: 'inquiry',
+        status: 'pending',
+    }).sort({ createdAt: -1 });
+
+    if (existingInquiry) {
+        return res.status(200).json({
+            ...existingInquiry.toObject(),
+            duplicate: true,
+        });
+    }
+
     const inquiry = new Application({
         room: roomId,
         student: studentId,
         landlord: landlordId,
-        message,
+        message: cleanMessage,
         type: 'inquiry',
         status: 'pending'
     });
@@ -611,25 +671,29 @@ const createApplication = asyncHandler(async (req, res) => {
     } = req.body;
     const studentId = req.user._id;
 
-    const normalizedOccupants = {
-        adults: Math.max(Number(occupants?.adults || occupants || 1), 1),
-        children: Math.max(Number(occupants?.children || 0), 0),
-        males: Math.max(Number(occupants?.males || 0), 0),
-        females: Math.max(Number(occupants?.females || 0), 0),
-    };
+    const normalizedOccupants = normalizeOccupantsPayload(occupants);
     const normalizedProfileType = String(profileType || otherDetails.purposeOfStay || 'Travelling').trim();
     const normalizedFullName = String(fullName || req.user.name || '').trim();
     const normalizedMobileNumber = normalizeOptionalIndianMobile(mobileNumber || req.user.mobileNumber || req.user.phone || '', 'Mobile number');
-    const normalizedOtherDetails = { ...otherDetails };
-    if (normalizedOtherDetails.emergencyContact?.phone) {
-        normalizedOtherDetails.emergencyContact = {
-            ...normalizedOtherDetails.emergencyContact,
-            phone: requireValidIndianMobile(normalizedOtherDetails.emergencyContact.phone, 'Emergency contact number')
-        };
-    }
+    const rawEmergencyContact = otherDetails.emergencyContact && typeof otherDetails.emergencyContact === 'object'
+        ? otherDetails.emergencyContact
+        : {};
+    const normalizedEmergencyContact = {
+        name: String(rawEmergencyContact.name || '').trim(),
+        phone: rawEmergencyContact.phone
+            ? requireValidIndianMobile(rawEmergencyContact.phone, 'Emergency contact number')
+            : '',
+    };
+    const normalizedPurposeOfStay = String(otherDetails.purposeOfStay || normalizedProfileType).trim();
+    const normalizedGender = String(otherDetails.gender || '').trim();
+    const normalizedOccupantComposition = String(otherDetails.occupantComposition || '').trim();
+    const normalizedStudentMessage = String(studentMessage || '').trim();
 
     const requestedStartDate = toOptionalDate(checkInDate);
     const requestedEndDate = toOptionalDate(checkOutDate);
+    const normalizedDurationMonths = Math.max(Number(durationMonths) || 1, 1);
+    const normalizedIdProofType = String(otherDetails.idProofType || '').trim();
+    const normalizedIdProofImage = String(otherDetails.idProofImage || '').trim();
 
     if (!roomId || !checkInDate || !checkOutDate || !normalizedOccupants.adults) {
         res.status(400);
@@ -641,12 +705,37 @@ const createApplication = asyncHandler(async (req, res) => {
         throw new Error('Please choose a valid move-in and move-out date.');
     }
 
+    if (getDateInputValue(requestedStartDate) < getTomorrowDateInputValue()) {
+        res.status(400);
+        throw new Error('Move-in date must be tomorrow or later.');
+    }
+
+    if (normalizedDurationMonths > 36) {
+        res.status(400);
+        throw new Error('Please choose a stay duration between 1 and 36 months.');
+    }
+
+    if (normalizedStudentMessage.length > 500) {
+        res.status(400);
+        throw new Error('Message must be 500 characters or shorter.');
+    }
+
     if (!normalizedFullName || !normalizedMobileNumber || !normalizedProfileType) {
         res.status(400);
         throw new Error('Full name, mobile number, and profile type are required for booking requests.');
     }
 
-    if (agreedToTerms === false) {
+    if (!normalizedIdProofType || !normalizedIdProofImage) {
+        res.status(400);
+        throw new Error('ID proof type and image are required for booking requests.');
+    }
+
+    if (!normalizedEmergencyContact.name || !normalizedEmergencyContact.phone) {
+        res.status(400);
+        throw new Error('Emergency contact name and phone are required for booking requests.');
+    }
+
+    if (agreedToTerms !== true) {
         res.status(400);
         throw new Error('Please agree to the booking terms before sending your request.');
     }
@@ -655,6 +744,11 @@ const createApplication = asyncHandler(async (req, res) => {
     if (!room) {
         res.status(404);
         throw new Error('Room not found');
+    }
+
+    if (!hasRoomStatus(room, BOOKABLE_ROOM_STATUSES)) {
+        res.status(409);
+        throw new Error('This room is not accepting booking requests right now.');
     }
 
     const landlordId = room.landlord;
@@ -666,6 +760,7 @@ const createApplication = asyncHandler(async (req, res) => {
     const existingActiveApplication = await Application.findOne({
         room: roomId,
         student: studentId,
+        type: 'request',
         status: { $in: ACTIVE_APPLICATION_STATUSES }
     });
 
@@ -707,11 +802,11 @@ const createApplication = asyncHandler(async (req, res) => {
         checkInDate: requestedStartDate,
         checkOutDate: requestedEndDate,
         occupants: normalizedOccupants,
-        message: studentMessage,
+        message: normalizedStudentMessage,
         fullName: normalizedFullName,
         mobileNumber: normalizedMobileNumber,
         profileType: normalizedProfileType,
-        durationMonths,
+        durationMonths: normalizedDurationMonths,
         agreedToTerms: Boolean(agreedToTerms),
         type: 'request',
         requestExpiresAt: await getExpiryDate(),
@@ -720,8 +815,13 @@ const createApplication = asyncHandler(async (req, res) => {
             status: allowsOfflinePayment(room) ? 'not_required' : 'pending',
             notes: 'Awaiting landlord approval inside the platform response window.',
         },
-        amountBreakdown: await buildAmountBreakdown(room, durationMonths),
-        ...normalizedOtherDetails
+        amountBreakdown: await buildAmountBreakdown(room, normalizedDurationMonths),
+        purposeOfStay: normalizedPurposeOfStay,
+        idProofType: normalizedIdProofType,
+        idProofImage: normalizedIdProofImage,
+        emergencyContact: normalizedEmergencyContact,
+        ...(normalizedGender ? { gender: normalizedGender } : {}),
+        ...(normalizedOccupantComposition ? { occupantComposition: normalizedOccupantComposition } : {}),
     });
 
     const createdApplication = await application.save();
@@ -821,7 +921,7 @@ const getStudentApplications = asyncHandler(async (req, res) => {
 const getLandlordApplications = asyncHandler(async (req, res) => {
     await expirePendingApplications({ landlord: req.user._id });
     const applications = await Application.find({ landlord: req.user._id })
-        .populate('student', 'name avatarUrl profilePicture verificationLevel trustScore guestAverageRating guestReviewsCount')
+        .populate('student', 'name email mobileNumber phone avatarUrl profilePicture verificationLevel trustScore guestAverageRating guestReviewsCount')
         .populate('room', 'title rent securityDeposit imageUrl images location status averageRating numReviews paymentPreference offlinePaymentAllowed')
         .sort({ createdAt: -1 })
         .lean();
@@ -1267,24 +1367,65 @@ const updateApplication = asyncHandler(async (req, res) => {
         throw new Error(`You cannot update an application with '${application.status}' status.`);
     }
 
-    const {
-        roomId,
-        landlordId,
-        status,
-        paymentStatus,
-        confirmedAt,
-        approvedAt,
-        ...safeUpdates
-    } = req.body;
+    const hasUpdate = (field) => Object.prototype.hasOwnProperty.call(req.body, field);
+    const safeUpdates = {};
 
-    if (Object.prototype.hasOwnProperty.call(safeUpdates, 'mobileNumber')) {
-        safeUpdates.mobileNumber = requireValidIndianMobile(safeUpdates.mobileNumber, 'Mobile number');
+    if (hasUpdate('fullName')) safeUpdates.fullName = String(req.body.fullName || '').trim();
+    if (hasUpdate('profileType')) safeUpdates.profileType = String(req.body.profileType || '').trim();
+    if (hasUpdate('purposeOfStay')) safeUpdates.purposeOfStay = String(req.body.purposeOfStay || '').trim();
+    if (hasUpdate('gender')) safeUpdates.gender = String(req.body.gender || '').trim();
+    if (hasUpdate('occupantComposition')) safeUpdates.occupantComposition = String(req.body.occupantComposition || '').trim();
+    if (hasUpdate('idProofType')) safeUpdates.idProofType = String(req.body.idProofType || '').trim();
+    if (hasUpdate('idProofImage')) safeUpdates.idProofImage = String(req.body.idProofImage || '').trim();
+    if (hasUpdate('message')) {
+        safeUpdates.message = String(req.body.message || '').trim();
+        if (safeUpdates.message.length > 500) {
+            res.status(400);
+            throw new Error('Message must be 500 characters or shorter.');
+        }
     }
-    if (safeUpdates.emergencyContact?.phone) {
+    if (hasUpdate('mobileNumber')) {
+        safeUpdates.mobileNumber = requireValidIndianMobile(req.body.mobileNumber, 'Mobile number');
+    }
+    if (hasUpdate('durationMonths')) {
+        const normalizedDurationMonths = Math.max(Number(req.body.durationMonths) || 1, 1);
+        if (normalizedDurationMonths > 36) {
+            res.status(400);
+            throw new Error('Please choose a stay duration between 1 and 36 months.');
+        }
+        safeUpdates.durationMonths = normalizedDurationMonths;
+    }
+    if (hasUpdate('occupants')) {
+        safeUpdates.occupants = normalizeOccupantsPayload(req.body.occupants);
+    }
+    if (hasUpdate('emergencyContact')) {
+        const emergencyContact = req.body.emergencyContact && typeof req.body.emergencyContact === 'object'
+            ? req.body.emergencyContact
+            : {};
         safeUpdates.emergencyContact = {
-            ...safeUpdates.emergencyContact,
-            phone: requireValidIndianMobile(safeUpdates.emergencyContact.phone, 'Emergency contact number')
+            name: String(emergencyContact.name || '').trim(),
+            phone: emergencyContact.phone
+                ? requireValidIndianMobile(emergencyContact.phone, 'Emergency contact number')
+                : '',
         };
+    }
+    if (hasUpdate('agreedToTerms')) safeUpdates.agreedToTerms = req.body.agreedToTerms === true;
+
+    if (hasUpdate('checkInDate') || hasUpdate('checkOutDate')) {
+        const nextCheckInDate = hasUpdate('checkInDate') ? toOptionalDate(req.body.checkInDate) : toOptionalDate(application.checkInDate);
+        const nextCheckOutDate = hasUpdate('checkOutDate') ? toOptionalDate(req.body.checkOutDate) : toOptionalDate(application.checkOutDate);
+
+        if (!nextCheckInDate || !nextCheckOutDate || nextCheckOutDate.getTime() <= nextCheckInDate.getTime()) {
+            res.status(400);
+            throw new Error('Please choose a valid move-in and move-out date.');
+        }
+        if (getDateInputValue(nextCheckInDate) < getTomorrowDateInputValue()) {
+            res.status(400);
+            throw new Error('Move-in date must be tomorrow or later.');
+        }
+
+        safeUpdates.checkInDate = nextCheckInDate;
+        safeUpdates.checkOutDate = nextCheckOutDate;
     }
 
     Object.assign(application, safeUpdates);

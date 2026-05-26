@@ -24,9 +24,9 @@ import { formatListingTitle } from '../../utils/listingDisplay';
 
 const suggestions = [
     'Rooms in Haridwar',
-    'PG under 5k',
-    'For 2 people',
-    'Best rated'
+    'How booking works?',
+    'RoomRadar features',
+    'Best rated rooms'
 ];
 
 const money = (value) => `₹${Number(value || 0).toLocaleString('en-IN')}`;
@@ -579,8 +579,50 @@ const extractLocalFilters = (text = '') => {
     return applyLocalRoomIntent(filters, text);
 };
 
-const searchRoomsLocally = async (text) => {
-    const filters = extractLocalFilters(text);
+const getUserMessageTexts = (messages = []) => messages
+    .filter((message) => message.role === 'user' && message.content)
+    .map((message) => String(message.content));
+
+const getBareLocalBudget = (text = '') => {
+    const match = text.trim().match(/^(?:rs\.?|inr|₹)?\s*(\d{3,7})\s*(?:rs\.?|rupees?|rupaye|₹)?$/i);
+    return match ? match[1] : '';
+};
+
+const isBareLocalCity = (text = '') => {
+    const normalized = text.toLowerCase().replace(/[^\w\s-]/g, '').replace(/\s+/g, ' ').trim();
+    if (!normalized || normalized.length < 2 || normalized.length > 40 || /^\d+$/.test(normalized)) return false;
+    if (/^(room|rooms|pg|flat|budget|price|yes|haan|ha|ok|okay|thik|theek|help|support|admin)$/.test(normalized)) return false;
+    return /^[a-z][a-z\s-]+$/i.test(normalized);
+};
+
+const extractContextualLocalFilters = (messages = []) => {
+    const filters = {};
+    let roomContextSeen = false;
+    let budgetContextSeen = false;
+
+    getUserMessageTexts(messages).forEach((text) => {
+        const local = extractLocalFilters(text);
+        Object.assign(filters, local);
+
+        if (/\b(room|rooms|pg|flat|hostel|stay|search|find|available|chahiye|need|want)\b/i.test(text)) roomContextSeen = true;
+        if (/\b(max|maximum|budget|bugect|budegt|price|rent|kiraya|under|below|andar|kitne|kitna|kitni|cost|rs|rupees?)\b/i.test(text)) budgetContextSeen = true;
+
+        const bareBudget = getBareLocalBudget(text);
+        if (bareBudget && (budgetContextSeen || roomContextSeen)) {
+            filters.maxRent = bareBudget;
+            budgetContextSeen = false;
+        }
+
+        if (!local.city && roomContextSeen && isBareLocalCity(text)) {
+            filters.city = text.trim();
+        }
+    });
+
+    return filters;
+};
+
+const searchRoomsLocally = async (text, presetFilters) => {
+    const filters = presetFilters || extractLocalFilters(text);
     const params = new URLSearchParams({ limit: String(filters.limit || 5), sort: filters.sort || 'popular' });
     Object.entries(filters).forEach(([key, value]) => {
         if (value) params.set(key, value);
@@ -616,6 +658,78 @@ const fallbackReply = (text, rooms, filters = extractLocalFilters(text)) => {
     return rooms.length
         ? `The AI provider was slow, so I searched the real RoomRadar database and found ${rooms.length} matching rooms.${englishSortNote}`
         : 'The AI provider was slow and no exact room match was found. Try another city, budget, or room type.';
+};
+
+const hasLocalRoomSearchIntent = (text = '', filters = extractLocalFilters(text)) => {
+    const lower = text.toLowerCase();
+    if (getDirectFallbackReply(text)) return false;
+    if (/\b(how|kaise|kese|karu|kru|kare|process|steps?|guide|policy|refund|cancel|support|ticket|complaint|complain|report|admin|payment|tech stack|technology|feature|features|module|modules|sentiment|irritating|wrong|galat|problem|issue)\b/i.test(lower)) {
+        return false;
+    }
+
+    const hasRoomEntity = /\b(room|rooms|pg|flat|flats|bhk|studio|hostel|accommodation|stay|rental|rent|kiraya|listing|listings)\b/i.test(lower);
+    const hasUsefulFilter = Boolean(filters.city || filters.maxRent || filters.roomType || filters.gender || filters.beds || filters.sort || filters.limit);
+    const isShortcut = /^(best rated|top rated|recommended rooms?|best rooms?|cheapest|sabse sasta|lowest price|highest price|for \d{1,2} people|\d{1,2} logo ke liye)$/i.test(lower.trim());
+
+    if (filters.city && (filters.maxRent || filters.roomType || filters.gender || filters.beds || filters.sort || filters.limit)) return true;
+    return isShortcut || (hasRoomEntity && hasUsefulFilter) || (filters.maxRent && /\b(chahiye|need|want|under|below|andar|budget)\b/i.test(lower));
+};
+
+const getOfflineKnowledgeReply = (text = '') => {
+    const lower = text.toLowerCase();
+    if (/(irritating|annoying|wrong|galat|problem|issue|spam|card|cards|answer|reply|result)/i.test(lower)) {
+        return 'Bilkul sahi point hai. Har question par room card bhejna irritating hota hai. Main answer-first mode follow karunga: room cards sirf clear room-search request par aayenge.';
+    }
+    if (/(feature|features|module|modules|roomradar|room radar|platform|app|project)/i.test(lower)) {
+        return 'RoomRadar me room search, booking requests, landlord listings, real-time chat, wishlist, reviews, notifications, support tickets, verification, admin moderation, insights aur AI assistance available hai.';
+    }
+    if (/(tech stack|technology|mern|react|node|express|mongodb|socket|cloudinary|jwt|api|database)/i.test(lower)) {
+        return 'RoomRadar MERN stack par based hai: React + Vite frontend, Node/Express backend, MongoDB/Mongoose database, JWT auth, Socket.IO chat, aur Multer/Cloudinary uploads.';
+    }
+    if (/(book|booking|request|confirm|kaise)/i.test(lower)) {
+        return 'Room book karne ke liye room details open karo, Request to Book submit karo, stay details fill karo, phir landlord approval ke baad confirmation complete hota hai.';
+    }
+    if (/(admin|complain|complaint|report|support|ticket|issue|problem)/i.test(lower)) {
+        return 'Room ya landlord ke against complain karne ke liye support option open karo, issue clearly likho, room name/booking detail add karo, aur ticket submit karo. Admin us ticket ko review karega.';
+    }
+    if (/(landlord|host|add room|listing|publish)/i.test(lower)) {
+        return 'Landlord dashboard me Add Room open karke photos, rent, location, amenities aur rules add karo, phir listing publish/manage kar sakte ho.';
+    }
+    if (/(support|ticket|complaint|report|issue)/i.test(lower)) {
+        return 'Support ticket me issue clearly describe karo. Admin us ticket ko review karke moderation workflow se response de sakta hai.';
+    }
+    return isHinglish(text)
+        ? 'Main answer samajh gaya. Server slow hai, isliye abhi short answer de raha hoon: RoomRadar questions, booking help, landlord flow, tech details ya real room search ke liye specific message bhejo.'
+        : 'I understood the question. The server is slow, so here is the short version: I can answer RoomRadar, booking, landlord, tech, support, and room-search questions.';
+};
+
+const analyzeClientSentiment = (text = '') => {
+    const lower = text.toLowerCase();
+    if (/\b(irritating|annoying|wrong|galat|bad|bekar|problem|issue|bug|useless|confusing)\b/i.test(lower)) {
+        return { label: 'frustrated', score: -0.7, intensity: 'high' };
+    }
+    if (/\b(thanks|thank you|good|nice|great|achha|accha|badhiya|sahi)\b/i.test(lower)) {
+        return { label: 'positive', score: 0.55, intensity: 'medium' };
+    }
+    return { label: 'neutral', score: 0, intensity: 'low' };
+};
+
+const createClientAnalysis = (text = '', intentLabel = 'Answer only', rooms = []) => {
+    const sentiment = analyzeClientSentiment(text);
+    return {
+        sentiment,
+        intent: {
+            key: rooms.length ? 'room_search' : 'browser_answer',
+            label: rooms.length ? 'Room search' : intentLabel,
+            roomCards: rooms.length > 0
+        },
+        analysis: {
+            tone: sentiment.label,
+            intent: rooms.length ? 'Room search' : intentLabel,
+            roomCards: rooms.length ? 'shown' : 'not_shown',
+            reason: rooms.length ? 'Local fallback found room listings.' : 'Answer-only browser fallback; room cards skipped.'
+        }
+    };
 };
 
 const RoomRadarChatbot = () => {
@@ -669,6 +783,7 @@ const RoomRadarChatbot = () => {
         const directProfileKey = getTeamProfileKey(trimmed);
         const directReply = getDirectFallbackReply(trimmed);
         if (directReply) {
+            const directMeta = createClientAnalysis(trimmed, directProfileKey ? 'Team profile' : 'Answer only', []);
             setMessages([
                 ...outgoing,
                 {
@@ -677,7 +792,10 @@ const RoomRadarChatbot = () => {
                     profileVisual: getTeamProfileVisual(directProfileKey),
                     rooms: [],
                     provider: 'browser-knowledge',
-                    fallback: false
+                    fallback: false,
+                    sentiment: directMeta.sentiment,
+                    intent: directMeta.intent,
+                    analysis: directMeta.analysis
                 }
             ]);
             return;
@@ -698,12 +816,34 @@ const RoomRadarChatbot = () => {
                     rooms: data.rooms || [],
                     sort: data.sort || data.filters?.sort_by,
                     provider: data.provider,
-                    fallback: data.fallback
+                    fallback: data.fallback,
+                    sentiment: data.sentiment,
+                    intent: data.intent,
+                    analysis: data.analysis
                 }
             ]);
         } catch (error) {
             try {
-                const { rooms, filters } = await searchRoomsLocally(trimmed);
+                const fallbackFilters = extractContextualLocalFilters(outgoing);
+                if (!hasLocalRoomSearchIntent(trimmed, fallbackFilters)) {
+                    const localMeta = createClientAnalysis(trimmed, 'Answer only', []);
+                    setMessages((current) => [
+                        ...current,
+                        {
+                            role: 'assistant',
+                            content: getOfflineKnowledgeReply(trimmed),
+                            rooms: [],
+                            provider: 'browser-answer',
+                            fallback: true,
+                            sentiment: localMeta.sentiment,
+                            intent: localMeta.intent,
+                            analysis: localMeta.analysis
+                        }
+                    ]);
+                    return;
+                }
+                const { rooms, filters } = await searchRoomsLocally(trimmed, fallbackFilters);
+                const localMeta = createClientAnalysis(trimmed, 'Room search', rooms);
                 setMessages((current) => [
                     ...current,
                     {
@@ -712,16 +852,23 @@ const RoomRadarChatbot = () => {
                         rooms,
                         sort: filters.sort,
                         provider: 'browser-fallback',
-                        fallback: true
+                        fallback: true,
+                        sentiment: localMeta.sentiment,
+                        intent: localMeta.intent,
+                        analysis: localMeta.analysis
                     }
                 ]);
             } catch (fallbackError) {
+                const localMeta = createClientAnalysis(trimmed, 'Connection issue', []);
                 setMessages((current) => [
                     ...current,
                     {
                         role: 'assistant',
                         content: error.response?.data?.error || 'RoomRadar AI is reconnecting. Please try once more after refreshing the server.',
-                        rooms: []
+                        rooms: [],
+                        sentiment: localMeta.sentiment,
+                        intent: localMeta.intent,
+                        analysis: localMeta.analysis
                     }
                 ]);
             }
@@ -805,7 +952,7 @@ const RoomRadarChatbot = () => {
                     <Bot />
                 </span>
                 <span className="floating-chatbot-copy">
-                    <span>Room search</span>
+                    <span>Smart help</span>
                     <strong>Ask</strong>
                 </span>
             </motion.button>
@@ -836,7 +983,7 @@ const RoomRadarChatbot = () => {
                                         <h2>RoomRadar AI</h2>
                                         <p className="rr-chatbot-status">
                                             <span />
-                                            Live listings
+                                            Intent aware
                                         </p>
                                     </div>
                                 </div>
@@ -863,8 +1010,8 @@ const RoomRadarChatbot = () => {
                                                     <Sparkles />
                                                 </span>
                                                 <div>
-                                                    <h3>Find a room faster</h3>
-                                                    <span>Location, budget, tenant need.</span>
+                                                    <h3>Ask smarter</h3>
+                                                    <span>Rooms, booking, project, support.</span>
                                                 </div>
                                             </div>
                                             <div className="rr-chatbot-suggestion-grid">
@@ -902,7 +1049,7 @@ const RoomRadarChatbot = () => {
                                     <input
                                         value={input}
                                         onChange={(event) => setInput(event.target.value)}
-                                        placeholder="Ask location or budget..."
+                                        placeholder="Ask about rooms or RoomRadar..."
                                         className="min-h-[44px] flex-1 bg-transparent px-3 text-sm font-semibold outline-none placeholder:text-light-muted dark:placeholder:text-dark-muted"
                                     />
                                     <button
@@ -928,6 +1075,7 @@ const MessageBubble = ({ message, closeDrawer }) => {
     const hasRooms = message.rooms?.length > 0;
     const hasProfileVisual = Boolean(message.profileVisual);
     const showAssistantAvatar = !isUser && !hasRooms && !hasProfileVisual;
+    const showAnalysisMeta = !isUser && (message.sentiment?.label || message.intent?.label);
 
     return (
         <div className={`rr-message-row ${isUser ? 'is-user' : 'is-assistant'} ${hasRooms || hasProfileVisual ? 'has-rich-content' : ''}`}>
@@ -943,6 +1091,9 @@ const MessageBubble = ({ message, closeDrawer }) => {
                     <div className={`rr-message-bubble ${isUser ? 'is-user' : 'is-assistant'}`}>
                         {message.content}
                     </div>
+                )}
+                {showAnalysisMeta && (
+                    <MessageAnalysisMeta sentiment={message.sentiment} intent={message.intent} analysis={message.analysis} />
                 )}
                 {hasRooms && (
                     <div className="rr-chat-room-results mt-3 grid gap-3">
@@ -961,6 +1112,22 @@ const MessageBubble = ({ message, closeDrawer }) => {
         </div>
     );
 };
+
+const MessageAnalysisMeta = ({ sentiment, intent, analysis }) => (
+    <div className="rr-message-analysis-meta" title={analysis?.reason || ''}>
+        <span>
+            <Sparkles />
+            Tone: {sentiment?.label || analysis?.tone || 'neutral'}
+        </span>
+        <span>
+            <Target />
+            {intent?.label || analysis?.intent || 'Answer'}
+        </span>
+        {analysis?.roomCards === 'not_shown' && (
+            <span className="is-muted">No cards</span>
+        )}
+    </div>
+);
 
 const insightIcons = {
     lightbulb: Lightbulb,

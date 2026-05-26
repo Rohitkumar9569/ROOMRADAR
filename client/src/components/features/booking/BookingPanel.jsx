@@ -2,8 +2,14 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ArrowRight, CalendarDays, CheckCircle2, MessageCircle, ShieldCheck, Sparkles, Users } from 'lucide-react';
+import { triggerHaptic } from '../../../utils/haptics';
 
 const money = (value) => `\u20B9${Number(value || 0).toLocaleString('en-IN')}`;
+const parseMoneyValue = (value) => {
+    if (value === undefined || value === null || value === '') return undefined;
+    const numericValue = Number(String(value).replace(/[^\d.-]/g, ''));
+    return Number.isFinite(numericValue) && numericValue >= 0 ? numericValue : undefined;
+};
 
 const formatMoveInLabel = (availableFrom, fallback = 'Available now') => {
     if (!availableFrom) return fallback;
@@ -16,10 +22,17 @@ const BookingPanel = ({ room, onContactLandlord }) => {
     const navigate = useNavigate();
     const [isHovered, setIsHovered] = useState(false);
     const rentPerMonth = Number(room.rent || 0);
-    const securityDeposit = Number(String(room.securityDeposit || '').replace(/[^\d.]/g, '')) || rentPerMonth;
+    const securityDeposit = parseMoneyValue(room.securityDeposit) ?? rentPerMonth;
     const discount = room.originalRent ? Math.round(((room.originalRent - room.rent) / room.originalRent) * 100) : 0;
-    const isBooked = ['Booked', 'Confirmed'].includes(room.status);
-    const moveInLabel = formatMoveInLabel(room.availableFrom, isBooked ? 'Ask host' : 'Available now');
+    const normalizedStatus = String(room.status || '').toLowerCase();
+    const isBooked = ['booked', 'confirmed'].includes(normalizedStatus);
+    const isBookable = ['published', 'available'].includes(normalizedStatus);
+    const moveInLabel = formatMoveInLabel(room.availableFrom, isBookable ? 'Available now' : 'Ask host');
+    const bookingButtonLabel = isBooked ? 'Already booked' : isBookable ? 'Request to book' : 'Not available';
+    const handleRequestToBook = () => {
+        triggerHaptic(isBookable ? 'tap' : 'warning');
+        if (isBookable) navigate(`/room/${room._id}/book`);
+    };
 
     return (
         <>
@@ -49,13 +62,13 @@ const BookingPanel = ({ room, onContactLandlord }) => {
                         : 'border-cyan-100 bg-cyan-50 dark:border-cyan-500/20 dark:bg-cyan-500/10'
                 }`}>
                     <div className="flex items-start gap-3">
-                        <ShieldCheck className={`mt-0.5 h-5 w-5 flex-shrink-0 ${isBooked ? 'text-slate-500 dark:text-secondary-300' : 'text-cyan-600 dark:text-cyan-300'}`} />
+                        <ShieldCheck className={`mt-0.5 h-5 w-5 flex-shrink-0 ${!isBookable ? 'text-slate-500 dark:text-secondary-300' : 'text-cyan-600 dark:text-cyan-300'}`} />
                         <div>
-                            <p className={`text-sm font-black ${isBooked ? 'text-slate-900 dark:text-white' : 'text-cyan-900 dark:text-cyan-100'}`}>
-                                {isBooked ? 'Currently booked' : 'Two-side confirmation'}
+                            <p className={`text-sm font-black ${!isBookable ? 'text-slate-900 dark:text-white' : 'text-cyan-900 dark:text-cyan-100'}`}>
+                                {isBooked ? 'Currently booked' : isBookable ? 'Two-side confirmation' : 'Not accepting requests'}
                             </p>
-                            <p className={`mt-1 text-xs font-semibold leading-5 ${isBooked ? 'text-slate-600 dark:text-secondary-300' : 'text-cyan-700 dark:text-cyan-200'}`}>
-                                {isBooked
+                            <p className={`mt-1 text-xs font-semibold leading-5 ${!isBookable ? 'text-slate-600 dark:text-secondary-300' : 'text-cyan-700 dark:text-cyan-200'}`}>
+                                {!isBookable
                                     ? `This listing stays visible for trust and planning. Message the host about the next move-in window${moveInLabel !== 'Ask host' ? ` from ${moveInLabel}` : ''}.`
                                     : 'Request first, get landlord approval, then confirm to lock the room.'}
                             </p>
@@ -89,12 +102,12 @@ const BookingPanel = ({ room, onContactLandlord }) => {
 
                 <motion.button
                     type="button"
-                    onClick={() => navigate(`/room/${room._id}/book`)}
-                    disabled={isBooked}
+                    onClick={handleRequestToBook}
+                    disabled={!isBookable}
                     onMouseEnter={() => setIsHovered(true)}
                     onMouseLeave={() => setIsHovered(false)}
-                    whileHover={!isBooked ? { scale: 1.015 } : {}}
-                    whileTap={!isBooked ? { scale: 0.985 } : {}}
+                    whileHover={isBookable ? { scale: 1.015 } : {}}
+                    whileTap={isBookable ? { scale: 0.985 } : {}}
                     className="group relative mt-5 flex w-full items-center justify-center gap-2 overflow-hidden rounded-2xl bg-slate-950 px-5 py-4 text-sm font-black text-white shadow-xl shadow-slate-950/15 transition hover:bg-cyan-700 disabled:cursor-not-allowed disabled:bg-slate-400 dark:bg-white dark:text-slate-950 dark:hover:bg-cyan-200"
                 >
                     <motion.span
@@ -103,13 +116,16 @@ const BookingPanel = ({ room, onContactLandlord }) => {
                         transition={{ duration: 0.6 }}
                     />
                     <Sparkles className="relative h-5 w-5" />
-                    <span className="relative">{isBooked ? 'Already booked' : 'Request to book'}</span>
+                    <span className="relative">{bookingButtonLabel}</span>
                     <ArrowRight className="relative h-5 w-5 transition group-hover:translate-x-1" />
                 </motion.button>
 
                 <button
                     type="button"
-                    onClick={onContactLandlord}
+                    onClick={() => {
+                        triggerHaptic('tap');
+                        onContactLandlord?.();
+                    }}
                     className="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-5 py-4 text-sm font-black text-slate-700 transition hover:border-cyan-200 hover:bg-cyan-50 hover:text-cyan-700 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-200 dark:hover:bg-cyan-500/10"
                 >
                     <MessageCircle className="h-5 w-5" />

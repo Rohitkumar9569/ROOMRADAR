@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { format } from 'date-fns';
 import toast from 'react-hot-toast';
 import { Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts';
@@ -16,6 +16,7 @@ import {
     XCircle
 } from 'lucide-react';
 import api from '../../api';
+import ApplicationReviewDrawer from '../../components/features/booking/ApplicationReviewDrawer';
 import { useAuth } from '../../context/AuthContext';
 import fallbackRoomImage from '../../assets/background_img.jpg';
 import { formatListingTitle } from '../../utils/listingDisplay';
@@ -32,6 +33,7 @@ const LandlordOverviewPage = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [actionId, setActionId] = useState('');
+    const [detailApplication, setDetailApplication] = useState(null);
 
     const fetchDashboardData = useCallback(async () => {
         try {
@@ -54,7 +56,17 @@ const LandlordOverviewPage = () => {
         const toastId = toast.loading(action === 'approve' ? 'Approving request...' : 'Rejecting request...');
         try {
             setActionId(applicationId);
-            await api.patch(`/applications/${applicationId}/${action}`);
+            const { data } = await api.patch(`/applications/${applicationId}/${action}`);
+            const updatedApplication = data.application || data;
+            setDetailApplication((current) => {
+                if (current?._id !== applicationId) return current;
+                return {
+                    ...current,
+                    ...updatedApplication,
+                    room: updatedApplication.room && typeof updatedApplication.room === 'object' ? updatedApplication.room : current.room,
+                    student: updatedApplication.student && typeof updatedApplication.student === 'object' ? updatedApplication.student : current.student,
+                };
+            });
             toast.success(action === 'approve' ? 'Request approved.' : 'Request rejected.', { id: toastId });
             await fetchDashboardData();
         } catch (err) {
@@ -70,6 +82,50 @@ const LandlordOverviewPage = () => {
         { title: 'Confirmed bookings', value: stats?.confirmedBookings || 0, Icon: CheckCircle2, link: '/landlord/calendar', caption: 'Confirmed by both sides' },
         { title: 'This month views', value: stats?.thisMonthViews || 0, Icon: Eye, link: '/landlord/insights', caption: 'Total listing views' },
     ]), [stats]);
+
+    const hostActionItems = useMemo(() => {
+        const items = [];
+        if ((stats?.pendingRequests || 0) > 0) {
+            items.push({
+                title: `${stats.pendingRequests} request${stats.pendingRequests === 1 ? '' : 's'} need review`,
+                caption: 'Fast responses improve tenant confidence.',
+                link: '/landlord/applications?status=pending',
+                Icon: BellRing,
+            });
+        }
+        if ((stats?.totalRooms || 0) === 0) {
+            items.push({
+                title: 'Add your first room',
+                caption: 'Start with photos, exact location, and real pricing.',
+                link: '/landlord/add-room',
+                Icon: Plus,
+            });
+        } else if ((stats?.thisMonthViews || 0) < 10) {
+            items.push({
+                title: 'Improve listing discovery',
+                caption: 'Add photos and update amenities for stronger search ranking.',
+                link: '/landlord/my-rooms',
+                Icon: Eye,
+            });
+        }
+        if ((stats?.confirmedBookings || 0) > 0) {
+            items.push({
+                title: 'Check upcoming stays',
+                caption: 'Review calendar gaps, move-ins, and confirmed bookings.',
+                link: '/landlord/calendar',
+                Icon: CheckCircle2,
+            });
+        }
+        if (!items.length) {
+            items.push({
+                title: 'Your hosting workflow is healthy',
+                caption: 'Keep response time high and listings updated.',
+                link: '/landlord/insights',
+                Icon: ShieldCheck,
+            });
+        }
+        return items.slice(0, 3);
+    }, [stats]);
 
     if (loading) return <LandlordOverviewSkeleton />;
 
@@ -136,6 +192,7 @@ const LandlordOverviewPage = () => {
                                             key={application._id}
                                             application={application}
                                             disabled={actionId === application._id}
+                                            onOpenDetails={() => setDetailApplication(application)}
                                             onApprove={() => approveOrReject(application._id, 'approve')}
                                             onReject={() => approveOrReject(application._id, 'reject')}
                                         />
@@ -146,6 +203,29 @@ const LandlordOverviewPage = () => {
                     </div>
 
                     <aside className="space-y-6">
+                        <div className="rounded-3xl border border-light-border bg-light-card p-5 shadow-sm dark:border-dark-border dark:bg-dark-card">
+                            <div className="mb-4 flex items-center justify-between gap-4">
+                                <div>
+                                    <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-brand">Today priorities</p>
+                                    <h2 className="mt-1 text-xl font-semibold tracking-tight">Host action plan</h2>
+                                </div>
+                                <ShieldCheck className="h-8 w-8 text-brand" />
+                            </div>
+                            <div className="space-y-3">
+                                {hostActionItems.map(({ title, caption, link, Icon }) => (
+                                    <Link key={title} to={link} className="flex items-start gap-3 rounded-2xl border border-light-border bg-light-bg p-3 transition hover:-translate-y-0.5 hover:border-cyan-300 dark:border-dark-border dark:bg-dark-sidebar dark:hover:border-cyan-700/60">
+                                        <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-cyan-500/10 text-cyan-700 dark:text-cyan-200">
+                                            <Icon className="h-5 w-5" />
+                                        </span>
+                                        <span className="min-w-0">
+                                            <span className="block text-sm font-black text-light-text dark:text-dark-text">{title}</span>
+                                            <span className="mt-1 block text-xs font-semibold leading-5 text-light-muted dark:text-dark-muted">{caption}</span>
+                                        </span>
+                                    </Link>
+                                ))}
+                            </div>
+                        </div>
+
                         <Link to="/landlord/my-rooms" className="block rounded-3xl border border-light-border bg-light-card p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-cyan-300 hover:shadow-lg dark:border-dark-border dark:bg-dark-card dark:hover:border-cyan-700/60">
                             <div className="mb-4 flex items-center justify-between gap-4">
                                 <div>
@@ -190,6 +270,13 @@ const LandlordOverviewPage = () => {
                     </aside>
                 </section>
             </div>
+            <ApplicationReviewDrawer
+                isOpen={Boolean(detailApplication)}
+                application={detailApplication}
+                onClose={() => setDetailApplication(null)}
+                onApprove={(applicationId) => approveOrReject(applicationId, 'approve')}
+                onReject={(applicationId) => approveOrReject(applicationId, 'reject')}
+            />
         </div>
     );
 };
@@ -317,24 +404,23 @@ const StatCard = ({ title, value, caption, Icon, link }) => (
     </Link>
 );
 
-const PendingRequestRow = ({ application, onApprove, onReject, disabled }) => {
-    const navigate = useNavigate();
+const PendingRequestRow = ({ application, onApprove, onReject, onOpenDetails, disabled }) => {
     const room = application.room || {};
     const student = application.student || {};
     const displayTitle = formatListingTitle(room.title, 'Room listing');
-    const target = application.conversation ? `/landlord/inbox/${application.conversation}` : room._id ? `/room/${room._id}` : '/landlord/applications';
 
     return (
         <div
-            role="link"
+            role="button"
             tabIndex={0}
-            onClick={() => navigate(target)}
+            onClick={onOpenDetails}
             onKeyDown={(event) => {
                 if (event.key === 'Enter' || event.key === ' ') {
                     event.preventDefault();
-                    navigate(target);
+                    onOpenDetails?.();
                 }
             }}
+            aria-label={`Review details for ${student.name || application.fullName || 'applicant'}`}
             className="grid cursor-pointer gap-4 bg-light-card p-4 transition hover:bg-cyan-50/60 dark:bg-dark-card dark:hover:bg-cyan-950/20 lg:grid-cols-[1fr_auto] lg:items-center"
         >
             <div className="flex min-w-0 gap-4">

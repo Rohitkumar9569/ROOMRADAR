@@ -1,20 +1,22 @@
 import React, { lazy, Suspense, useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { format } from 'date-fns';
 import toast from 'react-hot-toast';
 import api from '../../api';
 import Spinner from '../../components/common/Spinner';
 import ImageGallery from '../../components/features/rooms/ImageGallery';
 import BookingPanel from '../../components/features/booking/BookingPanel';
-import BookingRequestModal from '../../components/features/booking/BookingRequestModal';
 import AmenitiesList from '../../components/features/rooms/AmenitiesList';
 import ReviewsSection from '../../components/features/rooms/ReviewsSection';
 import InquiryModal from '../../components/features/chat/InquiryModal';
 import RoomCard from '../../components/features/rooms/RoomCard';
+import SupportTicketModal from '../../components/support/SupportTicketModal';
 import { useAuth } from '../../context/AuthContext';
 import { formatRoomFieldValue, getRulesSection, getRoomFieldValue, getVisibleDetailFields } from '../../utils/roomFieldUtils';
 import { formatListingTitle } from '../../utils/listingDisplay';
 import { trackUsageEvent } from '../../utils/usageAnalytics';
+import { triggerHaptic } from '../../utils/haptics';
+import { shareContent } from '../../utils/nativeShare';
 import {
     ArrowLeft,
     BadgeCheck,
@@ -24,6 +26,9 @@ import {
     CalendarDays,
     ChevronRight,
     Clock3,
+    Eye,
+    Flag,
+    Flame,
     Heart,
     Home,
     IndianRupee,
@@ -188,6 +193,7 @@ const Avatar = ({ user }) => (
 const RoomDetailsPage = () => {
     const { id: roomId } = useParams();
     const navigate = useNavigate();
+    const location = useLocation();
     const { user, addToWishlist, removeFromWishlist } = useAuth();
     const [room, setRoom] = useState(null);
     const [reviews, setReviews] = useState([]);
@@ -196,7 +202,7 @@ const RoomDetailsPage = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [isInquiryModalOpen, setIsInquiryModalOpen] = useState(false);
-    const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
+    const [isReportModalOpen, setIsReportModalOpen] = useState(false);
     const [showMobileBookingBar, setShowMobileBookingBar] = useState(false);
     const [searchRadius, setSearchRadius] = useState(5);
 
@@ -300,6 +306,26 @@ const RoomDetailsPage = () => {
         return source.map(getImageUrl).filter(Boolean);
     }, [room]);
 
+    useEffect(() => {
+        if (!room || typeof document === 'undefined') return undefined;
+
+        const title = `${formatListingTitle(room.title, 'Room listing')} - RoomRadar`;
+        const description = `${money(room.rent)}/month room in ${room.location?.city || getAddress(room)}. Chat with the landlord and request booking on RoomRadar.`;
+        const previousTitle = document.title;
+        const descriptionMeta = document.querySelector('meta[name="description"]');
+        const previousDescription = descriptionMeta?.getAttribute('content');
+
+        document.title = title;
+        descriptionMeta?.setAttribute('content', description);
+
+        return () => {
+            document.title = previousTitle || 'RoomRadar';
+            if (descriptionMeta && previousDescription) {
+                descriptionMeta.setAttribute('content', previousDescription);
+            }
+        };
+    }, [room]);
+
     if (loading) {
         return (
             <div className="flex min-h-screen items-center justify-center bg-light-bg dark:bg-dark-bg">
@@ -356,34 +382,108 @@ const RoomDetailsPage = () => {
         }).toString()}`
         : `/rooms?city=${encodeURIComponent(room.location?.city || '')}`;
     const isWishlisted = user?.wishlist?.some((item) => String(item?._id || item) === String(room._id));
-    const isBooked = ['Booked', 'Confirmed'].includes(room.status);
+    const normalizedStatus = String(room.status || '').toLowerCase();
+    const isBooked = ['booked', 'confirmed'].includes(normalizedStatus);
+    const isBookable = ['published', 'available'].includes(normalizedStatus);
     const availabilityBadgeLabel = isBooked
         ? `Booked${availableLabel !== 'Available now' ? ` until ${availableLabel}` : ''}`
-        : 'Available now';
+        : isBookable
+            ? 'Available now'
+            : 'Not accepting requests';
     const minimumStayValue = Math.max(0, Number(room.minimumStay?.value || 0));
     const minimumStayUnit = String(room.minimumStay?.unit || 'month').toLowerCase();
     const minimumStayText = minimumStayValue
         ? `Minimum ${minimumStayValue} ${minimumStayUnit}${minimumStayValue === 1 || minimumStayUnit.endsWith('s') ? '' : 's'}`
         : 'Flexible stay terms';
     const displayTitle = formatListingTitle(room.title, 'Room listing');
+    const isVerifiedLandlord = Boolean(
+        room.landlord?.isVerified
+        || room.landlord?.kyc_status === 'Verified'
+        || ['verified', 'premium'].includes(String(room.landlord?.verificationLevel || '').toLowerCase())
+        || room.landlord?.verifications?.identity
+    );
+    const socialProofCards = [
+        room.verifications?.property
+            ? { title: 'RoomRadar Assured', text: 'Listing details are verified for safer shortlisting.', Icon: ShieldCheck, tone: 'emerald' }
+            : null,
+        isVerifiedLandlord
+            ? { title: 'Verified landlord', text: 'Host identity signals are checked by RoomRadar.', Icon: BadgeCheck, tone: 'cyan' }
+            : null,
+        Number(room.views || 0) > 0
+            ? { title: 'Popular listing', text: `${Number(room.views || 0).toLocaleString('en-IN')} room views recorded.`, Icon: Eye, tone: 'amber' }
+            : null,
+        Number(room.activeApplicationsCount || 0) > 0
+            ? { title: 'High intent', text: `${room.activeApplicationsCount} active request${Number(room.activeApplicationsCount) > 1 ? 's' : ''} from seekers.`, Icon: Flame, tone: 'rose' }
+            : null,
+        Number(room.responseRate || 0) >= 80
+            ? { title: 'Fast responder', text: `${room.responseRate}% host response rate.`, Icon: MessageCircle, tone: 'cyan' }
+            : null,
+    ].filter(Boolean).slice(0, 4);
+    const proofToneClass = {
+        emerald: 'border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-100',
+        cyan: 'border-cyan-200 bg-cyan-50 text-cyan-800 dark:border-cyan-500/20 dark:bg-cyan-500/10 dark:text-cyan-100',
+        amber: 'border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-100',
+        rose: 'border-rose-200 bg-rose-50 text-rose-900 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-100',
+    };
 
     const handleShare = async () => {
+        triggerHaptic('tap');
         const url = `${window.location.origin}/room/${room._id}`;
-        if (navigator.share) {
-            await navigator.share({ title: displayTitle, text: `View ${displayTitle} on RoomRadar`, url });
+        try {
+            const result = await shareContent({
+                title: `${displayTitle} - RoomRadar`,
+                text: `${money(rentValue)}/month room in ${room.location?.city || 'RoomRadar'}`,
+                url,
+            });
+
+            if (result.status === 'copied') toast.success('Room link copied.');
+            if (result.status === 'failed') toast.error('Could not share this room.');
+        } catch {
+            toast.error('Could not share this room.');
+        }
+    };
+
+    const requireTravellerLogin = (actionLabel) => {
+        if (user) return true;
+        toast.error(`Please log in to ${actionLabel}.`);
+        navigate('/login', { state: { from: location } });
+        return false;
+    };
+
+    const handleContactLandlord = () => {
+        if (!requireTravellerLogin('message the landlord')) return;
+        triggerHaptic('tap');
+        setIsInquiryModalOpen(true);
+    };
+
+    const handleRequestToBook = () => {
+        if (!isBookable) {
+            triggerHaptic('warning');
+            toast.error('This room is not accepting booking requests right now.');
             return;
         }
-        await navigator.clipboard.writeText(url);
-        toast.success('Room link copied.');
+        triggerHaptic('tap');
+        navigate(`/room/${room._id}/book`);
+    };
+
+    const handleReportListing = () => {
+        if (!requireTravellerLogin('report this listing')) return;
+        triggerHaptic('warning');
+        setIsReportModalOpen(true);
     };
 
     const handleWishlist = async () => {
         if (!user) {
-            toast.error('Please log in to use wishlist.');
+            requireTravellerLogin('use wishlist');
             return;
         }
+        triggerHaptic('tap');
         if (isWishlisted) {
-            await removeFromWishlist(room._id);
+            const removed = await removeFromWishlist(room._id);
+            if (!removed) {
+                toast.error('Could not update wishlist.');
+                return;
+            }
             trackUsageEvent('wishlist_remove', {
                 metadata: {
                     roomId: room._id,
@@ -393,7 +493,11 @@ const RoomDetailsPage = () => {
             });
             toast.success('Removed from wishlist.');
         } else {
-            await addToWishlist(room._id);
+            const added = await addToWishlist(room._id);
+            if (!added) {
+                toast.error('Could not update wishlist.');
+                return;
+            }
             trackUsageEvent('wishlist_add', {
                 metadata: {
                     roomId: room._id,
@@ -437,6 +541,14 @@ const RoomDetailsPage = () => {
                             <Heart className={`h-3.5 w-3.5 ${isWishlisted ? 'fill-brand text-brand' : ''}`} />
                             <span className="hidden md:inline">Save</span>
                         </button>
+                        <button
+                            type="button"
+                            onClick={handleReportListing}
+                            className="inline-flex min-h-9 items-center gap-1.5 rounded-full border border-rose-200 px-3 text-sm font-black text-rose-600 transition hover:bg-rose-50 dark:border-rose-400/20 dark:text-rose-200 dark:hover:bg-rose-500/10"
+                        >
+                            <Flag className="h-3.5 w-3.5" />
+                            <span className="hidden md:inline">Report</span>
+                        </button>
                     </div>
                 </div>
             </div>
@@ -445,20 +557,28 @@ const RoomDetailsPage = () => {
                 <section className="mb-5 md:mb-6">
                     <div className="mb-3 flex flex-wrap gap-2">
                         <span className={`rounded-full px-3 py-1 text-xs font-black ${
-                            isBooked
+                            !isBookable
                                 ? 'bg-slate-200 text-slate-700 dark:bg-zinc-800 dark:text-zinc-200'
                                 : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300'
                         }`}>
                             {availabilityBadgeLabel}
                         </span>
                         <span className="rounded-full bg-cyan-100 px-3 py-1 text-xs font-black text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-300">
-                            Verified listing
+                            {room.verifications?.property ? 'RoomRadar Assured' : 'Listed on RoomRadar'}
                         </span>
                         {room.createdAt && Date.now() - new Date(room.createdAt).getTime() < 1000 * 60 * 60 * 24 * 30 && (
                             <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-black text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
                                 New listing
                             </span>
                         )}
+                        <button
+                            type="button"
+                            onClick={handleReportListing}
+                            className="inline-flex items-center gap-1.5 rounded-full bg-rose-50 px-3 py-1 text-xs font-black text-rose-600 ring-1 ring-rose-100 transition hover:bg-rose-100 dark:bg-rose-500/10 dark:text-rose-200 dark:ring-rose-400/20 md:hidden"
+                        >
+                            <Flag className="h-3.5 w-3.5" />
+                            Report
+                        </button>
                     </div>
                     <h1 className="max-w-4xl text-[1.7rem] font-black leading-[1.08] tracking-tight text-light-text dark:text-dark-text md:text-3xl lg:text-4xl">
                         {displayTitle}
@@ -504,6 +624,24 @@ const RoomDetailsPage = () => {
                             ))}
                         </section>
 
+                        {socialProofCards.length > 0 && (
+                            <section className="grid gap-2 sm:grid-cols-2">
+                                {socialProofCards.map(({ title, text, Icon, tone }) => (
+                                    <div key={title} className={`rounded-2xl border p-3 shadow-sm sm:p-4 ${proofToneClass[tone] || proofToneClass.cyan}`}>
+                                        <div className="flex items-start gap-3">
+                                            <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-white/70 dark:bg-white/10">
+                                                <Icon className="h-5 w-5" />
+                                            </span>
+                                            <div className="min-w-0">
+                                                <p className="text-sm font-black">{title}</p>
+                                                <p className="mt-1 text-xs font-bold leading-5 opacity-80 sm:text-sm">{text}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </section>
+                        )}
+
                         <section className="border-b border-light-border pb-7 dark:border-dark-border md:pb-8">
                             <div className="flex items-center gap-4">
                                 <Avatar user={room.landlord} />
@@ -516,7 +654,7 @@ const RoomDetailsPage = () => {
                                 </div>
                                 <button
                                     type="button"
-                                    onClick={() => setIsInquiryModalOpen(true)}
+                                    onClick={handleContactLandlord}
                                     className="hidden rounded-xl border border-light-border px-4 py-2 text-sm font-black transition hover:bg-light-card dark:border-dark-border dark:hover:bg-dark-card sm:inline-flex"
                                 >
                                     Message host
@@ -650,7 +788,7 @@ const RoomDetailsPage = () => {
 
                     <aside className="hidden lg:block">
                         <div className="sticky top-20">
-                            <BookingPanel room={room} onContactLandlord={() => setIsInquiryModalOpen(true)} />
+                            <BookingPanel room={room} onContactLandlord={handleContactLandlord} />
                         </div>
                     </aside>
                 </div>
@@ -700,28 +838,30 @@ const RoomDetailsPage = () => {
                         <p className="text-[11px] font-semibold text-light-muted dark:text-dark-muted">per month</p>
                     </div>
                     <span className={`rounded-full px-3 py-1 text-[11px] font-black ${
-                        isBooked
+                        !isBookable
                             ? 'bg-slate-100 text-slate-700 dark:bg-zinc-800 dark:text-zinc-200'
                             : 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-200'
                     }`}>
-                        {isBooked
-                            ? (availableLabel !== 'Available now' ? `Next move-in ${availableLabel}` : 'Currently booked')
+                        {!isBookable
+                            ? (isBooked
+                                ? (availableLabel !== 'Available now' ? `Next move-in ${availableLabel}` : 'Currently booked')
+                                : 'Not accepting requests')
                             : 'Platform protection included'}
                     </span>
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                     <button
                         type="button"
-                        onClick={() => setIsBookingModalOpen(true)}
-                        disabled={isBooked}
+                        onClick={handleRequestToBook}
+                        disabled={!isBookable}
                         className="flex min-h-12 min-w-0 items-center justify-center gap-1.5 rounded-2xl bg-brand px-2 text-[12px] font-black text-white shadow-lg shadow-brand/30 transition active:scale-[0.97] disabled:cursor-not-allowed disabled:bg-slate-400 sm:text-sm"
                     >
                         <Sparkles className="h-4 w-4 flex-shrink-0" />
-                        <span className="truncate">{isBooked ? 'Already booked' : 'Request to book'}</span>
+                        <span className="truncate">{isBooked ? 'Already booked' : isBookable ? 'Request to book' : 'Not available'}</span>
                     </button>
                     <button
                         type="button"
-                        onClick={() => setIsInquiryModalOpen(true)}
+                        onClick={handleContactLandlord}
                         className="flex min-h-12 min-w-0 items-center justify-center gap-1.5 rounded-2xl border border-light-border bg-white px-2 text-[12px] font-black text-light-text transition hover:bg-light-card dark:border-dark-border dark:bg-dark-card dark:text-dark-text sm:text-sm"
                     >
                         <MessageCircle className="h-4 w-4 flex-shrink-0 text-cyan-500" />
@@ -733,14 +873,21 @@ const RoomDetailsPage = () => {
             {isInquiryModalOpen && (
                 <InquiryModal room={room} onClose={() => setIsInquiryModalOpen(false)} />
             )}
+            <SupportTicketModal
+                open={isReportModalOpen}
+                onClose={() => setIsReportModalOpen(false)}
+                defaultCategory="listing"
+                defaultPriority="high"
+                defaultSubject="Report suspicious or inaccurate room listing"
+                defaultMessage={`I want to report this room listing.\n\nRoom: ${displayTitle}\nIssue details:\n`}
+                context={{
+                    scope: 'travelling',
+                    path: location.pathname,
+                    roomId: room._id,
+                    roomTitle: displayTitle,
+                }}
+            />
 
-            {isBookingModalOpen && (
-                <BookingRequestModal
-                    room={room}
-                    onClose={() => setIsBookingModalOpen(false)}
-                    onSuccess={() => setIsBookingModalOpen(false)}
-                />
-            )}
         </div>
     );
 };

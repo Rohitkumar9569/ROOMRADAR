@@ -25,6 +25,27 @@ const getImageUrl = (image) => {
     return typeof image === 'string' ? image : image.url || '';
 };
 
+const countWords = (value) => String(value || '').trim().split(/\s+/).filter(Boolean).length;
+
+const getListingQualityScore = (room) => {
+    const imageCount = Math.max(
+        Array.isArray(room.images) ? room.images.filter(Boolean).length : 0,
+        room.imageUrl ? 1 : 0
+    );
+    const descriptionWords = countWords(room.description);
+    const selectedAmenities = Object.values(room.facilities || {}).filter(Boolean).length;
+    const hasPinnedLocation = Array.isArray(room.location?.coordinates)
+        && room.location.coordinates.length === 2
+        && room.location.coordinates.every((value) => Number.isFinite(Number(value)));
+
+    const photoScore = Math.round((Math.min(imageCount, 5) / 5) * 40);
+    const descriptionScore = Math.round((Math.min(descriptionWords, 150) / 150) * 20);
+    const amenityScore = Math.round((Math.min(selectedAmenities, 8) / 8) * 20);
+    const locationScore = (hasPinnedLocation ? 12 : 0) + (room.location?.fullAddress ? 4 : 0) + (room.location?.city ? 2 : 0) + (room.location?.pincode || room.location?.postalCode ? 2 : 0);
+
+    return Math.min(100, photoScore + descriptionScore + amenityScore + locationScore);
+};
+
 const LandlordRoomCard = ({ room, onDelete, onStatusToggle }) => {
     const { user } = useAuth();
     const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -39,9 +60,11 @@ const LandlordRoomCard = ({ room, onDelete, onStatusToggle }) => {
     const city = room.location?.city || '';
     const address = room.location?.fullAddress || room.location?.locality || room.location?.city || '';
     const beds = Number(room.beds || 0);
-    const views = room.stats?.views || room.views || 0;
-    const requests = room.stats?.applications || room.activeApplicationsCount || 0;
+    const requests = Number(room.stats?.applications || room.activeApplicationsCount || 0);
+    const trackedViews = Number(room.stats?.views || room.views || 0);
+    const views = Math.max(trackedViews, requests);
     const displayTitle = formatListingTitle(room.title);
+    const qualityScore = getListingQualityScore(room);
     const isVerifiedHost = Boolean(
         host.isVerified
         || host.kyc_status === 'Verified'
@@ -189,6 +212,21 @@ const LandlordRoomCard = ({ room, onDelete, onStatusToggle }) => {
                             <span>{address}</span>
                         </p>
                     )}
+                </div>
+
+                <div className="rounded-2xl border border-slate-200/80 bg-slate-50/80 p-3 dark:border-secondary-700/80 dark:bg-secondary-900/45">
+                    <div className="mb-2 flex items-center justify-between gap-2 text-[11px] font-black uppercase tracking-[0.08em] text-slate-500 dark:text-secondary-300">
+                        <span>Listing quality</span>
+                        <span className={qualityScore >= 80 ? 'text-emerald-600 dark:text-emerald-300' : qualityScore >= 60 ? 'text-cyan-600 dark:text-cyan-300' : 'text-amber-600 dark:text-amber-300'}>
+                            {qualityScore}%
+                        </span>
+                    </div>
+                    <div className="h-1.5 overflow-hidden rounded-full bg-slate-200 dark:bg-secondary-800">
+                        <div
+                            className={`h-full rounded-full ${qualityScore >= 80 ? 'bg-emerald-500' : qualityScore >= 60 ? 'bg-cyan-500' : 'bg-amber-500'}`}
+                            style={{ width: `${qualityScore}%` }}
+                        />
+                    </div>
                 </div>
 
                 <div className="rr-listing-metrics">

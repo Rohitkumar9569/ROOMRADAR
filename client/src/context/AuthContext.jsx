@@ -106,18 +106,24 @@ export const AuthProvider = ({ children }) => {
         persistUser(nextUser);
     };
     const addToWishlist = async (roomId) => {
-        if (!user) return;
+        if (!user) return false;
         try {
             const { data } = await api.post('/users/wishlist', { roomId });
             updateUser(data.user);
-        } catch (error) { /* keep wishlist state unchanged */ }
+            return true;
+        } catch (error) {
+            return false;
+        }
     };
     const removeFromWishlist = async (roomId) => {
-        if (!user) return;
+        if (!user) return false;
         try {
             const { data } = await api.delete(`/users/wishlist/${roomId}`);
             updateUser(data.user);
-        } catch (error) { /* keep wishlist state unchanged */ }
+            return true;
+        } catch (error) {
+            return false;
+        }
     };
 
     const value = { 

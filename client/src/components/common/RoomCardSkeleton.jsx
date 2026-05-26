@@ -38,10 +38,10 @@ function RoomCardSkeleton({ variant = 'default' }) {
   // Default card variant for premium room cards
   return (
     <div
-      className="relative overflow-hidden rounded-xl bg-white dark:bg-gray-800 shadow-sm border border-gray-100 dark:border-gray-700"
+      className="relative overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800"
     >
       {/* Image Section */}
-      <div className="skeleton-wave relative aspect-[4/3] overflow-hidden bg-gray-200 dark:bg-gray-700">
+      <div className="skeleton-wave relative aspect-[16/10] overflow-hidden bg-gray-200 dark:bg-gray-700 max-sm:aspect-[4/3]">
         
         {/* Badge placeholders */}
         <div className="absolute top-3 left-3 flex gap-2">
@@ -60,49 +60,22 @@ function RoomCardSkeleton({ variant = 'default' }) {
       </div>
 
       {/* Content Section */}
-      <div className="p-4 space-y-3">
-        {/* Location row */}
-        <div className="flex items-center gap-2">
-          <div className="w-3.5 h-3.5 rounded-full bg-gray-200 dark:bg-gray-700" />
-          <SkeletonBar width="w-2/3" height="h-3.5" className="bg-gray-200 dark:bg-gray-700" />
+      <div className="min-h-[12.55rem] p-4">
+        <div className="flex items-center justify-between gap-3">
+          <SkeletonBar width="w-36" height="h-3.5" className="bg-gray-200 dark:bg-gray-700" />
         </div>
-        
-        {/* Title */}
-        <SkeletonBar width="w-11/12" height="h-5" className="bg-gray-200 dark:bg-gray-700" />
-        
-        {/* Room type & furnished row */}
-        <div className="flex items-center gap-2">
-          <div className="w-3.5 h-3.5 rounded-full bg-gray-200 dark:bg-gray-700" />
-          <SkeletonBar width="w-1/3" height="h-3.5" className="bg-gray-200 dark:bg-gray-700" />
+        <SkeletonBar width="w-10/12" height="h-5" className="mt-3 bg-gray-200 dark:bg-gray-700" />
+        <SkeletonBar width="w-9/12" height="h-5" className="mt-1.5 bg-gray-200 dark:bg-gray-700" />
+        <div className="mt-2 grid grid-cols-2 gap-1.5">
+          <SkeletonBar width="w-full" height="h-6" className="rounded-full bg-gray-200 dark:bg-gray-700" />
+          <SkeletonBar width="w-full" height="h-6" className="rounded-full bg-gray-200 dark:bg-gray-700" />
+          <SkeletonBar width="w-7/12" height="h-6" className="rounded-full bg-gray-200 dark:bg-gray-700" />
         </div>
-        
-        {/* Rating row */}
-        <div className="flex items-center gap-1.5">
-          {[1, 2, 3, 4, 5].map((i) => (
-            <div key={i} className="w-4 h-4 rounded bg-gray-200 dark:bg-gray-700" />
-          ))}
-          <div className="ml-1 w-16 h-4 rounded bg-gray-200 dark:bg-gray-700" />
-        </div>
-        
-        {/* Divider */}
-        <div className="border-t border-gray-100 dark:border-gray-700" />
-        
-        {/* Price and response rate row */}
-        <div className="flex items-center justify-between pt-1">
-          <div className="space-y-1">
-            <div className="flex items-baseline gap-1">
-              <SkeletonBar width="w-20" height="h-6" className="bg-gray-200 dark:bg-gray-700" />
-              <SkeletonBar width="w-12" height="h-3" className="bg-gray-200 dark:bg-gray-700" />
-            </div>
-            <SkeletonBar width="w-16" height="h-3" className="bg-gray-200 dark:bg-gray-700" />
-          </div>
-          <SkeletonBar width="w-20" height="h-4" className="bg-gray-200 dark:bg-gray-700" />
-        </div>
-        
-        {/* Tags row */}
-        <div className="flex gap-2 pt-1">
-          <div className="w-20 h-6 rounded-full bg-gray-200 dark:bg-gray-700" />
-          <div className="w-16 h-6 rounded-full bg-gray-200 dark:bg-gray-700" />
+        <SkeletonBar width="w-full" height="h-6" className="mt-1.5 rounded-xl bg-gray-200 dark:bg-gray-700" />
+
+        <div className="mt-2.5 flex items-baseline justify-between gap-2 rounded-2xl bg-gray-100 p-2 dark:bg-gray-700/60">
+          <SkeletonBar width="w-24" height="h-6" className="bg-gray-200 dark:bg-gray-700" />
+          <SkeletonBar width="w-10" height="h-3" className="bg-gray-200 dark:bg-gray-700" />
         </div>
       </div>
     </div>

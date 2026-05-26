@@ -9,6 +9,9 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { formatListingTitle } from '../../../utils/listingDisplay';
+import { triggerHaptic } from '../../../utils/haptics';
+
+const money = (value) => `\u20B9${Number(value || 0).toLocaleString('en-IN')}`;
 
 // --- Premium Inquiry Modal Component ---
 const InquiryModal = ({ room, onClose }) => {
@@ -35,31 +38,34 @@ const InquiryModal = ({ room, onClose }) => {
 
     const handleSendInquiry = async (e) => {
         e.preventDefault();
-        if (!message.trim()) {
-            return toast.error("Please enter a message.");
+        const cleanMessage = message.trim();
+        if (cleanMessage.length < 10) {
+            return toast.error('Please write at least 10 characters.');
         }
         setLoading(true);
         try {
             // This API call creates the "application" record of the inquiry
             await api.post('/applications/inquiry', {
                 roomId: room._id,
-                message: message,
+                message: cleanMessage,
             });
 
             // This API call finds or creates the conversation and now sends the initial message
             const { data: conversationData } = await api.post('/chat/conversations/find-or-create', {
                 roomId: room._id,
                 otherUserId: room.landlord._id || room.landlord,
-                message: message,
+                message: cleanMessage,
             });
 
             toast.success("Your message has been sent!");
+            triggerHaptic('success');
             if (conversationData.conversationId) {
                 navigate(`/profile/inbox/${conversationData.conversationId}`);
             }
             onClose(); // Close the modal
         } catch (error) {
             const errorMessage = error.response?.data?.message || 'Could not send your message.';
+            triggerHaptic('error');
             toast.error(errorMessage);
         } finally {
             setLoading(false);
@@ -140,7 +146,7 @@ const InquiryModal = ({ room, onClose }) => {
                                         <span className="font-medium">{room.landlord?.name || 'Landlord'}</span>
                                     </div>
                                     <div className="flex items-center gap-2 text-base">
-                                        <span className="font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">₹{Number(room.rent || 0).toLocaleString('en-IN')}/month</span>
+                                        <span className="font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">{money(room.rent)}/month</span>
                                     </div>
                                 </div>
                             </div>
@@ -197,6 +203,7 @@ const InquiryModal = ({ room, onClose }) => {
                                         name="message"
                                         value={message}
                                         onChange={(e) => setMessage(e.target.value)}
+                                        maxLength={1000}
                                         className="block min-h-[240px] w-full rounded-xl border-slate-200 bg-slate-50 px-4 py-4 text-slate-900 shadow-inner transition-all duration-300 placeholder:text-slate-400 hover:border-slate-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-700 dark:bg-slate-800/80 dark:text-slate-100 dark:placeholder:text-slate-500 dark:hover:border-slate-600 dark:focus:border-blue-400 dark:focus:ring-blue-400/30 md:h-full md:min-h-[200px]"
                                         placeholder={`Hi, I'm interested in "${displayTitle}". Could you please provide more information about availability, amenities, and move-in process?`}
                                         required
