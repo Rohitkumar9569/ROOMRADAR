@@ -519,7 +519,7 @@ function RoomCard({ room, context = 'default', trackingContext, onRemove, imageP
             ref={cardRef}
             className="room-card-pro rr-room-card group h-full cursor-pointer"
         >
-            <Link to={`/room/${room._id}`} className="flex h-full flex-col" onClickCapture={handleCardClickCapture}>
+            <Link to={`/room/${room._id}`} className="flex h-full min-w-0 flex-1 flex-col w-full" onClickCapture={handleCardClickCapture}>
                 <div
                     ref={mediaRef}
                     className="rr-room-card-media relative overflow-hidden bg-light-border dark:bg-dark-input"

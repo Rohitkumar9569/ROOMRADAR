@@ -7908,12 +7908,20 @@ html:not(.dark) .rr-profile-completion [class*="from-brand"] {
 
 .rr-room-card {
   display: flex !important;
+  width: 100% !important;
+  min-width: 0 !important;
   min-height: 26rem !important;
   overflow: hidden !important;
   border-radius: 16px !important;
   border-color: rgba(148, 163, 184, 0.24) !important;
   background: #ffffff !important;
   box-shadow: 0 16px 44px -36px rgba(15, 23, 42, 0.74) !important;
+}
+
+.rr-room-card > a {
+  width: 100% !important;
+  min-width: 0 !important;
+  flex: 1 1 auto !important;
 }
 
 .rr-room-card:hover {
@@ -7934,8 +7942,16 @@ html:not(.dark) .rr-profile-completion [class*="from-brand"] {
 }
 
 .rr-room-card-media {
+  width: 100% !important;
+  min-width: 0 !important;
   aspect-ratio: 16 / 10 !important;
   flex: 0 0 auto !important;
+}
+
+.rr-room-card-media > img {
+  display: block !important;
+  width: 100% !important;
+  min-width: 100% !important;
 }
 
 .rr-room-card-body {
