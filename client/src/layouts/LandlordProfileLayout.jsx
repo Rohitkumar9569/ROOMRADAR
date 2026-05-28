@@ -87,7 +87,7 @@ const LandlordProfileLayout = () => {
                             ? 'rr-flat-mobile-pages md:p-6 lg:p-8'
                             : 'app-route-surface rr-flat-mobile-pages px-2 pb-4 sm:p-6 lg:p-8'
                 }>
-                    <RouteTransition context={outletContext} />
+                    <RouteTransition context={outletContext} className={isInboxPage ? 'h-full min-h-0' : ''} />
                 </div>
             </main>
 

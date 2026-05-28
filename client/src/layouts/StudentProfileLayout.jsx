@@ -109,7 +109,7 @@ const StudentProfileLayout = () => {
                             ? ''
                             : 'md:pt-0'
                 }>
-                    <RouteTransition context={outletContext} />
+                    <RouteTransition context={outletContext} className={pageType === 'inbox' ? 'h-full min-h-0' : ''} />
                 </div>
             </main>
         </div>

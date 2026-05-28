@@ -12,7 +12,13 @@ function RouteTransition({ context, className = '' }) {
   const reduceMotion = useReducedMotion();
 
   if (reduceMotion) {
-    return <Outlet context={context} />;
+    return className ? (
+      <div className={className}>
+        <Outlet context={context} />
+      </div>
+    ) : (
+      <Outlet context={context} />
+    );
   }
 
   return (

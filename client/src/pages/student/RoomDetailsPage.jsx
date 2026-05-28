@@ -810,15 +810,15 @@ const RoomDetailsPage = () => {
                         )}
                     </div>
                     {similarRooms.length ? (
-                        <div className="flex gap-4 overflow-x-auto pb-4 [scrollbar-width:none] md:grid md:grid-cols-4 md:overflow-visible [&::-webkit-scrollbar]:hidden">
+                        <div className="flex gap-3 overflow-x-auto pb-4 [scrollbar-width:none] md:grid md:grid-cols-4 md:gap-4 md:overflow-visible [&::-webkit-scrollbar]:hidden">
                             {similarRooms.map((similarRoom, index) => (
-                                <div key={similarRoom._id} className="min-w-[260px] md:min-w-0">
+                                <div key={similarRoom._id} className="min-w-[232px] sm:min-w-[252px] md:min-w-0">
                                     {similarRoom._recommendation?.reason && (
                                         <div className="mb-2 inline-flex max-w-full rounded-full border border-cyan-100 bg-cyan-50 px-3 py-1 text-[11px] font-black text-cyan-700 dark:border-cyan-500/20 dark:bg-cyan-500/10 dark:text-cyan-200">
                                             <span className="truncate">{similarRoom._recommendation.reason}</span>
                                         </div>
                                     )}
-                                    <RoomCard room={similarRoom} position={index + 1} trackingContext="similar_rooms" />
+                                    <RoomCard room={similarRoom} compact position={index + 1} trackingContext="similar_rooms" />
                                 </div>
                             ))}
                         </div>

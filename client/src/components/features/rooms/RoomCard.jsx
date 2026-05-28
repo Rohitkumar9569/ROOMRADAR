@@ -221,7 +221,7 @@ const handleMobilePreviewTouchEnd = (event) => {
     window.setTimeout(scheduleActiveMobilePreviewSync, 220);
 };
 
-function RoomCard({ room, context = 'default', trackingContext, onRemove, imagePriority = false, position }) {
+function RoomCard({ room, context = 'default', trackingContext, onRemove, imagePriority = false, position, compact = false }) {
     const { user, addToWishlist, removeFromWishlist } = useAuth();
     const cardRoom = room || {};
     const roomId = cardRoom._id;
@@ -517,7 +517,7 @@ function RoomCard({ room, context = 'default', trackingContext, onRemove, imageP
     return (
         <article
             ref={cardRef}
-            className="room-card-pro rr-room-card group h-full cursor-pointer"
+            className={`room-card-pro rr-room-card group h-full cursor-pointer ${compact ? 'rr-room-card--compact' : ''}`}
         >
             <Link to={`/room/${room._id}`} className="flex h-full min-w-0 flex-1 flex-col w-full" onClickCapture={handleCardClickCapture}>
                 <div
@@ -670,6 +670,7 @@ function RoomCard({ room, context = 'default', trackingContext, onRemove, imageP
 }
 
 RoomCard.propTypes = {
+    compact: PropTypes.bool,
     context: PropTypes.oneOf(['default', 'saved']),
     imagePriority: PropTypes.bool,
     onRemove: PropTypes.func,

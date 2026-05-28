@@ -258,7 +258,7 @@ const ConversationCard = ({ convo, onClick, isSelected, currentUser, isOnline })
         <button
             type="button"
             onClick={onClick}
-            className={`rr-inbox-conversation-card group min-h-[96px] w-full border-b border-[#e9edef] px-4 py-3 text-left transition dark:border-[#26343d] sm:min-h-[100px] sm:px-5 ${
+            className={`rr-inbox-conversation-card group min-h-[96px] w-full border-b border-[#e9edef] px-4 py-3 text-left transition dark:border-[#26343d] sm:min-h-[100px] sm:px-5 ${isSelected ? 'is-selected' : ''} ${
                 isSelected
                     ? 'bg-[#e9edef] dark:bg-[#2a3942]'
                     : 'bg-transparent hover:bg-[#f5f6f6] dark:hover:bg-[#202c33]'
@@ -828,8 +828,8 @@ const InboxPage = () => {
     };
 
     const ConversationListPanel = (
-        <div className="flex h-full flex-col overflow-hidden border-r border-[#e9edef] bg-[#f7f6f3] dark:border-[#26343d] dark:bg-[#111b21]">
-            <div className="flex-shrink-0 border-b border-[#e9edef]/80 bg-white/90 px-3 pb-2 pt-2 shadow-sm backdrop-blur-xl dark:border-[#26343d] dark:bg-[#111b21]/95 sm:px-4 sm:pb-3 md:pt-3">
+        <div className="rr-inbox-list-panel flex h-full flex-col overflow-hidden border-r border-[#e9edef] bg-[#f7f6f3] dark:border-[#26343d] dark:bg-[#111b21]">
+            <div className="rr-inbox-list-toolbar flex-shrink-0 border-b border-[#e9edef]/80 bg-white/90 px-3 pb-2 pt-2 shadow-sm backdrop-blur-xl dark:border-[#26343d] dark:bg-[#111b21]/95 sm:px-4 sm:pb-3 md:pt-3">
                 {!inboxSearchInNav && (
                     <label className="inbox-inline-search mb-2 flex md:hidden">
                         <MagnifyingGlassIcon className="h-4 w-4 flex-shrink-0 text-cyan-600 dark:text-cyan-300" />
@@ -861,7 +861,7 @@ const InboxPage = () => {
                 </ScrollStrip>
             </div>
 
-            <div ref={conversationListRef} onScroll={handleConversationListScroll} className="flex-1 overflow-y-auto bg-white dark:bg-[#111b21]">
+            <div ref={conversationListRef} onScroll={handleConversationListScroll} className="rr-inbox-list-scroll flex-1 overflow-y-auto bg-white dark:bg-[#111b21]">
                 {loading ? (
                     <div className="flex h-full items-center justify-center"><Spinner /></div>
                 ) : filteredConversations.length > 0 ? (
@@ -887,10 +887,10 @@ const InboxPage = () => {
     );
 
     const ChatWindowPanel = (
-        <div className="relative flex h-full flex-1 flex-col overflow-hidden bg-light-bg dark:bg-[#0b1014]">
+        <div className="rr-inbox-chat-panel relative flex h-full flex-1 flex-col overflow-hidden bg-light-bg dark:bg-[#0b1014]">
             {selectedConversation ? (
                 <>
-                    <div className="hidden h-16 flex-shrink-0 items-center justify-between border-b border-[#d1d7db] bg-[#f0f2f5] px-3 dark:border-[#26343d] dark:bg-[#202c33] sm:px-4 md:flex">
+                    <div className="rr-inbox-chat-header hidden h-16 flex-shrink-0 items-center justify-between border-b border-[#d1d7db] bg-[#f0f2f5] px-3 dark:border-[#26343d] dark:bg-[#202c33] sm:px-4 md:flex">
                         <button
                             type="button"
                             onClick={() => setChatProfileOpen(true)}
@@ -928,7 +928,7 @@ const InboxPage = () => {
                         </div>
                     </div>
 
-                    <div ref={messagesScrollRef} className="min-h-0 flex-1 overflow-y-auto px-3 py-5 sm:px-6">
+                    <div ref={messagesScrollRef} className="rr-inbox-message-scroll min-h-0 flex-1 overflow-y-auto px-3 py-5 sm:px-6">
                         <div className="mx-auto max-w-4xl space-y-3">
                             {loadingMessages ? (
                                 <div className="flex h-72 items-center justify-center"><Spinner /></div>
@@ -946,7 +946,7 @@ const InboxPage = () => {
                         </div>
                     </div>
 
-                    <form onSubmit={handleSendMessage} className="flex-shrink-0 border-t border-light-border bg-light-card p-3 dark:border-dark-border dark:bg-[#1f2c34]">
+                    <form onSubmit={handleSendMessage} className="rr-inbox-composer flex-shrink-0 border-t border-light-border bg-light-card p-3 dark:border-dark-border dark:bg-[#1f2c34]">
                         <div className="mx-auto max-w-4xl">
                             <ScrollStrip className="mb-2 pb-1">
                                 {quickReplies.map((reply) => (
@@ -1008,13 +1008,13 @@ const InboxPage = () => {
     );
 
     return isDesktop ? (
-        <PanelGroup direction="horizontal" className="h-full bg-light-bg dark:bg-dark-bg">
+        <PanelGroup direction="horizontal" className="rr-inbox-shell h-full bg-light-bg dark:bg-dark-bg">
             <Panel defaultSize={34} minSize={27} maxSize={42}>{ConversationListPanel}</Panel>
-            <PanelResizeHandle className="w-px bg-[#d1d7db] transition-colors hover:bg-[#00a884] dark:bg-[#26343d]" />
+            <PanelResizeHandle className="rr-inbox-resize-handle w-px bg-[#d1d7db] transition-colors hover:bg-[#00a884] dark:bg-[#26343d]" />
             <Panel defaultSize={66}>{ChatWindowPanel}</Panel>
         </PanelGroup>
     ) : (
-        <div className="h-full bg-light-bg dark:bg-dark-bg">{conversationId ? ChatWindowPanel : ConversationListPanel}</div>
+        <div className="rr-inbox-shell h-full bg-light-bg dark:bg-dark-bg">{conversationId ? ChatWindowPanel : ConversationListPanel}</div>
     );
 };
 

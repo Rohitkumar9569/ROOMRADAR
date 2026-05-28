@@ -101,6 +101,7 @@ function SearchBar({ criteria, onCriteriaChange, onSearch, onClear, inputId = 'h
     const [listening, setListening] = useState(false);
     const searchBarRef = useRef(null);
     const recognitionRef = useRef(null);
+    const listeningRef = useRef(false);
     const supportsVoiceSearch = typeof window !== 'undefined' && (window.SpeechRecognition || window.webkitSpeechRecognition);
 
     useEffect(() => {
@@ -187,6 +188,21 @@ function SearchBar({ criteria, onCriteriaChange, onSearch, onClear, inputId = 'h
         runSearch();
     };
 
+    const stopVoiceSearch = () => {
+        const recognition = recognitionRef.current;
+        listeningRef.current = false;
+        recognitionRef.current = null;
+        setListening(false);
+
+        if (!recognition) return;
+
+        try {
+            recognition.stop?.();
+        } catch {
+            recognition.abort?.();
+        }
+    };
+
     const handleVoiceSearch = () => {
         triggerHaptic('tap');
         if (!supportsVoiceSearch) {
@@ -194,8 +210,8 @@ function SearchBar({ criteria, onCriteriaChange, onSearch, onClear, inputId = 'h
             return;
         }
 
-        if (listening && recognitionRef.current) {
-            recognitionRef.current.stop();
+        if (listening || listeningRef.current || recognitionRef.current) {
+            stopVoiceSearch();
             return;
         }
 
@@ -205,7 +221,11 @@ function SearchBar({ criteria, onCriteriaChange, onSearch, onClear, inputId = 'h
         recognition.interimResults = false;
         recognition.maxAlternatives = 1;
 
-        recognition.onstart = () => setListening(true);
+        recognition.onstart = () => {
+            listeningRef.current = true;
+            recognitionRef.current = recognition;
+            setListening(true);
+        };
         recognition.onresult = (event) => {
             const transcript = event.results?.[0]?.[0]?.transcript?.trim();
             if (!transcript) return;
@@ -218,11 +238,25 @@ function SearchBar({ criteria, onCriteriaChange, onSearch, onClear, inputId = 'h
         recognition.onerror = () => {
             toast.error('Could not capture voice search.');
             triggerHaptic('error');
+            listeningRef.current = false;
+            if (recognitionRef.current === recognition) recognitionRef.current = null;
+            setListening(false);
         };
-        recognition.onend = () => setListening(false);
+        recognition.onend = () => {
+            listeningRef.current = false;
+            if (recognitionRef.current === recognition) recognitionRef.current = null;
+            setListening(false);
+        };
 
-        recognitionRef.current = recognition;
-        recognition.start();
+        try {
+            recognitionRef.current = recognition;
+            recognition.start();
+        } catch {
+            listeningRef.current = false;
+            recognitionRef.current = null;
+            setListening(false);
+            toast.error('Could not start voice search.');
+        }
     };
 
     useEffect(() => {
@@ -236,7 +270,9 @@ function SearchBar({ criteria, onCriteriaChange, onSearch, onClear, inputId = 'h
     }, []);
 
     useEffect(() => () => {
+        listeningRef.current = false;
         recognitionRef.current?.abort?.();
+        recognitionRef.current = null;
     }, []);
 
     useEffect(() => {
@@ -291,11 +327,12 @@ function SearchBar({ criteria, onCriteriaChange, onSearch, onClear, inputId = 'h
                             <button
                                 type="button"
                                 onClick={handleVoiceSearch}
-                                className={`mr-1 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full transition ${
+                                className={`home-location-voice-btn mr-1 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full transition ${
                                     listening
-                                        ? 'bg-rose-500 text-white shadow-lg shadow-rose-500/20'
+                                        ? 'is-listening bg-rose-500 text-white shadow-lg shadow-rose-500/20'
                                         : 'text-slate-500 hover:bg-cyan-50 hover:text-cyan-600 dark:text-slate-300 dark:hover:bg-cyan-500/10 dark:hover:text-cyan-200'
                                 }`}
+                                aria-pressed={listening}
                                 aria-label={listening ? 'Stop voice search' : 'Search by voice'}
                             >
                                 <MicrophoneIcon className="h-5 w-5" />

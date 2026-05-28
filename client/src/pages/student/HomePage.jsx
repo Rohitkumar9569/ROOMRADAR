@@ -560,7 +560,7 @@ function HomePage() {
   };
 
   const heroRoom = visiblePopularRooms[0] || visibleCategoryRooms[0] || visibleRecommendedRooms[0] || popularRooms[0] || categoryRooms[0] || recommendedRooms[0];
-  const heroImage = heroRoom?.images?.[0]?.url || heroRoom?.images?.[0] || heroRoom?.imageUrl || backgroundImage;
+  const heroImage = backgroundImage;
   const heroRoomCity = heroRoom?.location?.city || heroRoom?.city || '';
   const heroRoomTitle = heroRoom ? formatListingTitle(heroRoom.title, '') : '';
   const heroRoomRent = heroRoom ? Number(heroRoom.rent || 0) : 0;
@@ -597,9 +597,9 @@ function HomePage() {
           decoding="async"
           fetchpriority="high"
         />
-        <div className="absolute inset-0 hidden bg-[radial-gradient(ellipse_at_center,rgba(2,6,23,0.74)_0%,rgba(2,6,23,0.52)_36%,rgba(2,6,23,0.24)_58%,rgba(2,6,23,0.10)_78%),linear-gradient(180deg,rgba(0,0,0,0.68)_0%,rgba(0,0,0,0.36)_38%,rgba(0,0,0,0.76)_100%)] sm:block" />
-        <div className="pointer-events-none absolute inset-x-0 top-0 hidden h-40 bg-gradient-to-b from-black/56 via-black/18 to-transparent sm:block" />
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 hidden h-72 bg-gradient-to-b from-transparent via-slate-950/26 to-light-bg dark:via-dark-bg/58 dark:to-dark-bg sm:block" />
+        <div className="home-hero-overlay absolute inset-0 hidden bg-[radial-gradient(ellipse_at_center,rgba(2,6,23,0.74)_0%,rgba(2,6,23,0.52)_36%,rgba(2,6,23,0.24)_58%,rgba(2,6,23,0.10)_78%),linear-gradient(180deg,rgba(0,0,0,0.68)_0%,rgba(0,0,0,0.36)_38%,rgba(0,0,0,0.76)_100%)] sm:block" />
+        <div className="home-hero-top-fade pointer-events-none absolute inset-x-0 top-0 hidden h-40 bg-gradient-to-b from-black/56 via-black/18 to-transparent sm:block" />
+        <div className="home-hero-bottom-fade pointer-events-none absolute inset-x-0 bottom-0 hidden h-72 bg-gradient-to-b from-transparent via-slate-950/26 to-light-bg dark:via-dark-bg/58 dark:to-dark-bg sm:block" />
 
         <div className="relative z-10 mx-auto flex w-full max-w-7xl flex-1 flex-col justify-start px-4 pb-4 pt-0 text-center sm:min-h-[100svh] sm:items-center sm:justify-center sm:px-6 sm:pb-8 sm:pt-24 lg:px-8">
           <div className="mx-auto flex w-full max-w-md flex-col items-center sm:max-w-4xl">
@@ -621,7 +621,7 @@ function HomePage() {
               Search verified listings, compare real prices, and request safely from one clean view.
             </p>
 
-            <div className="relative z-50 mt-0 hidden w-full max-w-3xl rounded-[1.65rem] bg-transparent p-0 shadow-none ring-0 sm:mx-auto sm:mt-8 sm:block">
+            <div className="home-hero-search-shell relative z-50 mt-0 hidden w-full max-w-3xl rounded-[1.65rem] bg-transparent p-0 shadow-none ring-0 sm:mx-auto sm:mt-8 sm:block">
               <SearchBar
                 criteria={searchCriteria}
                 onCriteriaChange={handleCriteriaChange}
@@ -678,7 +678,7 @@ function HomePage() {
         </div>
       </section>
 
-      <main className="mx-auto max-w-7xl px-3 pb-28 sm:px-6 lg:px-8">
+      <main className="home-content-surface mx-auto max-w-7xl px-3 pb-28 sm:px-6 lg:px-8">
         <section className="mt-6">
           <div className="flex gap-3 overflow-x-auto pb-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {categories.map((category) => (

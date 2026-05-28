@@ -172,7 +172,11 @@ const UserMenu = ({ isOverlay = false }) => {
                     Become a Host
                 </Link>
             )}
-            <div className="relative">
+            <div
+                className="relative"
+                onMouseEnter={() => setIsMenuOpen(true)}
+                onMouseLeave={() => setIsMenuOpen(false)}
+            >
                 <button
                     onClick={() => setIsMenuOpen((prev) => !prev)}
                     className={`flex h-10 w-10 items-center justify-center overflow-hidden rounded-full shadow-sm ring-2 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg ${
@@ -212,20 +216,20 @@ const Header = () => {
     ].join(' ');
 
     const actionClass = [
-        'flex h-10 w-10 items-center justify-center rounded-full transition-all duration-200 hover:-translate-y-0.5',
+        'rr-home-header-action flex h-10 w-10 items-center justify-center rounded-full transition-all duration-200 hover:-translate-y-0.5',
         isOverlay
             ? 'bg-white/[0.18] text-white ring-1 ring-white/[0.28] backdrop-blur-2xl hover:bg-white/[0.26] hover:ring-white/[0.42]'
             : 'bg-white/[0.62] text-slate-800 ring-1 ring-slate-200/70 backdrop-blur-xl hover:bg-white hover:shadow-lg dark:bg-slate-900/[0.62] dark:text-slate-100 dark:ring-slate-700/80 dark:hover:bg-slate-900',
     ].join(' ');
 
     const header = (
-        <header className={`fixed inset-x-0 top-0 z-50 hidden h-[76px] transition-all duration-300 md:block ${isOverlay ? 'border-b border-white/10 bg-slate-950/[0.22] text-white shadow-[0_18px_50px_-36px_rgba(0,0,0,0.7)] backdrop-blur-xl' : isHome ? 'rr-desktop-home-header-scrolled' : 'border-b border-slate-200/70 bg-slate-50/90 text-slate-950 shadow-[0_20px_48px_-38px_rgba(15,23,42,0.62)] backdrop-blur-2xl dark:border-slate-800/80 dark:bg-slate-950/90 dark:text-slate-50'}`}>
+        <header className={`fixed inset-x-0 top-0 z-50 hidden h-[76px] transition-all duration-300 md:block ${isOverlay ? 'rr-desktop-home-header-overlay border-b border-white/10 bg-slate-950/[0.22] text-white shadow-[0_18px_50px_-36px_rgba(0,0,0,0.7)] backdrop-blur-xl' : isHome ? 'rr-desktop-home-header-scrolled' : 'border-b border-slate-200/70 bg-slate-50/90 text-slate-950 shadow-[0_20px_48px_-38px_rgba(15,23,42,0.62)] backdrop-blur-2xl dark:border-slate-800/80 dark:bg-slate-950/90 dark:text-slate-50'}`}>
             <div className="mx-auto grid h-full max-w-7xl grid-cols-[1fr_auto_1fr] items-center gap-5 px-6 lg:px-8">
                 <Link to="/" className="group inline-flex items-center text-2xl font-black tracking-tight" aria-label="RoomRadar home">
                     <span className="text-[#FF385C]">Room</span><span className="text-cyan-500">Radar</span>
                 </Link>
 
-                <div className={`flex items-center gap-1 rounded-full border px-1.5 py-1.5 shadow-lg backdrop-blur-2xl transition-all duration-300 ${
+                <div className={`rr-home-nav-pill flex items-center gap-1 rounded-full border px-1.5 py-1.5 shadow-lg backdrop-blur-2xl transition-all duration-300 ${
                     isOverlay
                         ? 'border-white/[0.26] bg-white/[0.18] shadow-black/20'
                         : 'border-slate-200/70 bg-white/[0.72] shadow-slate-950/10 dark:border-slate-700/75 dark:bg-slate-900/[0.72] dark:shadow-black/20'
