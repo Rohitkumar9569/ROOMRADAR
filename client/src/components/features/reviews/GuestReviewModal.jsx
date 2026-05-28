@@ -10,21 +10,55 @@ const categories = [
   ['payment', 'Payment'],
 ];
 
-const StarRow = ({ value, onChange, size = 22 }) => (
-  <div className="flex items-center gap-1">
-    {[1, 2, 3, 4, 5].map((ratingValue) => (
-      <button
-        key={ratingValue}
-        type="button"
-        onClick={() => onChange(ratingValue)}
-        className="rounded-full p-0.5 transition hover:scale-105"
-        aria-label={`${ratingValue} stars`}
-      >
-        <FaStar color={ratingValue <= value ? '#f59e0b' : '#d1d5db'} size={size} />
-      </button>
-    ))}
-  </div>
-);
+const getRatingFromPointer = (event, index) => {
+  if (!event.clientX) return index + 1;
+  const rect = event.currentTarget.getBoundingClientRect();
+  const isHalf = event.clientX - rect.left < rect.width / 2;
+  return Math.max(1, index + (isHalf ? 0.5 : 1));
+};
+
+const StarFill = ({ fill, size }) => {
+  const fillWidth = `${Math.max(0, Math.min(1, fill)) * 100}%`;
+
+  return (
+    <span className="relative inline-flex leading-none" aria-hidden="true">
+      <FaStar className="text-slate-300 dark:text-slate-700" size={size} />
+      <span className="absolute inset-0 overflow-hidden text-amber-400 drop-shadow-[0_0_9px_rgba(251,191,36,0.35)]" style={{ width: fillWidth }}>
+        <FaStar size={size} />
+      </span>
+    </span>
+  );
+};
+
+const StarRow = ({ value, onChange, size = 22, showValue = false }) => {
+  const [hover, setHover] = useState(0);
+  const displayValue = hover || value;
+  const buttonSize = size >= 30 ? 'h-10 w-10' : 'h-7 w-7';
+
+  return (
+    <div className="flex flex-col items-center gap-2">
+      <div className="flex items-center gap-1" onMouseLeave={() => setHover(0)}>
+        {Array.from({ length: 5 }).map((_, index) => (
+          <button
+            key={index}
+            type="button"
+            onClick={(event) => onChange(getRatingFromPointer(event, index))}
+            onMouseMove={(event) => setHover(getRatingFromPointer(event, index))}
+            className={`flex ${buttonSize} items-center justify-center rounded-full transition hover:scale-105 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/60`}
+            aria-label={`Set rating up to star ${index + 1}`}
+          >
+            <StarFill fill={Number(displayValue || 0) - index} size={size} />
+          </button>
+        ))}
+      </div>
+      {showValue && (
+        <span className="rounded-full bg-amber-400/10 px-3 py-1 text-xs font-black text-amber-700 dark:bg-amber-300/10 dark:text-amber-200">
+          {displayValue ? `${displayValue.toFixed(1)} / 5` : 'Tap to rate'}
+        </span>
+      )}
+    </div>
+  );
+};
 
 const GuestReviewModal = ({ application, isOpen, onClose, onSuccess }) => {
   const [rating, setRating] = useState(0);
@@ -86,7 +120,7 @@ const GuestReviewModal = ({ application, isOpen, onClose, onSuccess }) => {
 
         <form onSubmit={submitReview} className="mt-6 space-y-5">
           <div className="flex justify-center">
-            <StarRow value={rating} onChange={setRating} size={34} />
+            <StarRow value={rating} onChange={setRating} size={34} showValue />
           </div>
 
           <div className="grid gap-3 rounded-2xl bg-light-bg p-4 dark:bg-dark-input">

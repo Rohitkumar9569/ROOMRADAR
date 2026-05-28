@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { FaExternalLinkAlt, FaFacebook, FaInstagram, FaTwitter } from 'react-icons/fa';
+import SupportLauncher from '../support/SupportLauncher';
 
 const developers = [
   {
@@ -46,7 +47,7 @@ const cityLinks = ['Haridwar', 'Delhi', 'Dehradun', 'Noida'];
 
 function Footer({ className = '' }) {
   return (
-    <footer className={['border-t border-light-border bg-white text-light-muted dark:border-dark-border dark:bg-[#080b10] dark:text-gray-400', className].filter(Boolean).join(' ')}>
+    <footer className={['border-t border-light-border bg-white pb-[calc(var(--rr-bottom-nav-height)+0.75rem)] text-light-muted dark:border-dark-border dark:bg-[#080b10] dark:text-gray-400 md:pb-0', className].filter(Boolean).join(' ')}>
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 sm:py-12 lg:px-8">
         <div className="grid gap-7 sm:gap-10 md:grid-cols-[1.3fr_0.8fr_0.8fr_1fr]">
           <div>
@@ -67,6 +68,9 @@ function Footer({ className = '' }) {
                   {link.label}
                 </Link>
               ))}
+            </div>
+            <div className="mt-3 sm:mt-4">
+              <SupportLauncher />
             </div>
           </div>
 

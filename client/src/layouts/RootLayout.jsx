@@ -10,7 +10,6 @@ import UsageAnalyticsTracker from '../components/common/UsageAnalyticsTracker';
 import TabScrollRestoration from '../components/common/TabScrollRestoration';
 import BottomNavBar from '../components/layout/student/BottomNavBar';
 import SmartAppHeader from '../components/layout/mobile/SmartAppHeader';
-import SupportLauncher from '../components/support/SupportLauncher';
 import { useAuth } from '../context/AuthContext';
 import { useSettings } from '../context/SettingsContext';
 import { useSocket } from '../context/SocketContext';
@@ -41,17 +40,6 @@ function RootLayout() {
     const showInstallPrompt = showAppHeader && !path.includes('/inbox') && !isRoomFlow;
     const showChatbot = showInstallPrompt
         && !/^\/landlord\/(?:add-room|edit-room\/[^/]+)\/?$/.test(path);
-    const isSupportContextPath = (
-        /^\/room\/[^/]+\/book\/?$/.test(path)
-        || /^\/profile\/(?:my-applications|payment\/[^/]+|agreement\/[^/]+|report-damage\/[^/]+)/.test(path)
-        || /^\/landlord\/(?:add-room|edit-room\/[^/]+|my-rooms|applications|calendar)/.test(path)
-    );
-    const showSupportLauncher = Boolean(user)
-        && showAppHeader
-        && isSupportContextPath
-        && !isAdminPath
-        && !isAuthPath
-        && !path.startsWith('/loading');
     const wrapperClass = showStudentBottomNav ? 'pb-[calc(var(--rr-bottom-nav-height)+1rem)] md:pb-0' : '';
     const adminRoles = ['Admin', 'Super_Admin', 'Moderator', 'Support'];
     const isAdmin = user?.roles?.some(role => adminRoles.includes(role));
@@ -108,7 +96,6 @@ function RootLayout() {
             {showAppHeader && <SmartAppHeader />}
             <Outlet />
             {showStudentBottomNav && <BottomNavBar />}
-            {showSupportLauncher && <SupportLauncher />}
             {chatbotReady && (
                 <Suspense fallback={null}>
                     <RoomRadarChatbot />

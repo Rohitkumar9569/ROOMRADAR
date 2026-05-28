@@ -8,7 +8,6 @@ import RoomCard from '../../components/features/rooms/RoomCard';
 import RoomCardSkeleton from '../../components/common/RoomCardSkeleton';
 import { useAuth } from '../../context/AuthContext';
 import { readTabCache, setTabCache } from '../../utils/tabDataCache';
-import { formatListingTitle } from '../../utils/listingDisplay';
 import { clearCachedLocation, createManualLocationSignal, getLocationLabel, getLocationSearchParams, getMobileAutoLocation, readCachedLocation, saveSearchedLocation } from '../../utils/mobileLocationAutofill';
 import { trackUsageEvent } from '../../utils/usageAnalytics';
 import {
@@ -17,6 +16,7 @@ import {
   BedDouble,
   Building2,
   CheckCircle2,
+  Compass,
   Handshake,
   Home,
   Hotel,
@@ -168,10 +168,10 @@ const createDefaultSearchCriteria = (locationSignal = null) => ({
 });
 
 const SectionHeader = ({ eyebrow, title, action }) => (
-  <div className="mb-3 flex items-end justify-between gap-3 sm:mb-5">
+  <div className="home-section-header mb-3 flex items-end justify-between gap-3 sm:mb-5">
     <div>
-      <p className="text-[10px] font-medium uppercase tracking-[0.07em] text-cyan-600 dark:text-neutral-400">{eyebrow}</p>
-      <h2 className="mt-1 text-[16px] font-semibold leading-tight tracking-normal text-light-text dark:text-dark-text sm:text-xl">{title}</h2>
+      <p className="home-section-eyebrow text-[10px] font-medium uppercase tracking-[0.07em] text-cyan-600 dark:text-neutral-400">{eyebrow}</p>
+      <h2 className="home-section-title mt-1 text-[16px] font-semibold leading-tight tracking-normal text-light-text dark:text-dark-text sm:text-xl">{title}</h2>
     </div>
     {action}
   </div>
@@ -559,17 +559,11 @@ function HomePage() {
     navigate('/rooms');
   };
 
-  const heroRoom = visiblePopularRooms[0] || visibleCategoryRooms[0] || visibleRecommendedRooms[0] || popularRooms[0] || categoryRooms[0] || recommendedRooms[0];
   const heroImage = backgroundImage;
-  const heroRoomCity = heroRoom?.location?.city || heroRoom?.city || '';
-  const heroRoomTitle = heroRoom ? formatListingTitle(heroRoom.title, '') : '';
-  const heroRoomRent = heroRoom ? Number(heroRoom.rent || 0) : 0;
-  const heroRoomBeds = Number(heroRoom?.beds || 1);
-  const heroRoomType = heroRoom?.roomType || heroRoom?.type || `${heroRoomBeds} bed${heroRoomBeds > 1 ? 's' : ''}`;
   const activeCategoryLabel = categories.find((category) => category.id === activeCategory)?.label || activeCategory;
 
   return (
-    <div className="min-h-screen bg-light-bg text-light-text dark:bg-dark-bg dark:text-dark-text">
+    <div className="home-page-shell min-h-screen bg-light-bg text-light-text dark:bg-dark-bg dark:text-dark-text">
       <Header />
       <div
         id="home-mobile-search-dock"
@@ -588,20 +582,20 @@ function HomePage() {
         </div>
       </div>
 
-      <section className="relative flex min-h-[250px] flex-col overflow-visible bg-light-bg pt-[calc(var(--rr-mobile-header-offset)+5rem)] dark:bg-dark-bg sm:min-h-[100svh] sm:overflow-visible sm:pt-0">
+      <section className="home-hero-section relative flex min-h-[250px] flex-col overflow-visible bg-light-bg pt-[calc(var(--rr-mobile-header-offset)+5rem)] dark:bg-dark-bg sm:min-h-[100svh] sm:overflow-visible sm:pt-0">
         <img
           src={heroImage}
           alt="Premium RoomRadar stay"
-          className="absolute inset-0 hidden h-full w-full object-cover object-[center_58%] sm:block"
+          className="home-hero-image absolute inset-0 h-full w-full object-cover object-[center_58%]"
           loading="eager"
           decoding="async"
           fetchpriority="high"
         />
-        <div className="home-hero-overlay absolute inset-0 hidden bg-[radial-gradient(ellipse_at_center,rgba(2,6,23,0.74)_0%,rgba(2,6,23,0.52)_36%,rgba(2,6,23,0.24)_58%,rgba(2,6,23,0.10)_78%),linear-gradient(180deg,rgba(0,0,0,0.68)_0%,rgba(0,0,0,0.36)_38%,rgba(0,0,0,0.76)_100%)] sm:block" />
-        <div className="home-hero-top-fade pointer-events-none absolute inset-x-0 top-0 hidden h-40 bg-gradient-to-b from-black/56 via-black/18 to-transparent sm:block" />
-        <div className="home-hero-bottom-fade pointer-events-none absolute inset-x-0 bottom-0 hidden h-72 bg-gradient-to-b from-transparent via-slate-950/26 to-light-bg dark:via-dark-bg/58 dark:to-dark-bg sm:block" />
+        <div className="home-hero-overlay absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(2,6,23,0.74)_0%,rgba(2,6,23,0.52)_36%,rgba(2,6,23,0.24)_58%,rgba(2,6,23,0.10)_78%),linear-gradient(180deg,rgba(0,0,0,0.68)_0%,rgba(0,0,0,0.36)_38%,rgba(0,0,0,0.76)_100%)]" />
+        <div className="home-hero-top-fade pointer-events-none absolute inset-x-0 top-0 h-40 bg-gradient-to-b from-black/56 via-black/18 to-transparent" />
+        <div className="home-hero-bottom-fade pointer-events-none absolute inset-x-0 bottom-0 h-72 bg-gradient-to-b from-transparent via-slate-950/26 to-light-bg dark:via-dark-bg/58 dark:to-dark-bg" />
 
-        <div className="relative z-10 mx-auto flex w-full max-w-7xl flex-1 flex-col justify-start px-4 pb-4 pt-0 text-center sm:min-h-[100svh] sm:items-center sm:justify-center sm:px-6 sm:pb-8 sm:pt-24 lg:px-8">
+        <div className="home-hero-inner relative z-10 mx-auto flex w-full max-w-7xl flex-1 flex-col justify-start px-4 pb-4 pt-0 text-center sm:min-h-[100svh] sm:items-center sm:justify-center sm:px-6 sm:pb-8 sm:pt-24 lg:px-8">
           <div className="mx-auto flex w-full max-w-md flex-col items-center sm:max-w-4xl">
             <div className="mb-3 hidden max-w-full items-center justify-center gap-2 rounded-full border border-cyan-200/22 bg-cyan-300/10 px-2.5 py-1.5 text-white shadow-lg shadow-cyan-950/20 backdrop-blur-xl sm:mb-5 sm:inline-flex sm:px-4 sm:py-2">
               <span className="flex h-6 w-6 items-center justify-center rounded-full bg-cyan-300/18 text-cyan-200">
@@ -632,61 +626,35 @@ function HomePage() {
               />
             </div>
 
-            <div className="relative z-10 mt-3 grid w-full max-w-md grid-cols-3 gap-2 overflow-visible border-0 bg-transparent shadow-none sm:mx-auto sm:mt-8 sm:max-w-2xl sm:gap-6">
+            <div className="home-trust-strip relative z-10 mt-3 grid w-full max-w-md grid-cols-3 gap-2 overflow-visible border-0 bg-transparent shadow-none sm:mx-auto sm:mt-8 sm:max-w-2xl sm:gap-6">
               {trustStats.map(({ key, label, value, Icon }) => (
                 <button
                   key={label}
                   type="button"
                   onClick={() => handleTrustStatClick(key)}
-                  className="group min-w-0 rounded-2xl px-1 py-2 text-center transition active:scale-[0.96] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/80 sm:hover:bg-white/10"
+                  className="home-trust-card group min-w-0 rounded-2xl px-1 py-2 text-center transition active:scale-[0.96] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/80 sm:hover:bg-white/10"
                   aria-label={`Open ${label.toLowerCase()}`}
                 >
-                  <Icon className="mx-auto h-4 w-4 text-cyan-600 dark:text-cyan-300 sm:h-5 sm:w-5" />
-                  <p className="mt-1 text-lg font-black text-light-text dark:text-dark-text sm:mt-2 sm:text-3xl sm:text-white dark:sm:text-dark-text">{value}</p>
-                  <p className="mx-auto mt-0.5 max-w-[9ch] text-[9px] font-bold leading-tight text-light-muted transition group-hover:text-cyan-700 dark:text-dark-muted dark:group-hover:text-cyan-200 sm:mt-1 sm:max-w-none sm:text-sm sm:text-white/78 sm:group-hover:text-white dark:sm:text-dark-muted">{label}</p>
+                  <Icon className="home-trust-icon mx-auto h-4 w-4 text-cyan-600 dark:text-cyan-300 sm:h-5 sm:w-5" />
+                  <p className="home-trust-value mt-1 text-lg font-black text-light-text dark:text-dark-text sm:mt-2 sm:text-3xl sm:text-white dark:sm:text-dark-text">{value}</p>
+                  <p className="home-trust-label mx-auto mt-0.5 max-w-[9ch] text-[9px] font-bold leading-tight text-light-muted transition group-hover:text-cyan-700 dark:text-dark-muted dark:group-hover:text-cyan-200 sm:mt-1 sm:max-w-none sm:text-sm sm:text-white/78 sm:group-hover:text-white dark:sm:text-dark-muted">{label}</p>
                 </button>
               ))}
             </div>
           </div>
 
-          {heroRoom && (
-          <div className="hidden mt-5 w-full max-w-md sm:hidden">
-            <div className="rounded-[1.45rem] border border-white/16 bg-slate-950/30 p-3 text-white shadow-2xl shadow-black/24 backdrop-blur-2xl">
-              <button
-                type="button"
-                onClick={() => navigate(`/room/${heroRoom._id}`)}
-                className="flex w-full items-center justify-between gap-3 text-left transition active:scale-[0.985]"
-              >
-                <div className="min-w-0">
-                  <p className="text-[9px] font-black uppercase tracking-[0.12em] text-cyan-100/90">Featured now</p>
-                  <h2 className="mt-1 truncate text-sm font-black tracking-[-0.02em]">{heroRoomTitle}</h2>
-                  <p className="mt-1 flex items-center gap-1 truncate text-[11px] font-bold text-white/68">
-                    <MapPin className="h-3 w-3 flex-shrink-0 text-cyan-200" />
-                    {heroRoomCity}
-                    <span className="mx-1 h-1 w-1 rounded-full bg-white/35" />
-                    {heroRoomType}
-                  </p>
-                </div>
-                <span className="flex flex-shrink-0 flex-col items-end rounded-2xl bg-white/16 px-3 py-2 text-right ring-1 ring-white/12">
-                  <span className="text-sm font-black">{heroRoomRent ? `₹${formatCount(heroRoomRent)}` : 'Explore'}</span>
-                  <span className="text-[9px] font-black uppercase text-white/58">{heroRoomRent ? '/month' : 'rooms'}</span>
-                </span>
-              </button>
-            </div>
-          </div>
-          )}
         </div>
       </section>
 
-      <main className="home-content-surface mx-auto max-w-7xl px-3 pb-28 sm:px-6 lg:px-8">
-        <section className="mt-6">
-          <div className="flex gap-3 overflow-x-auto pb-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      <main className="home-content-surface home-mobile-main mx-auto max-w-7xl px-3 pb-28 sm:px-6 lg:px-8">
+        <section className="home-category-section mt-6">
+          <div className="home-category-rail flex gap-3 overflow-x-auto pb-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {categories.map((category) => (
               <button
                 key={category.id}
                 type="button"
                 onClick={() => setActiveCategory(category.id)}
-                className={`flex min-h-9 flex-shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-2 text-xs font-semibold transition-all sm:min-h-10 sm:gap-2 sm:px-5 sm:py-2.5 sm:text-sm ${
+                className={`home-category-pill flex min-h-9 flex-shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-2 text-xs font-semibold transition-all sm:min-h-10 sm:gap-2 sm:px-5 sm:py-2.5 sm:text-sm ${
                   activeCategory === category.id
                     ? 'bg-cyan-500 text-white shadow-lg shadow-cyan-500/25'
                     : 'border border-light-border bg-light-card text-light-muted hover:border-cyan-400 hover:text-cyan-700 dark:border-dark-border dark:bg-dark-card dark:text-dark-muted dark:hover:text-cyan-300'
@@ -700,16 +668,16 @@ function HomePage() {
         </section>
 
         <section className="mt-10">
-          <SectionHeader
-            eyebrow="Explore rooms"
-            title={activeCategory === 'All' ? 'All verified rooms on RoomRadar' : `${activeCategoryLabel} on RoomRadar`}
-            action={(
-              <button onClick={() => navigate(buildRoomsPath(activeCategory === 'All' ? {} : { type: activeCategory }))} className="inline-flex min-h-9 items-center gap-1.5 rounded-full border border-light-border bg-light-card px-3 text-xs font-semibold text-light-text transition hover:border-cyan-400 hover:text-cyan-600 dark:border-dark-border dark:bg-dark-card dark:text-dark-text">
-                View all
-                <ArrowRight className="h-4 w-4" />
-              </button>
-            )}
-          />
+            <div className="home-room-list-heading mb-3 flex items-center justify-between gap-3 sm:mb-5">
+              <div className="home-room-list-title inline-flex min-w-0 items-center gap-2 rounded-full border border-light-border bg-light-card px-3 py-2 text-sm font-black text-light-text shadow-sm dark:border-dark-border dark:bg-dark-card dark:text-dark-text">
+              <Compass className="h-4 w-4 flex-shrink-0 text-cyan-500" />
+              <span className="truncate">{activeCategory === 'All' ? 'Explore rooms' : activeCategoryLabel}</span>
+            </div>
+            <button onClick={() => navigate(buildRoomsPath(activeCategory === 'All' ? {} : { type: activeCategory }))} className="home-room-list-action inline-flex min-h-9 flex-shrink-0 items-center gap-1.5 rounded-full border border-light-border bg-light-card px-3 text-xs font-semibold text-light-text transition hover:border-cyan-400 hover:text-cyan-600 dark:border-dark-border dark:bg-dark-card dark:text-dark-text">
+              View
+              <ArrowRight className="h-4 w-4" />
+            </button>
+          </div>
           <RoomsGrid rooms={visibleCategoryRooms} loading={categoryLoading || loading} priorityCount={4} trackingContext={`home_${activeCategory.toLowerCase().replace(/\s+/g, '_')}`} />
         </section>
 

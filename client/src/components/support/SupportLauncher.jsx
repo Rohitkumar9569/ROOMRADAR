@@ -95,13 +95,13 @@ function SupportLauncher() {
         <button
           type="button"
           onClick={() => setOpen(true)}
-          className="fixed bottom-[calc(var(--rr-bottom-nav-height,72px)+1rem)] left-3 z-[65] inline-flex h-11 items-center gap-2 rounded-full border border-cyan-200 bg-white/94 px-3 text-xs font-black text-cyan-700 shadow-[0_12px_34px_rgba(8,145,178,0.18)] backdrop-blur-xl transition hover:-translate-y-0.5 hover:border-cyan-300 hover:bg-cyan-50 dark:border-cyan-400/25 dark:bg-slate-950/88 dark:text-cyan-200 dark:hover:bg-slate-900 md:bottom-5 md:left-5"
+          className="rr-support-footer-link"
           aria-label="Message RoomRadar support"
         >
-          <span className="flex h-7 w-7 items-center justify-center rounded-full bg-cyan-500 text-white">
+          <span className="rr-support-footer-icon">
             <LifeBuoy className="h-4 w-4" />
           </span>
-          <span className="hidden sm:inline">Support</span>
+          <span>Contact support</span>
         </button>
       )}
       <SupportTicketModal

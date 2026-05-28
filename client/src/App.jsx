@@ -36,7 +36,7 @@ function App() {
         </main>
 
         {/* Conditionally render Footer */}
-        {shouldShowFooter && <Footer className="hidden md:block" />}
+        {shouldShowFooter && <Footer className="mt-auto" />}
       </div>
     )
   );

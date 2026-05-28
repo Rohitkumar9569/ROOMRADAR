@@ -23,10 +23,10 @@ import api from '../../api';
 import { formatListingTitle } from '../../utils/listingDisplay';
 
 const suggestions = [
-    'Rooms in Haridwar',
-    'How booking works?',
-    'RoomRadar features',
-    'Best rated rooms'
+    { label: 'Rooms in Haridwar', Icon: MapPin },
+    { label: 'Booking steps', Icon: CheckCircle2 },
+    { label: 'RoomRadar tools', Icon: Sparkles },
+    { label: 'Top rated rooms', Icon: Star }
 ];
 
 const money = (value) => `₹${Number(value || 0).toLocaleString('en-IN')}`;
@@ -1015,14 +1015,15 @@ const RoomRadarChatbot = () => {
                                                 </div>
                                             </div>
                                             <div className="rr-chatbot-suggestion-grid">
-                                                {suggestions.map((suggestion) => (
+                                                {suggestions.map(({ label, Icon }) => (
                                                     <button
-                                                        key={suggestion}
+                                                        key={label}
                                                         type="button"
-                                                        onClick={() => sendMessage(suggestion)}
+                                                        onClick={() => sendMessage(label)}
                                                         className="rr-chatbot-suggestion"
                                                     >
-                                                        {suggestion}
+                                                        <Icon aria-hidden="true" />
+                                                        <span>{label}</span>
                                                     </button>
                                                 ))}
                                             </div>

@@ -4,32 +4,55 @@ import { createReview } from '../../../api';
 import toast from 'react-hot-toast';
 import { formatListingTitle } from '../../../utils/listingDisplay';
 
-const StarRating = ({ rating, setRating }) => {
-  const [hover, setHover] = useState(0);
+const getRatingFromPointer = (event, index) => {
+  if (!event.clientX) return index + 1;
+  const rect = event.currentTarget.getBoundingClientRect();
+  const isHalf = event.clientX - rect.left < rect.width / 2;
+  return Math.max(1, index + (isHalf ? 0.5 : 1));
+};
+
+const StarFill = ({ fill, size }) => {
+  const fillWidth = `${Math.max(0, Math.min(1, fill)) * 100}%`;
 
   return (
-    <div className="flex items-center justify-center space-x-2">
-      {[...Array(5)].map((_, index) => {
-        const ratingValue = index + 1;
-        return (
-          <label key={index}>
-            <input
-              type="radio"
-              name="rating"
-              value={ratingValue}
-              onClick={() => setRating(ratingValue)}
-              className="hidden"
-            />
-            <FaStar
-              className="cursor-pointer transition-colors"
-              color={ratingValue <= (hover || rating) ? '#f59e0b' : '#d1d5db'}
-              size={40}
-              onMouseEnter={() => setHover(ratingValue)}
-              onMouseLeave={() => setHover(0)}
-            />
-          </label>
-        );
-      })}
+    <span className="relative inline-flex leading-none" aria-hidden="true">
+      <FaStar className="text-slate-300 dark:text-slate-700" size={size} />
+      <span className="absolute inset-0 overflow-hidden text-amber-400 drop-shadow-[0_0_9px_rgba(251,191,36,0.35)]" style={{ width: fillWidth }}>
+        <FaStar size={size} />
+      </span>
+    </span>
+  );
+};
+
+const StarRating = ({ rating, setRating, compact = false, showValue = true }) => {
+  const [hover, setHover] = useState(0);
+  const displayRating = hover || rating;
+  const size = compact ? 18 : 40;
+  const buttonClass = compact
+    ? 'flex h-7 w-7 items-center justify-center rounded-full transition hover:scale-105 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/60'
+    : 'flex h-11 w-11 items-center justify-center rounded-full transition hover:scale-105 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/60';
+
+  return (
+    <div className={compact ? 'flex items-center gap-1' : 'flex flex-col items-center gap-2'}>
+      <div className="flex items-center justify-center gap-1.5" onMouseLeave={() => setHover(0)}>
+        {Array.from({ length: 5 }).map((_, index) => (
+          <button
+            key={index}
+            type="button"
+            onClick={(event) => setRating(getRatingFromPointer(event, index))}
+            onMouseMove={(event) => setHover(getRatingFromPointer(event, index))}
+            className={buttonClass}
+            aria-label={`Set rating up to star ${index + 1}`}
+          >
+            <StarFill fill={Number(displayRating || 0) - index} size={size} />
+          </button>
+        ))}
+      </div>
+      {showValue && (
+        <span className="rounded-full bg-amber-400/10 px-3 py-1 text-xs font-black text-amber-700 dark:bg-amber-300/10 dark:text-amber-200">
+          {displayRating ? `${displayRating.toFixed(1)} / 5` : 'Tap to rate'}
+        </span>
+      )}
     </div>
   );
 };
@@ -44,19 +67,7 @@ const categoryLabels = [
 ];
 
 const CompactRating = ({ value, onChange }) => (
-  <div className="flex items-center gap-1">
-    {[1, 2, 3, 4, 5].map((ratingValue) => (
-      <button
-        key={ratingValue}
-        type="button"
-        onClick={() => onChange(ratingValue)}
-        className="rounded-full p-0.5 transition hover:scale-105"
-        aria-label={`${ratingValue} stars`}
-      >
-        <FaStar color={ratingValue <= value ? '#f59e0b' : '#d1d5db'} size={18} />
-      </button>
-    ))}
-  </div>
+  <StarRating rating={value} setRating={onChange} compact showValue={false} />
 );
 
 function ReviewModal({ isOpen, onClose, booking, onSuccess }) {

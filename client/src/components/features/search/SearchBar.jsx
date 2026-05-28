@@ -4,7 +4,8 @@ import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { debounce } from 'lodash';
 import toast from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MagnifyingGlassIcon, MapPinIcon, MicrophoneIcon, XCircleIcon } from '@heroicons/react/24/solid';
+import { MapPinIcon, XCircleIcon } from '@heroicons/react/24/solid';
+import { Mic, MicOff, Search as SearchIcon } from 'lucide-react';
 import api from '../../../api';
 import { indianCities } from '../../../data/indianCities';
 import { saveSearchedLocation } from '../../../utils/mobileLocationAutofill';
@@ -250,6 +251,8 @@ function SearchBar({ criteria, onCriteriaChange, onSearch, onClear, inputId = 'h
 
         try {
             recognitionRef.current = recognition;
+            listeningRef.current = true;
+            setListening(true);
             recognition.start();
         } catch {
             listeningRef.current = false;
@@ -335,14 +338,18 @@ function SearchBar({ criteria, onCriteriaChange, onSearch, onClear, inputId = 'h
                                 aria-pressed={listening}
                                 aria-label={listening ? 'Stop voice search' : 'Search by voice'}
                             >
-                                <MicrophoneIcon className="h-5 w-5" />
+                                {listening ? (
+                                    <MicOff className="h-5 w-5" strokeWidth={2.55} />
+                                ) : (
+                                    <Mic className="h-5 w-5" strokeWidth={2.55} />
+                                )}
                             </button>
                         )}
                     </div>
                 </div>
 
                 <button type="submit" className="home-location-search-submit ml-2 flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full bg-transparent text-slate-900 transition-all active:scale-[0.94] dark:text-white sm:h-12 sm:w-12" aria-label="Search rooms">
-                    <MagnifyingGlassIcon className="h-7 w-7 sm:h-8 sm:w-8" />
+                    <SearchIcon className="h-6 w-6 sm:h-7 sm:w-7" strokeWidth={2.65} />
                 </button>
             </form>
 

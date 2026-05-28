@@ -5,7 +5,7 @@ import { API_URL } from './config/env';
 const API_ROOT = API_URL;
 const BASE_URL = API_ROOT.endsWith('/api') ? API_ROOT : `${API_ROOT}/api`;
 const SLOW_API_TOAST_ID = 'roomradar-slow-api';
-const SLOW_API_NOTICE_MS = Math.max(Number(import.meta.env.VITE_SLOW_API_NOTICE_MS || 12000), 3000);
+const SLOW_API_NOTICE_MS = Math.max(Number(import.meta.env.VITE_SLOW_API_NOTICE_MS || 2200), 800);
 
 const shouldShowSlowApiNotice = (config = {}) => {
   const url = String(config.url || '');
@@ -61,7 +61,7 @@ api.interceptors.request.use(
       };
       config.metadata.slowApiTimer = window.setTimeout(() => {
         config.metadata.slowApiToastShown = true;
-        toast.loading('RoomRadar server is waking up. First request can take a few seconds.', {
+        toast.loading('Waking RoomRadar server. Please wait a few seconds.', {
           id: SLOW_API_TOAST_ID,
           duration: 30000,
         });
