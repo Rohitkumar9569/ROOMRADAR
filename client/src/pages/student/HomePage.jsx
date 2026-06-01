@@ -12,6 +12,7 @@ import { clearCachedLocation, createManualLocationSignal, getLocationLabel, getL
 import { trackUsageEvent } from '../../utils/usageAnalytics';
 import {
   ArrowRight,
+  BadgeCheck,
   BedDouble,
   Building2,
   Compass,
@@ -20,7 +21,6 @@ import {
   Hotel,
   MapPin,
   Search,
-  ShieldCheck,
   Users,
 } from 'lucide-react';
 import backgroundImage from '../../assets/background_img.jpg';
@@ -237,7 +237,7 @@ function HomePage() {
   const [searchCriteria, setSearchCriteria] = useState(() => createDefaultSearchCriteria());
 
   const trustStats = useMemo(() => [
-    { key: 'verified', label: 'Verified', value: formatCount(stats.verifiedRooms || stats.totalRooms), Icon: ShieldCheck },
+    { key: 'verified', label: 'Verified', value: formatCount(stats.verifiedRooms || stats.totalRooms), Icon: BadgeCheck },
     { key: 'published', label: 'Listings', value: formatCount(stats.totalRooms), Icon: Building2 },
     { key: 'cities', label: 'Cities', value: formatCount(stats.totalCities), Icon: MapPin },
   ], [stats]);
@@ -591,9 +591,9 @@ function HomePage() {
 
         <div className="home-hero-inner relative z-10 mx-auto flex w-full max-w-7xl flex-1 flex-col justify-start px-4 pb-4 pt-0 text-center sm:min-h-[100svh] sm:items-center sm:justify-center sm:px-6 sm:pb-8 sm:pt-24 lg:px-8">
           <div className="mx-auto flex w-full max-w-md flex-col items-center sm:max-w-4xl">
-            <div className="mb-3 hidden max-w-full items-center justify-center gap-2 rounded-full border border-cyan-200/22 bg-cyan-300/10 px-2.5 py-1.5 text-white shadow-lg shadow-cyan-950/20 backdrop-blur-xl sm:mb-5 sm:inline-flex sm:px-4 sm:py-2">
-              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-cyan-300/18 text-cyan-200">
-                <ShieldCheck className="h-3.5 w-3.5" />
+            <div className="home-verified-pill mb-3 hidden max-w-full items-center justify-center gap-2 rounded-full border border-white/18 bg-[#188038] px-2.5 py-1.5 text-white shadow-lg shadow-black/20 sm:mb-5 sm:inline-flex sm:px-4 sm:py-2">
+              <span className="home-verified-pill-icon flex h-6 w-6 items-center justify-center rounded-full bg-white text-[#188038]">
+                <BadgeCheck className="h-3.5 w-3.5" />
               </span>
               <span className="truncate text-[10px] font-black uppercase tracking-[0.09em] text-white/92 sm:text-xs">Verified stays</span>
             </div>
@@ -626,6 +626,7 @@ function HomePage() {
                   key={label}
                   type="button"
                   onClick={() => handleTrustStatClick(key)}
+                  data-trust-key={key}
                   className="home-trust-card group min-w-0 rounded-2xl px-1 py-2 text-center transition active:scale-[0.96] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/80 sm:hover:bg-white/10"
                   aria-label={`Open ${label.toLowerCase()}`}
                 >

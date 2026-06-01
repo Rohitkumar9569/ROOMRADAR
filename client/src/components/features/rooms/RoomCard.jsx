@@ -3,13 +3,13 @@ import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import {
     Award,
+    BadgeCheck,
     Bath,
     BedDouble,
     CalendarDays,
     ChevronLeft,
     ChevronRight,
     Heart,
-    ShieldCheck,
     Star,
     Trash2,
     ImageOff,
@@ -519,6 +519,7 @@ function RoomCard({ room, context = 'default', trackingContext, onRemove, imageP
     const city = String(cardRoom.location?.city || cardRoom.city || '').trim();
     const locationLabel = getRealLocationLabel(cardRoom);
     const isBookedStatus = ['booked', 'confirmed'].includes(String(cardRoom.status || '').toLowerCase());
+    const showPhotoTitle = String(analyticsContext || '').startsWith('home');
 
     if (!roomId || !displayTitle || !Number.isFinite(rentAmount) || rentAmount <= 0 || !city) return null;
 
@@ -551,10 +552,10 @@ function RoomCard({ room, context = 'default', trackingContext, onRemove, imageP
     const isVerifiedListing = Boolean(isGuestFavourite || isVerifiedHost || cardRoom.verifications?.property);
     const primaryBadge = isBookedStatus
         ? { label: 'Booked', Icon: CalendarDays, className: 'rr-booked-badge' }
-        : isGuestFavourite
-            ? { label: 'Guest fav', Icon: Award, className: 'rr-verify-badge is-guest-fav' }
+            : isGuestFavourite
+                ? { label: 'Guest fav', Icon: Award, className: 'rr-verify-badge is-guest-fav' }
             : isVerifiedListing
-                ? { label: 'Verified', Icon: ShieldCheck, className: 'rr-verify-badge' }
+                ? { label: 'Verified', Icon: BadgeCheck, className: 'rr-verify-badge' }
                 : showNewBadge
                     ? { label: 'New', Icon: Star, className: 'rr-new-badge' }
                     : null;
@@ -594,6 +595,13 @@ function RoomCard({ room, context = 'default', trackingContext, onRemove, imageP
                     ) : (
                         <div className="flex h-full w-full flex-col items-center justify-center bg-zinc-100 text-center text-zinc-500 dark:bg-zinc-900 dark:text-zinc-400" aria-label="Photo pending">
                             <ImageOff className="h-8 w-8" />
+                        </div>
+                    )}
+
+                    {showPhotoTitle && availableImageUrls.length > 0 && (
+                        <div className="rr-card-photo-title" aria-hidden="true">
+                            <span className="rr-card-photo-title-main">{displayTitle}</span>
+                            <span className="rr-card-photo-title-meta">{city}</span>
                         </div>
                     )}
 
@@ -680,7 +688,7 @@ function RoomCard({ room, context = 'default', trackingContext, onRemove, imageP
                     </h3>
 
                     <div className="rr-card-detail-chips">
-                        {(detailHighlights.length ? detailHighlights : [{ key: 'type', label: roomTypeSummary, Icon: ShieldCheck }]).slice(0, 3).map(({ key, label, Icon }) => (
+                        {(detailHighlights.length ? detailHighlights : [{ key: 'type', label: roomTypeSummary, Icon: BedDouble }]).slice(0, 3).map(({ key, label, Icon }) => (
                             <span key={`${key}-${label}`} className="rr-card-detail-chip">
                                 <Icon className="rr-card-detail-icon" />
                                 <span className="hidden sm:inline">{label}</span>

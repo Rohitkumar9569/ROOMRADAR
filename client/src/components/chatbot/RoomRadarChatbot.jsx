@@ -2,6 +2,7 @@ import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
+    BadgeCheck,
     BedDouble,
     CheckCircle2,
     ImageOff,
@@ -10,7 +11,6 @@ import {
     MessageCircle,
     Search,
     Send,
-    ShieldCheck,
     Star,
     Users,
     X
@@ -21,7 +21,7 @@ import { formatListingTitle } from '../../utils/listingDisplay';
 const suggestions = [
     { label: 'Haridwar rooms', Icon: MapPin },
     { label: 'Booking', Icon: CheckCircle2 },
-    { label: 'Verified', Icon: ShieldCheck },
+    { label: 'Verified', Icon: BadgeCheck },
     { label: 'Top rated', Icon: Star }
 ];
 
@@ -618,18 +618,18 @@ const RoomRadarChatbot = () => {
                             animate={{ x: 0, opacity: 1 }}
                             exit={{ x: '100%', opacity: 0 }}
                             transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-                            className="rr-chatbot-panel fixed inset-x-0 bottom-[calc(var(--rr-bottom-nav-height)+env(safe-area-inset-bottom,0px))] top-[var(--rr-mobile-header-offset)] z-40 flex w-full flex-col overflow-hidden border-t border-light-border bg-light-card text-light-text shadow-2xl dark:border-dark-border dark:bg-dark-sidebar dark:text-dark-text md:inset-x-auto md:bottom-auto md:right-4 md:top-4 md:z-[10003] md:h-[calc(100vh-2rem)] md:w-[390px] md:rounded-3xl md:border"
+                            className="rr-chatbot-panel fixed inset-x-0 bottom-[calc(var(--rr-bottom-nav-height)+env(safe-area-inset-bottom,0px))] top-[var(--rr-mobile-header-offset)] z-[10004] flex w-full flex-col overflow-hidden border-t border-light-border bg-light-card text-light-text shadow-2xl dark:border-dark-border dark:bg-dark-sidebar dark:text-dark-text md:inset-x-auto md:bottom-auto md:right-4 md:top-4 md:z-[10004] md:h-[calc(100vh-2rem)] md:w-[390px] md:rounded-3xl md:border"
                         >
                             <header className="rr-chatbot-header">
                                 <div className="rr-chatbot-titlebar">
                                     <span className="rr-chatbot-brandmark">
-                                        <span>RR</span>
+                                        <span>R</span>
                                     </span>
                                     <div>
-                                        <h2>Help</h2>
+                                        <h2>RoomRadar</h2>
                                         <p className="rr-chatbot-status">
                                             <span />
-                                            Ready
+                                            Room search
                                         </p>
                                     </div>
                                 </div>
@@ -656,7 +656,7 @@ const RoomRadarChatbot = () => {
                                                     <Search />
                                                 </span>
                                                 <div>
-                                                    <h3>Room help</h3>
+                                                    <h3>Find a room</h3>
                                                 </div>
                                             </div>
                                             <div className="rr-chatbot-suggestion-grid">
@@ -719,7 +719,7 @@ const RoomRadarChatbot = () => {
 const MessageBubble = ({ message, closeDrawer }) => {
     const isUser = message.role === 'user';
     const hasRooms = message.rooms?.length > 0;
-    const showAssistantAvatar = !isUser && !hasRooms;
+    const showAssistantAvatar = false;
     const displayContent = isUser ? message.content : sanitizeHelpCopy(message.content);
     return (
         <div className={`rr-message-row ${isUser ? 'is-user' : 'is-assistant'} ${hasRooms ? 'has-rich-content' : ''}`}>
@@ -790,7 +790,7 @@ const ChatRoomCard = ({ room, index, sort, closeDrawer }) => {
                 )}
                 {isVerifiedRoom && (
                     <span className="absolute left-2 top-2 inline-flex max-w-[70%] items-center gap-1 rounded-full bg-white/92 px-2 py-1 text-[10px] font-black text-slate-900 shadow-sm" aria-label="Verified">
-                        <ShieldCheck className="h-3.5 w-3.5 text-cyan-600" />
+                        <BadgeCheck className="h-3.5 w-3.5 text-[#188038]" />
                     </span>
                 )}
                 {room?.location?.city && (

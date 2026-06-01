@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { FaFacebook, FaInstagram, FaTwitter } from 'react-icons/fa';
-import { BadgeCheck, MapPin, MessageCircle, ReceiptText } from 'lucide-react';
+import { BadgeCheck, ExternalLink, MapPin, MessageCircle, ReceiptText } from 'lucide-react';
 import SupportLauncher from '../support/SupportLauncher';
 
 const rentalHighlights = [
@@ -43,6 +43,34 @@ const footerLinks = [
 ];
 
 const cityLinks = ['Haridwar', 'Delhi', 'Dehradun', 'Noida'];
+
+const developerCards = [
+  {
+    name: 'Rohit Kumar',
+    role: 'Lead developer',
+    initial: 'R',
+    href: 'https://in.linkedin.com/in/rohit-kumar-bba12b25b',
+    accentClass: 'bg-[#d93025]',
+  },
+  {
+    name: 'Shubhanshu',
+    role: 'Developer',
+    initial: 'S',
+    accentClass: 'bg-[#1a73e8]',
+  },
+  {
+    name: 'Kamal Kumar',
+    role: 'Developer',
+    initial: 'K',
+    accentClass: 'bg-[#188038]',
+  },
+  {
+    name: 'Samrat Prajapati',
+    role: 'Developer',
+    initial: 'S',
+    accentClass: 'bg-[#3c4043]',
+  },
+];
 
 function Footer({ className = '' }) {
   return (
@@ -131,9 +159,32 @@ function Footer({ className = '' }) {
           <p className="mx-auto mt-4 max-w-xs text-center text-[11px] font-semibold leading-5 text-light-muted dark:text-gray-600 sm:mt-6 sm:max-w-none sm:text-xs">
             Built for real room discovery, safer host conversations, and clear rental decisions.
           </p>
-          <p className="mx-auto mt-3 max-w-md text-center text-[11px] font-bold leading-5 text-light-muted dark:text-gray-500 sm:text-xs">
-            Developed by Rohit Kumar, Shubhanshu, Kamal Kumar, and Samrat Prajapati.
-          </p>
+          <div className="mt-5 grid grid-cols-2 gap-2.5 sm:mt-6 lg:grid-cols-4">
+            {developerCards.map((developer) => {
+              const card = (
+                <span className="group flex min-h-[4.25rem] items-center gap-3 rounded-2xl border border-light-border bg-white px-3 py-2.5 text-left shadow-[0_10px_30px_-24px_rgba(15,23,42,0.45)] transition hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-[0_18px_38px_-26px_rgba(15,23,42,0.55)] dark:border-white/10 dark:bg-[#111418] dark:hover:border-white/18">
+                  <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${developer.accentClass} text-base font-black text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.22)]`}>
+                    {developer.initial}
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm font-black text-light-text dark:text-white">{developer.name}</span>
+                    <span className="mt-0.5 flex items-center gap-1.5 truncate text-[11px] font-bold text-light-muted dark:text-gray-400">
+                      {developer.role}
+                      {developer.href && <ExternalLink className="h-3 w-3 shrink-0 text-[#d93025]" aria-hidden="true" />}
+                    </span>
+                  </span>
+                </span>
+              );
+
+              return developer.href ? (
+                <a key={developer.name} href={developer.href} target="_blank" rel="noreferrer" aria-label={`${developer.name} portfolio`} className="block">
+                  {card}
+                </a>
+              ) : (
+                <span key={developer.name}>{card}</span>
+              );
+            })}
+          </div>
           <p className="mt-4 text-center text-[11px] text-light-muted dark:text-gray-500 sm:mt-6 sm:text-xs">&copy; 2026 RoomRadar. All rights reserved.</p>
         </div>
       </div>

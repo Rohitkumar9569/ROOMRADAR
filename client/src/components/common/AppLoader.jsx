@@ -8,10 +8,6 @@ const AppLoader = () => {
       aria-live="polite"
       aria-label="RoomRadar is loading"
     >
-      <div className="app-loader-topbar" aria-hidden="true">
-        <span />
-      </div>
-
       <div className="app-loader-card app-loader-wordmark-card" aria-hidden="true">
         <div className="app-loader-logo app-loader-wordmark app-loader-wordmark-premium">
           <span className="app-loader-wordmark-text">
