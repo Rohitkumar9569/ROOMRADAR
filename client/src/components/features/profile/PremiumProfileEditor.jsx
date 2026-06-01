@@ -256,7 +256,7 @@ function PremiumProfileEditor({ mode = 'student' }) {
         <section className="rr-profile-shell overflow-hidden rounded-[1.6rem] border border-white/60 bg-white/70 shadow-[0_28px_80px_-54px_rgba(15,23,42,0.85)] backdrop-blur-2xl dark:border-white/10 dark:bg-white/[0.045] dark:shadow-[0_30px_90px_-54px_rgba(0,0,0,0.95)] sm:rounded-[2rem]">
           <div className="rr-profile-hero relative min-h-[15.25rem] overflow-hidden bg-slate-950 px-4 pb-4 pt-5 text-white md:min-h-[18rem] md:px-8 md:pt-8">
             <div className="rr-profile-hero-glow absolute inset-0 bg-transparent" />
-            <div className="rr-profile-hero-fade absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-slate-950/62 to-transparent" />
+            <div className="rr-profile-hero-fade absolute inset-x-0 bottom-0 h-28 bg-transparent" />
             <div className="relative flex items-start justify-between gap-3">
               {copy.roleBadge ? (
                 <span className="inline-flex items-center gap-2 rounded-full border border-white/22 bg-white/12 px-3 py-1.5 text-[clamp(9px,2.6vw,11px)] font-black uppercase tracking-[0.12em] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.18)] backdrop-blur-xl">

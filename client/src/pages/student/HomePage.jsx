@@ -174,7 +174,7 @@ const SectionHeader = ({ eyebrow, title, action }) => (
   </div>
 );
 
-const RoomsGrid = React.memo(function RoomsGrid({ rooms, loading, priorityCount = 0, trackingContext = 'home' }) {
+const RoomsGrid = React.memo(function RoomsGrid({ rooms, loading, priorityCount = 0, trackingContext = 'home', isRefreshing = false }) {
   const visibleRooms = realRoomList(rooms);
 
   if (loading) {
@@ -197,7 +197,7 @@ const RoomsGrid = React.memo(function RoomsGrid({ rooms, loading, priorityCount 
   }
 
   return (
-    <div className="mobile-room-grid grid gap-3 sm:gap-5 lg:[grid-template-columns:repeat(auto-fill,minmax(280px,1fr))]">
+    <div className={`mobile-room-grid grid gap-3 sm:gap-5 lg:[grid-template-columns:repeat(auto-fill,minmax(280px,1fr))] ${isRefreshing ? 'is-refreshing' : ''}`}>
       {visibleRooms.map((room, index) => (
         <RoomCard
           key={room._id}
@@ -673,7 +673,13 @@ function HomePage() {
               <ArrowRight className="h-4 w-4" />
             </button>
           </div>
-          <RoomsGrid rooms={visibleCategoryRooms} loading={categoryLoading || loading} priorityCount={4} trackingContext={`home_${activeCategory.toLowerCase().replace(/\s+/g, '_')}`} />
+          <RoomsGrid
+            rooms={visibleCategoryRooms}
+            loading={loading || (categoryLoading && visibleCategoryRooms.length === 0)}
+            isRefreshing={categoryLoading && visibleCategoryRooms.length > 0}
+            priorityCount={4}
+            trackingContext={`home_${activeCategory.toLowerCase().replace(/\s+/g, '_')}`}
+          />
         </section>
 
         <section className="mt-12">

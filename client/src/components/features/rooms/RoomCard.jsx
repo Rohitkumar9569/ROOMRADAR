@@ -625,20 +625,18 @@ function RoomCard({ room, context = 'default', trackingContext, onRemove, imageP
                                 <span className="rr-new-label hidden sm:inline">New</span>
                             </span>
                         )}
-                        {(user || isSavedContext) && (
-                            <button
-                                type="button"
-                                onClick={handleWishlistClick}
-                                className={`rr-card-heart-btn ${isWishlisted || isSavedContext ? 'is-active' : ''}`}
-                                aria-label={isSavedContext ? 'Remove saved room' : isWishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
-                            >
-                                {isSavedContext ? (
-                                    <Trash2 />
-                                ) : (
-                                    <Heart />
-                                )}
-                            </button>
-                        )}
+                        <button
+                            type="button"
+                            onClick={handleWishlistClick}
+                            className={`rr-card-heart-btn ${isWishlisted || isSavedContext ? 'is-active' : ''}`}
+                            aria-label={isSavedContext ? 'Remove saved room' : isWishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
+                        >
+                            {isSavedContext ? (
+                                <Trash2 />
+                            ) : (
+                                <Heart />
+                            )}
+                        </button>
                     </div>
 
                     {isHovered && availableImageUrls.length > 1 && (
