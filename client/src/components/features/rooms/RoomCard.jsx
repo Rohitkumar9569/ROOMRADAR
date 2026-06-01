@@ -78,6 +78,7 @@ const getImageUrl = (image) => {
 
 const getRealLocationLabel = (room = {}) => {
     const location = room.location || {};
+    const seen = new Set();
     const parts = [
         location.locality,
         location.landmark,
@@ -85,9 +86,15 @@ const getRealLocationLabel = (room = {}) => {
         location.state,
     ]
         .map((item) => String(item || '').trim())
-        .filter(Boolean);
+        .filter((item) => {
+            if (!item) return false;
+            const key = item.toLowerCase();
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+        });
 
-    return [...new Set(parts)].join(', ');
+    return parts.join(', ');
 };
 
 const isRecentListing = (createdAt) => {
@@ -548,7 +555,7 @@ function RoomCard({ room, context = 'default', trackingContext, onRemove, imageP
         .map((item) => ({ ...item, label: String(item.label || '').trim() }))
         .filter((item) => item.label)
         .slice(0, 3);
-    const eyebrowLabel = `${roomTypeSummary || 'Room'} in ${city}`;
+    const eyebrowLabel = roomTypeSummary || 'Room';
     const isVerifiedListing = Boolean(isGuestFavourite || isVerifiedHost || cardRoom.verifications?.property);
     const primaryBadge = isBookedStatus
         ? { label: 'Booked', Icon: CalendarDays, className: 'rr-booked-badge' }
@@ -601,7 +608,6 @@ function RoomCard({ room, context = 'default', trackingContext, onRemove, imageP
                     {showPhotoTitle && availableImageUrls.length > 0 && (
                         <div className="rr-card-photo-title" aria-hidden="true">
                             <span className="rr-card-photo-title-main">{displayTitle}</span>
-                            <span className="rr-card-photo-title-meta">{city}</span>
                         </div>
                     )}
 
