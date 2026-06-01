@@ -67,20 +67,23 @@ const configuredOrigins = parseOrigins(
   process.env.ALLOWED_ORIGINS
 );
 
-if (isProduction && configuredOrigins.length === 0) {
-  process.stderr.write('CLIENT_URL, PUBLIC_APP_URL, or ALLOWED_ORIGINS must be configured in production.\n');
-  process.exit(1);
-}
+const productionClientOrigins = [
+  'https://roomradarindia.vercel.app',
+  'https://roomradar-three.vercel.app',
+];
 
 const developmentOrigins = [
   'http://localhost:5173',
   'http://localhost:5174',
   'http://127.0.0.1:5173',
   'http://127.0.0.1:5174',
-  'https://roomradar-three.vercel.app',
 ];
 
-const allowedOrigins = new Set(isProduction ? configuredOrigins : developmentOrigins.concat(configuredOrigins));
+const defaultAllowedOrigins = isProduction
+  ? productionClientOrigins
+  : developmentOrigins.concat(productionClientOrigins);
+
+const allowedOrigins = new Set(defaultAllowedOrigins.concat(configuredOrigins));
 
 const checkOrigin = (origin, callback) => {
   if (!origin) return callback(null, true);
