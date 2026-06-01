@@ -148,10 +148,10 @@ const PWAInstallPrompt = ({ hidden = false }) => {
     && (deferredPrompt || isIos || isMobileBrowser);
 
   const manualInstallText = isIos
-    ? 'iPhone par Share button dabao, phir Add to Home Screen choose karo.'
+    ? 'On iPhone, tap the Share button, then choose Add to Home Screen.'
     : isAndroid
-      ? 'Android par browser ke 3-dot menu se Install app ya Add to Home screen tap karo.'
-      : 'Browser menu open karke Install app ya Add to Home screen choose karo.';
+      ? 'On Android, open the browser menu and tap Install app or Add to Home screen.'
+      : 'Open the browser menu and choose Install app or Add to Home screen.';
 
   useEffect(() => {
     const syncCapturedPrompt = () => {
