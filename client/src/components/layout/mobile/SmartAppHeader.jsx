@@ -56,6 +56,10 @@ const getPageTitle = (path) => {
   return 'RoomRadar';
 };
 
+const getProfilePhoto = (...values) => (
+  values.find((value) => typeof value === 'string' && value.trim()) || ''
+).trim();
+
 const getRoleProfile = (user, activeRole) => {
   const normalizedRole = String(activeRole || '').toLowerCase();
   const roleProfile = normalizedRole === 'admin'
@@ -65,7 +69,20 @@ const getRoleProfile = (user, activeRole) => {
       : user?.roleProfiles?.student;
   return {
     name: roleProfile?.name || user?.name || user?.email || (normalizedRole === 'admin' ? 'Admin' : 'RoomRadar'),
-    avatar: roleProfile?.avatarUrl || roleProfile?.profilePicture || user?.avatarUrl || user?.profilePicture,
+    avatar: getProfilePhoto(
+      roleProfile?.avatarUrl,
+      roleProfile?.profilePicture,
+      roleProfile?.photoUrl,
+      roleProfile?.photoURL,
+      roleProfile?.picture,
+      roleProfile?.imageUrl,
+      user?.avatarUrl,
+      user?.profilePicture,
+      user?.photoUrl,
+      user?.photoURL,
+      user?.picture,
+      user?.imageUrl,
+    ),
   };
 };
 

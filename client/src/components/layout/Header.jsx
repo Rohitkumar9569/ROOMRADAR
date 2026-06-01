@@ -9,6 +9,10 @@ import useScrollState from '../../hooks/useScrollState';
 import { getAvatarColorStyle, getAvatarInitial } from '../../utils/avatar';
 import { preloadRoleDestination, switchRoleSmoothly } from '../../utils/roleSwitch';
 
+const getProfilePhoto = (...values) => (
+    values.find((value) => typeof value === 'string' && value.trim()) || ''
+).trim();
+
 const UserMenu = ({ isOverlay = false }) => {
     const { user, logout, activeRole, switchRole } = useAuth();
     const navigate = useNavigate();
@@ -77,7 +81,21 @@ const UserMenu = ({ isOverlay = false }) => {
     };
 
     const renderUserIcon = () => {
-        const avatar = user?.avatarUrl || user?.profilePicture;
+        const roleProfile = user?.roleProfiles?.[String(activeRole || 'student').toLowerCase()] || {};
+        const avatar = getProfilePhoto(
+            roleProfile.avatarUrl,
+            roleProfile.profilePicture,
+            roleProfile.photoUrl,
+            roleProfile.photoURL,
+            roleProfile.picture,
+            roleProfile.imageUrl,
+            user?.avatarUrl,
+            user?.profilePicture,
+            user?.photoUrl,
+            user?.photoURL,
+            user?.picture,
+            user?.imageUrl,
+        );
         if (avatar) return <img src={avatar} alt="avatar" className="h-full w-full object-cover" />;
         const name = user?.name || user?.email || 'RoomRadar';
         return (

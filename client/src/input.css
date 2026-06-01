@@ -15327,3 +15327,274 @@ html:not(.dark) .home-hero-search-shell .rr-search-suggestion-loading {
     transform: none !important;
   }
 }
+
+/* Final mobile rental polish: taller room photos, readable pricing, app-like nav chips. */
+.rr-room-card-price,
+.rr-room-card-price-unit {
+  display: inline-block !important;
+  max-width: none !important;
+  overflow: visible !important;
+  text-overflow: clip !important;
+  white-space: nowrap !important;
+  font-variant-numeric: tabular-nums !important;
+}
+
+.rr-room-card-footer > p {
+  display: inline-flex !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+  align-items: baseline !important;
+  overflow: visible !important;
+}
+
+@media (max-width: 767px) {
+  .home-category-rail {
+    gap: 0.42rem !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+    overflow-x: auto !important;
+    scrollbar-width: none !important;
+    border: 1px solid rgba(218, 220, 224, 0.88) !important;
+    border-radius: 999px !important;
+    background: rgba(255, 255, 255, 0.86) !important;
+    background-image: none !important;
+    padding: 0.34rem !important;
+    box-shadow: 0 12px 28px -24px rgba(32, 33, 36, 0.42) !important;
+    backdrop-filter: blur(12px) saturate(130%) !important;
+    -webkit-backdrop-filter: blur(12px) saturate(130%) !important;
+  }
+
+  .home-category-rail::-webkit-scrollbar {
+    display: none !important;
+  }
+
+  .dark .home-category-rail {
+    border-color: rgba(255, 255, 255, 0.10) !important;
+    background: rgba(15, 15, 15, 0.88) !important;
+    box-shadow: 0 14px 32px -24px rgba(0, 0, 0, 0.9) !important;
+  }
+
+  .home-category-pill {
+    min-width: 2.58rem !important;
+    min-height: 2.42rem !important;
+    border: 1px solid transparent !important;
+    border-radius: 999px !important;
+    background: #ffffff !important;
+    background-image: none !important;
+    color: #3c4043 !important;
+    box-shadow: none !important;
+  }
+
+  .home-category-pill.bg-cyan-500 {
+    min-width: 4.15rem !important;
+    background: #202124 !important;
+    background-image: none !important;
+    color: #ffffff !important;
+    box-shadow: none !important;
+  }
+
+  .home-category-pill.bg-cyan-500 svg {
+    color: #ffffff !important;
+    stroke-width: 2.45 !important;
+  }
+
+  .home-category-pill:not(.bg-cyan-500) {
+    border-color: rgba(218, 220, 224, 0.96) !important;
+    background: #ffffff !important;
+    color: #5f6368 !important;
+  }
+
+  .dark .home-category-pill {
+    background: #181818 !important;
+    color: #aaaaaa !important;
+  }
+
+  .dark .home-category-pill.bg-cyan-500 {
+    background: #f1f3f4 !important;
+    color: #0f0f0f !important;
+  }
+
+  .dark .home-category-pill.bg-cyan-500 svg {
+    color: #0f0f0f !important;
+  }
+
+  .dark .home-category-pill:not(.bg-cyan-500) {
+    border-color: rgba(255, 255, 255, 0.10) !important;
+    background: #181818 !important;
+    color: #aaaaaa !important;
+  }
+
+  .app-mobile-bottom-nav {
+    height: calc(4.42rem + env(safe-area-inset-bottom, 0px)) !important;
+    border-top-color: rgba(218, 220, 224, 0.98) !important;
+    background: #ffffff !important;
+    box-shadow: 0 -8px 24px -22px rgba(32, 33, 36, 0.58) !important;
+  }
+
+  .dark .app-mobile-bottom-nav {
+    border-top-color: rgba(255, 255, 255, 0.11) !important;
+    background: #0f0f0f !important;
+    box-shadow: 0 -8px 24px -20px rgba(0, 0, 0, 0.9) !important;
+  }
+
+  .rr-bottom-track {
+    height: 4.42rem !important;
+    padding: 0.24rem max(0.12rem, env(safe-area-inset-left, 0px)) 0.28rem max(0.12rem, env(safe-area-inset-right, 0px)) !important;
+  }
+
+  .rr-bottom-item-inner {
+    gap: 0.06rem !important;
+    border-radius: 0 !important;
+    padding: 0.08rem 0.02rem !important;
+  }
+
+  .rr-bottom-item-inner::after {
+    top: 0.18rem !important;
+    height: 2rem !important;
+    background: #f1f3f4 !important;
+    box-shadow: none !important;
+  }
+
+  .rr-bottom-item:has(.rr-bottom-label.is-active) .rr-bottom-item-inner::after {
+    width: 3rem !important;
+  }
+
+  .dark .rr-bottom-item-inner::after {
+    background: #272727 !important;
+  }
+
+  .rr-bottom-icon,
+  .rr-bottom-icon.is-active {
+    width: 2.48rem !important;
+    height: 2.06rem !important;
+    color: #606060 !important;
+  }
+
+  .rr-bottom-icon.is-active {
+    color: #0f0f0f !important;
+  }
+
+  .dark .rr-bottom-icon {
+    color: #aaaaaa !important;
+  }
+
+  .dark .rr-bottom-icon.is-active {
+    color: #ffffff !important;
+  }
+
+  .rr-bottom-icon svg {
+    width: 1.46rem !important;
+    height: 1.46rem !important;
+    stroke-width: 2.16 !important;
+  }
+
+  .rr-bottom-icon.is-active svg {
+    fill: currentColor !important;
+    fill-opacity: 0.12 !important;
+    stroke-width: 2.46 !important;
+  }
+
+  .rr-bottom-label {
+    font-size: clamp(0.61rem, 2.62vw, 0.7rem) !important;
+    font-weight: 760 !important;
+    color: #606060 !important;
+  }
+
+  .rr-bottom-label.is-active {
+    font-size: clamp(0.72rem, 3.05vw, 0.82rem) !important;
+    font-weight: 950 !important;
+    color: #0f0f0f !important;
+  }
+
+  .dark .rr-bottom-label {
+    color: #aaaaaa !important;
+  }
+
+  .dark .rr-bottom-label.is-active {
+    color: #ffffff !important;
+  }
+
+  .smart-header-action--more {
+    border: 1px solid rgba(218, 220, 224, 0.92) !important;
+    background: #ffffff !important;
+    color: #202124 !important;
+    box-shadow: 0 8px 18px -16px rgba(32, 33, 36, 0.42) !important;
+  }
+
+  .dark .smart-header-action--more {
+    border-color: rgba(255, 255, 255, 0.11) !important;
+    background: #181818 !important;
+    color: #f1f3f4 !important;
+    box-shadow: none !important;
+  }
+
+  .smart-header-more-avatar,
+  .smart-header-more-avatar .rr-avatar-initial {
+    width: 100% !important;
+    height: 100% !important;
+    border-radius: 999px !important;
+  }
+}
+
+@media (max-width: 639px) {
+  .rr-room-card-media {
+    aspect-ratio: 4 / 3 !important;
+  }
+
+  .rr-card-photo-img {
+    object-fit: cover !important;
+    object-position: center 56% !important;
+  }
+
+  .rr-card-photo-shade {
+    background: linear-gradient(180deg, rgba(0, 0, 0, 0.04) 0%, rgba(0, 0, 0, 0.10) 42%, rgba(0, 0, 0, 0.52) 100%) !important;
+  }
+
+  .rr-room-card-footer {
+    justify-content: flex-start !important;
+    gap: 0.5rem !important;
+    min-height: 3rem !important;
+    border: 1px solid rgba(218, 220, 224, 0.86) !important;
+    border-radius: 1rem !important;
+    background: #f8f9fa !important;
+    background-image: none !important;
+    padding: 0.62rem 0.72rem !important;
+    color: #202124 !important;
+  }
+
+  .dark .rr-room-card-footer {
+    border-color: rgba(255, 255, 255, 0.10) !important;
+    background: #242424 !important;
+    color: #f1f3f4 !important;
+  }
+
+  .rr-room-card-price {
+    color: #202124 !important;
+    font-size: clamp(22px, 6.2vw, 26px) !important;
+    font-weight: 950 !important;
+    line-height: 1 !important;
+  }
+
+  .dark .rr-room-card-price {
+    color: #f1f3f4 !important;
+  }
+
+  .rr-room-card-price-unit {
+    margin-left: 0.26rem !important;
+    color: #5f6368 !important;
+    font-size: clamp(12px, 3.3vw, 13px) !important;
+    font-weight: 850 !important;
+  }
+
+  .dark .rr-room-card-price-unit {
+    color: #a3a3a3 !important;
+  }
+
+  .rr-room-card.rr-room-card--compact .rr-room-card-footer {
+    min-height: 2.75rem !important;
+  }
+
+  .rr-room-card.rr-room-card--compact .rr-room-card-price {
+    font-size: clamp(20px, 5.7vw, 23px) !important;
+  }
+}

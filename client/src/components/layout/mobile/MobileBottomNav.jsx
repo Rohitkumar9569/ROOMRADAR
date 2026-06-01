@@ -6,13 +6,30 @@ import { useAuth } from '../../../context/AuthContext';
 import { getAvatarColorStyle, getAvatarInitial } from '../../../utils/avatar';
 import { prefetchRoute, warmRoutesWhenIdle } from '../../../utils/routePrefetch';
 
+const getProfilePhoto = (...values) => (
+  values.find((value) => typeof value === 'string' && value.trim()) || ''
+).trim();
+
 const getProfile = (user, activeRole) => {
   const normalizedRole = String(activeRole || '').toLowerCase();
   const profile = normalizedRole === 'landlord' ? user?.roleProfiles?.landlord : user?.roleProfiles?.student;
 
   return {
     name: profile?.name || user?.name || user?.email || 'RoomRadar',
-    avatar: profile?.avatarUrl || profile?.profilePicture || user?.avatarUrl || user?.profilePicture,
+    avatar: getProfilePhoto(
+      profile?.avatarUrl,
+      profile?.profilePicture,
+      profile?.photoUrl,
+      profile?.photoURL,
+      profile?.picture,
+      profile?.imageUrl,
+      user?.avatarUrl,
+      user?.profilePicture,
+      user?.photoUrl,
+      user?.photoURL,
+      user?.picture,
+      user?.imageUrl,
+    ),
   };
 };
 
