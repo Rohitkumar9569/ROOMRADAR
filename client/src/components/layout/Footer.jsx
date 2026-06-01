@@ -159,16 +159,16 @@ function Footer({ className = '' }) {
           <p className="mx-auto mt-4 max-w-xs text-center text-[11px] font-semibold leading-5 text-light-muted dark:text-gray-600 sm:mt-6 sm:max-w-none sm:text-xs">
             Built for real room discovery, safer host conversations, and clear rental decisions.
           </p>
-          <div className="mt-5 grid grid-cols-2 gap-2.5 sm:mt-6 lg:grid-cols-4">
+          <div className="mt-5 grid grid-cols-2 gap-2 sm:mt-6 sm:gap-2.5 lg:grid-cols-4">
             {developerCards.map((developer) => {
               const card = (
-                <span className="group flex min-h-[4.25rem] items-center gap-3 rounded-2xl border border-light-border bg-white px-3 py-2.5 text-left shadow-[0_10px_30px_-24px_rgba(15,23,42,0.45)] transition hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-[0_18px_38px_-26px_rgba(15,23,42,0.55)] dark:border-white/10 dark:bg-[#111418] dark:hover:border-white/18">
-                  <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${developer.accentClass} text-base font-black text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.22)]`}>
+                <span className="group flex min-h-[4.55rem] items-center gap-2.5 rounded-2xl border border-light-border bg-white px-2.5 py-2.5 text-left shadow-[0_10px_30px_-24px_rgba(15,23,42,0.45)] transition hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-[0_18px_38px_-26px_rgba(15,23,42,0.55)] dark:border-white/10 dark:bg-[#111418] dark:hover:border-white/18 sm:gap-3 sm:px-3">
+                  <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${developer.accentClass} text-sm font-black text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.22)] sm:h-10 sm:w-10 sm:text-base`}>
                     {developer.initial}
                   </span>
-                  <span className="min-w-0">
-                    <span className="block truncate text-sm font-black text-light-text dark:text-white">{developer.name}</span>
-                    <span className="mt-0.5 flex items-center gap-1.5 truncate text-[11px] font-bold text-light-muted dark:text-gray-400">
+                  <span className="min-w-0 flex-1">
+                    <span className="block break-words text-[13px] font-black leading-tight text-light-text dark:text-white sm:text-sm">{developer.name}</span>
+                    <span className="mt-0.5 flex flex-wrap items-center gap-1 break-words text-[11px] font-bold leading-tight text-light-muted dark:text-gray-400">
                       {developer.role}
                       {developer.href && <ExternalLink className="h-3 w-3 shrink-0 text-[#d93025]" aria-hidden="true" />}
                     </span>

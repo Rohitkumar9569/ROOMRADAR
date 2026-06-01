@@ -371,7 +371,7 @@ const SmartAppHeader = () => {
       aria-expanded={moreOpen}
       aria-controls="rr-mobile-more-sheet"
     >
-      {user ? renderProfileAvatar('smart-header-more-avatar') : <UserRound className="h-5 w-5" strokeWidth={2.35} />}
+      {renderProfileAvatar('smart-header-more-avatar')}
       {unreadNotificationCount > 0 && <span className="smart-header-badge smart-header-badge--menu rr-message-count-badge">{unreadNotificationCount > 99 ? '99+' : unreadNotificationCount}</span>}
     </button>
   );
