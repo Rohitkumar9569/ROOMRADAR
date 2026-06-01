@@ -19,10 +19,10 @@ import api from '../../api';
 import { formatListingTitle } from '../../utils/listingDisplay';
 
 const suggestions = [
-    { label: 'Rooms in Haridwar', Icon: MapPin },
-    { label: 'Booking steps', Icon: CheckCircle2 },
-    { label: 'Verified listings', Icon: ShieldCheck },
-    { label: 'Top rated rooms', Icon: Star }
+    { label: 'Haridwar rooms', Icon: MapPin },
+    { label: 'Booking', Icon: CheckCircle2 },
+    { label: 'Verified', Icon: ShieldCheck },
+    { label: 'Top rated', Icon: Star }
 ];
 
 const sanitizeHelpCopy = (value = '') => String(value)
@@ -32,15 +32,13 @@ const sanitizeHelpCopy = (value = '') => String(value)
     .replace(/\bassistant\b/gi, 'RoomRadar Help')
     .replace(/\bchatbot\b/gi, 'help panel')
     .replace(/\bbot\b/gi, 'help panel')
-    .replace(/\bAI\b/g, 'RoomRadar')
+    .replace(/\bAI\b(?!\/ML)/g, 'RoomRadar')
     .replace(/\bsmart\s+search\b/gi, 'quick search')
     .replace(/\bsmart\s+help\b/gi, 'room help')
     .replace(/\bsentiment\b/gi, 'feedback')
     .replace(/\bintent\b/gi, 'request')
     .replace(/\banalysis\b/gi, 'review')
     .replace(/\bproject\b/gi, 'service')
-    .replace(/\bdeveloper team\b/gi, 'RoomRadar team')
-    .replace(/\blead developer\b/gi, 'RoomRadar team')
     .replace(/\btech stack\b/gi, 'service setup');
 
 const money = (value) => `₹${Number(value || 0).toLocaleString('en-IN')}`;
@@ -95,14 +93,14 @@ const detectLanguage = (text = '') => {
 
 const isHinglish = (text = '') => detectLanguage(text) === 'hinglish';
 
-const developerCredit = 'the RoomRadar team';
+const developerCredit = 'Rohit Kumar, Shubhanshu, Kamal Kumar, and Samrat Prajapati';
 
 const createDeveloperCreditReply = (text = '') => (
     detectLanguage(text) === 'hindi'
-        ? `RoomRadar ${developerCredit} चलाती है। यह help panel rooms खोजने, booking request भेजने, host chat और support ticket में help करता है।`
+        ? `RoomRadar को ${developerCredit} ने बनाया है। Rohit Kumar lead developer और creator हैं।`
         : isHinglish(text)
-            ? `RoomRadar ko ${developerCredit} operate karti hai. Ye help panel room search, booking request, host chat aur support ticket ke liye hai.`
-            : `RoomRadar is operated by ${developerCredit}. This help panel is here for room search, booking requests, host chat, and support tickets.`
+            ? `RoomRadar ko ${developerCredit} ne banaya hai. Rohit Kumar lead developer aur creator hain.`
+            : `RoomRadar was built by ${developerCredit}. Rohit Kumar is the lead developer and creator.`
 );
 
 const isTeamOverviewQuestion = (text = '') => {
@@ -113,10 +111,10 @@ const isTeamOverviewQuestion = (text = '') => {
 
 const createTeamOverviewReply = (text = '') => {
     if (detectLanguage(text) === 'english') {
-        return 'RoomRadar is run by the RoomRadar team with a focus on verified room listings, host communication, booking records, support tickets, and safer rental decisions.';
+        return 'RoomRadar was built by Rohit Kumar, Shubhanshu, Kamal Kumar, and Samrat Prajapati. Rohit Kumar is the lead developer and creator.';
     }
 
-    return 'RoomRadar team verified room listings, host communication, booking records, support tickets aur safer rental decisions par focus karti hai.';
+    return 'RoomRadar team me Rohit Kumar, Shubhanshu, Kamal Kumar aur Samrat Prajapati hain. Rohit Kumar lead developer aur creator hain.';
 };
 
 const isPriceNegotiationQuestion = (text = '') => {
@@ -140,11 +138,11 @@ const getDirectFallbackReply = (text = '') => {
     const lower = text.toLowerCase();
     if (/^(hi|hii|hello|hey|namaste|namaskar)\b/i.test(text.trim()) || /^\s*[\u0928][\u092e][\u0938]/.test(text)) {
         if (detectLanguage(text) === 'hindi') {
-            return 'नमस्ते! मैं RoomRadar Help हूँ। City, budget या room type बताइए, मैं real listings search कर दूँगा।';
+            return 'नमस्ते! City, budget या room type भेजिए।';
         }
         return isHinglish(text)
-            ? 'Hi! Main RoomRadar Help hoon. City, budget ya room type bhejo, main real listings search kar dunga.'
-            : 'Hi! I am RoomRadar Help. Tell me your city, budget, or room type and I will search real listings.';
+            ? 'Hi! City, budget ya room type bhejo.'
+            : 'Hi! Send a city, budget, or room type.';
     }
     if (isTeamOverviewQuestion(text)) {
         return createTeamOverviewReply(text);
@@ -155,11 +153,11 @@ const getDirectFallbackReply = (text = '') => {
     }
     if (/(tum kaun|aap kaun|who are you|what are you)/i.test(lower)) {
         if (detectLanguage(text) === 'hindi') {
-            return 'मैं RoomRadar Help हूँ। मैं real rooms खोजने और booking flow में help करता हूँ।';
+            return 'मैं room search और booking help करता हूँ।';
         }
         return isHinglish(text)
-            ? 'Main RoomRadar Help hoon. Main real rooms dhoondhne aur booking flow me help karta hoon.'
-            : 'I am RoomRadar Help. I help you find real rooms and complete the booking flow.';
+            ? 'Main room search aur booking help karta hoon.'
+            : 'I help with room search and booking.';
     }
     if (isPriceNegotiationQuestion(text)) {
         return createPriceNegotiationReply(text);
@@ -299,8 +297,8 @@ const fallbackReply = (text, rooms, filters = extractLocalFilters(text)) => {
                 : '';
     if (isHinglish(text)) {
         return rooms.length
-            ? `RoomRadar Help slow tha, isliye maine RoomRadar ke real database se ${rooms.length} matching room dhoondh diye.${sortNote} View Details se direct booking flow open hoga.`
-            : 'RoomRadar Help slow tha aur exact room match nahi mila. City, budget ya room type thoda change karke bhejo, main real listings me dobara search karunga.';
+            ? `${rooms.length} matching rooms mil gaye.${sortNote}`
+            : 'No exact match. City, budget ya type change karo.';
     }
     const englishSortNote = filters.sort === 'price_asc'
         ? ' Results are ordered from low price to high.'
@@ -310,8 +308,8 @@ const fallbackReply = (text, rooms, filters = extractLocalFilters(text)) => {
                 ? ' Best rated options are shown first.'
                 : '';
     return rooms.length
-        ? `RoomRadar Help was slow, so I searched the real RoomRadar database and found ${rooms.length} matching rooms.${englishSortNote}`
-        : 'RoomRadar Help was slow and no exact room match was found. Try another city, budget, or room type.';
+        ? `${rooms.length} matching rooms found.${englishSortNote}`
+        : 'No exact match. Try another city, budget, or type.';
 };
 
 const hasLocalRoomSearchIntent = (text = '', filters = extractLocalFilters(text)) => {
@@ -516,7 +514,7 @@ const RoomRadarChatbot = () => {
                     ...current,
                     {
                         role: 'assistant',
-                        content: error.response?.data?.error || 'RoomRadar Help is reconnecting. Please try once more after refreshing the server.',
+                        content: error.response?.data?.error || 'Reconnecting. Try again.',
                         rooms: [],
                         sentiment: localMeta.sentiment,
                         intent: localMeta.intent,
@@ -603,10 +601,6 @@ const RoomRadarChatbot = () => {
                 <span className="floating-chatbot-icon" aria-hidden="true">
                     <MessageCircle />
                 </span>
-                <span className="floating-chatbot-copy">
-                    <span>Room help</span>
-                    <strong>Help</strong>
-                </span>
             </motion.button>
 
             <AnimatePresence>
@@ -632,7 +626,7 @@ const RoomRadarChatbot = () => {
                                         <span>RR</span>
                                     </span>
                                     <div>
-                                        <h2>RoomRadar Help</h2>
+                                        <h2>Help</h2>
                                         <p className="rr-chatbot-status">
                                             <span />
                                             Ready
@@ -663,7 +657,6 @@ const RoomRadarChatbot = () => {
                                                 </span>
                                                 <div>
                                                     <h3>Room help</h3>
-                                                    <span>Rooms, booking, rent, support.</span>
                                                 </div>
                                             </div>
                                             <div className="rr-chatbot-suggestion-grid">
@@ -702,7 +695,7 @@ const RoomRadarChatbot = () => {
                                     <input
                                         value={input}
                                         onChange={(event) => setInput(event.target.value)}
-                                        placeholder="Search rooms, booking, support..."
+                                        placeholder="Ask about rooms..."
                                         className="min-h-[44px] flex-1 bg-transparent px-3 text-sm font-semibold outline-none placeholder:text-light-muted dark:placeholder:text-dark-muted"
                                     />
                                     <button
@@ -791,15 +784,13 @@ const ChatRoomCard = ({ room, index, sort, closeDrawer }) => {
                         <div className="absolute inset-0 bg-gradient-to-t from-slate-950/62 via-slate-950/8 to-transparent" />
                     </>
                 ) : (
-                    <div className="flex h-full w-full flex-col items-center justify-center bg-zinc-100 text-center text-zinc-500 dark:bg-zinc-900 dark:text-zinc-400">
+                    <div className="flex h-full w-full flex-col items-center justify-center bg-zinc-100 text-center text-zinc-500 dark:bg-zinc-900 dark:text-zinc-400" aria-label="Photo pending">
                         <ImageOff className="h-7 w-7" />
-                        <span className="mt-2 px-3 text-[10px] font-black uppercase tracking-wide">Photo pending</span>
                     </div>
                 )}
                 {isVerifiedRoom && (
-                    <span className="absolute left-2 top-2 inline-flex max-w-[70%] items-center gap-1 rounded-full bg-white/92 px-2 py-1 text-[10px] font-black text-slate-900 shadow-sm">
+                    <span className="absolute left-2 top-2 inline-flex max-w-[70%] items-center gap-1 rounded-full bg-white/92 px-2 py-1 text-[10px] font-black text-slate-900 shadow-sm" aria-label="Verified">
                         <ShieldCheck className="h-3.5 w-3.5 text-cyan-600" />
-                        Verified
                     </span>
                 )}
                 {room?.location?.city && (

@@ -131,6 +131,9 @@ function Footer({ className = '' }) {
           <p className="mx-auto mt-4 max-w-xs text-center text-[11px] font-semibold leading-5 text-light-muted dark:text-gray-600 sm:mt-6 sm:max-w-none sm:text-xs">
             Built for real room discovery, safer host conversations, and clear rental decisions.
           </p>
+          <p className="mx-auto mt-3 max-w-md text-center text-[11px] font-bold leading-5 text-light-muted dark:text-gray-500 sm:text-xs">
+            Developed by Rohit Kumar, Shubhanshu, Kamal Kumar, and Samrat Prajapati.
+          </p>
           <p className="mt-4 text-center text-[11px] text-light-muted dark:text-gray-500 sm:mt-6 sm:text-xs">&copy; 2026 RoomRadar. All rights reserved.</p>
         </div>
       </div>

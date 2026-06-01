@@ -12,16 +12,13 @@ import { clearCachedLocation, createManualLocationSignal, getLocationLabel, getL
 import { trackUsageEvent } from '../../utils/usageAnalytics';
 import {
   ArrowRight,
-  BadgeCheck,
   BedDouble,
   Building2,
-  CheckCircle2,
   Compass,
   Handshake,
   Home,
   Hotel,
   MapPin,
-  MessageCircle,
   Search,
   ShieldCheck,
   Users,
@@ -194,10 +191,7 @@ const RoomsGrid = React.memo(function RoomsGrid({ rooms, loading, priorityCount 
         <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-cyan-500/10 text-cyan-600 dark:text-cyan-300">
           <MapPin className="h-7 w-7" />
         </div>
-        <h3 className="mt-5 text-xl font-black">No rooms available yet</h3>
-        <p className="mx-auto mt-2 max-w-md text-sm font-semibold leading-6 text-light-muted dark:text-dark-muted">
-          As landlords publish verified rooms, real listings will appear here automatically.
-        </p>
+        <h3 className="mt-5 text-xl font-black">No rooms yet</h3>
       </div>
     );
   }
@@ -243,9 +237,9 @@ function HomePage() {
   const [searchCriteria, setSearchCriteria] = useState(() => createDefaultSearchCriteria());
 
   const trustStats = useMemo(() => [
-    { key: 'verified', label: 'Verified rooms', value: formatCount(stats.verifiedRooms || stats.totalRooms), Icon: ShieldCheck },
-    { key: 'published', label: 'Published listings', value: formatCount(stats.totalRooms), Icon: Building2 },
-    { key: 'cities', label: 'Active cities', value: formatCount(stats.totalCities), Icon: MapPin },
+    { key: 'verified', label: 'Verified', value: formatCount(stats.verifiedRooms || stats.totalRooms), Icon: ShieldCheck },
+    { key: 'published', label: 'Listings', value: formatCount(stats.totalRooms), Icon: Building2 },
+    { key: 'cities', label: 'Cities', value: formatCount(stats.totalCities), Icon: MapPin },
   ], [stats]);
   const personalizedLocationQuery = useMemo(
     () => (personalizedLocation ? getLocationSearchParams(personalizedLocation, { radius: 12 }).toString() : ''),
@@ -601,18 +595,18 @@ function HomePage() {
               <span className="flex h-6 w-6 items-center justify-center rounded-full bg-cyan-300/18 text-cyan-200">
                 <ShieldCheck className="h-3.5 w-3.5" />
               </span>
-              <span className="truncate text-[10px] font-black uppercase tracking-[0.09em] text-white/92 sm:text-xs">Verified room discovery</span>
+              <span className="truncate text-[10px] font-black uppercase tracking-[0.09em] text-white/92 sm:text-xs">Verified stays</span>
             </div>
 
             <h1 className="hidden max-w-[14ch] text-center text-[clamp(31px,9.4vw,60px)] font-black leading-[0.96] tracking-[-0.045em] text-white drop-shadow-[0_16px_32px_rgba(0,0,0,0.42)] sm:block sm:max-w-[18ch] sm:leading-[1.02]">
-              <span className="block sm:inline">Find Your Perfect</span>
-              <span className="block sm:inline sm:ml-3">Room</span>
+              <span className="block sm:inline">Find</span>
+              <span className="block sm:inline sm:ml-3">Rooms</span>
             </h1>
             <p
               className="mt-3 hidden max-w-[30ch] text-center text-[clamp(13px,3.7vw,17px)] font-bold leading-[1.45] text-white drop-shadow-[0_2px_16px_rgba(0,0,0,0.82)] sm:mt-5 sm:block sm:max-w-[38ch]"
               style={{ color: '#ffffff' }}
             >
-              Search verified listings, compare real prices, and request safely from one clean view.
+              Verified stays near you.
             </p>
 
             <div className="home-hero-search-shell relative z-50 mt-0 hidden w-full max-w-3xl rounded-[1.65rem] bg-transparent p-0 shadow-none ring-0 sm:mx-auto sm:mt-8 sm:block">
@@ -661,7 +655,7 @@ function HomePage() {
                 }`}
               >
                 <category.Icon className="h-4 w-4" />
-                <span>{category.label}</span>
+                <span className="home-category-label">{category.label}</span>
               </button>
             ))}
           </div>
@@ -671,7 +665,7 @@ function HomePage() {
             <div className="home-room-list-heading mb-3 flex items-center justify-between gap-3 sm:mb-5">
               <div className="home-room-list-title inline-flex min-w-0 items-center gap-2 rounded-full border border-light-border bg-light-card px-3 py-2 text-sm font-black text-light-text shadow-sm dark:border-dark-border dark:bg-dark-card dark:text-dark-text">
               <Compass className="h-4 w-4 flex-shrink-0 text-cyan-500" />
-              <span className="truncate">{activeCategory === 'All' ? 'Explore rooms' : activeCategoryLabel}</span>
+              <span className="truncate">{activeCategory === 'All' ? 'Rooms' : activeCategoryLabel}</span>
             </div>
             <button onClick={() => navigate(buildRoomsPath(activeCategory === 'All' ? {} : { type: activeCategory }))} className="home-room-list-action inline-flex min-h-9 flex-shrink-0 items-center gap-1.5 rounded-full border border-light-border bg-light-card px-3 text-xs font-semibold text-light-text transition hover:border-cyan-400 hover:text-cyan-600 dark:border-dark-border dark:bg-dark-card dark:text-dark-text">
               View
@@ -685,8 +679,8 @@ function HomePage() {
           <SectionHeader
             eyebrow={popularRoomDisplay.usedFallback ? 'Popular rooms' : 'Popular near you'}
             title={popularRoomDisplay.usedFallback
-              ? 'No exact nearby match yet, showing trusted popular rooms'
-              : personalizedLocation ? 'Nearby verified rooms matched from current demand' : 'Most viewed verified rooms'}
+              ? 'Popular rooms'
+              : personalizedLocation ? 'Nearby rooms' : 'Most viewed'}
           />
           <RoomsGrid rooms={visiblePopularRooms} loading={loading} trackingContext={popularRoomDisplay.usedFallback ? 'home_popular_fallback' : 'home_nearby'} />
         </section>
@@ -695,7 +689,7 @@ function HomePage() {
           <section className="mt-10 sm:mt-12">
             <SectionHeader
               eyebrow="Recommended for you"
-              title={personalizedLocation ? 'Matched by location, trust, and room demand' : 'Rooms matched from current demand'}
+              title={personalizedLocation ? 'Near you' : 'For you'}
             />
             <RoomsGrid rooms={visibleRecommendedRooms} loading={loading} trackingContext="home_recommended" />
           </section>
@@ -703,7 +697,7 @@ function HomePage() {
 
         {cities.length > 0 && (
           <section id="home-live-cities" className="scroll-mt-24 mt-12">
-            <SectionHeader eyebrow="Live cities" title="Popular cities from real listings" />
+            <SectionHeader eyebrow="Live cities" title="Cities" />
             <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-2 sm:gap-4 lg:grid-cols-4">
               {cities.map((city) => (
                 <button
@@ -725,58 +719,16 @@ function HomePage() {
                   <h3 className="mt-3 truncate text-[12px] font-black uppercase tracking-[-0.01em] text-light-text dark:text-dark-text sm:mt-5 sm:text-lg">
                     {city.name}
                   </h3>
-                  <p className="mt-1 text-[10px] font-bold leading-tight text-light-muted dark:text-dark-muted sm:text-sm">
-                    {formatCount(city.count)} rooms
+                  <p className="mt-1 inline-flex items-center gap-1 text-[10px] font-bold leading-tight text-light-muted dark:text-dark-muted sm:text-sm" aria-label={`${formatCount(city.count)} rooms`}>
+                    <Building2 className="h-3 w-3" />
+                    {formatCount(city.count)}
                   </p>
-                  {city.avgRent > 0 && (
-                    <p className="mt-1 text-[9px] font-black uppercase text-cyan-600 dark:text-cyan-300 sm:mt-3 sm:text-xs">Avg /month</p>
-                  )}
                 </button>
               ))}
             </div>
           </section>
         )}
 
-        <section className="mt-10 grid gap-2.5 sm:mt-12 sm:gap-4 md:grid-cols-3">
-          {[
-            { title: 'Search', text: 'Start with location, then refine by budget, tenant fit, move-in, and trust.', Icon: Search },
-            { title: 'Request', text: 'Send a booking request with profile and stay details.', Icon: MessageCircle },
-            { title: 'Move In', text: 'Confirm after host approval and keep the record in your dashboard.', Icon: CheckCircle2 },
-          ].map(({ title, text, Icon }) => (
-            <div key={title} className="card flex items-start gap-3 p-3.5 sm:block sm:p-6">
-              <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-2xl bg-cyan-500/10 text-cyan-600 dark:text-cyan-300 sm:h-auto sm:w-auto sm:bg-transparent">
-                <Icon className="h-5 w-5 sm:h-7 sm:w-7" />
-              </span>
-              <div className="min-w-0">
-                <h3 className="text-sm font-black text-light-text dark:text-dark-text sm:mt-5 sm:text-lg">{title}</h3>
-                <p className="mt-1 text-[11px] font-semibold leading-5 text-light-muted dark:text-dark-muted sm:mt-2 sm:text-sm sm:leading-6">{text}</p>
-              </div>
-            </div>
-          ))}
-        </section>
-
-        <section className="mt-10 rounded-3xl border border-light-border bg-light-card/95 p-3 text-light-text shadow-sm dark:border-dark-border dark:bg-dark-card/95 dark:text-dark-text sm:mt-12 sm:p-6 md:p-8">
-          <div className="grid grid-cols-3 gap-2 sm:gap-4">
-            <div className="min-w-0 rounded-2xl bg-light-bg p-2.5 text-center dark:bg-dark-input sm:flex sm:items-center sm:gap-3 sm:bg-transparent sm:p-0 sm:text-left dark:sm:bg-transparent">
-              <span className="mx-auto flex h-8 w-8 items-center justify-center rounded-xl bg-cyan-500/10 text-cyan-600 dark:text-cyan-300 sm:mx-0 sm:h-11 sm:w-11 sm:rounded-2xl">
-                <BadgeCheck className="h-4 w-4 sm:h-6 sm:w-6" />
-              </span>
-              <span className="mt-1 block text-[10px] font-black leading-tight sm:mt-0 sm:text-lg">{formatCount(stats.verifiedRooms || stats.totalRooms)} Verified</span>
-            </div>
-            <div className="min-w-0 rounded-2xl bg-light-bg p-2.5 text-center dark:bg-dark-input sm:flex sm:items-center sm:gap-3 sm:bg-transparent sm:p-0 sm:text-left dark:sm:bg-transparent">
-              <span className="mx-auto flex h-8 w-8 items-center justify-center rounded-xl bg-cyan-500/10 text-cyan-600 dark:text-cyan-300 sm:mx-0 sm:h-11 sm:w-11 sm:rounded-2xl">
-                <ShieldCheck className="h-4 w-4 sm:h-6 sm:w-6" />
-              </span>
-              <span className="mt-1 block text-[10px] font-black leading-tight sm:mt-0 sm:text-lg">Safe Booking</span>
-            </div>
-            <div className="min-w-0 rounded-2xl bg-light-bg p-2.5 text-center dark:bg-dark-input sm:flex sm:items-center sm:gap-3 sm:bg-transparent sm:p-0 sm:text-left dark:sm:bg-transparent">
-              <span className="mx-auto flex h-8 w-8 items-center justify-center rounded-xl bg-cyan-500/10 text-cyan-600 dark:text-cyan-300 sm:mx-0 sm:h-11 sm:w-11 sm:rounded-2xl">
-                <Home className="h-4 w-4 sm:h-6 sm:w-6" />
-              </span>
-              <span className="mt-1 block text-[10px] font-black leading-tight sm:mt-0 sm:text-lg">{formatCount(stats.totalCities)} Cities</span>
-            </div>
-          </div>
-        </section>
       </main>
 
       {isFilterModalOpen && (

@@ -166,11 +166,10 @@ function LandlordApplicationsPage() {
     <div className="min-h-full bg-light-bg p-4 pb-24 text-light-text dark:bg-dark-bg dark:text-dark-text sm:p-6 lg:p-8">
       <div className="mx-auto max-w-7xl">
         <div className="mb-6 rounded-3xl border border-light-border bg-light-card p-5 shadow-sm dark:border-dark-border dark:bg-dark-sidebar">
-          <p className="text-xs font-black uppercase tracking-[0.16em] text-brand">Booking requests</p>
+          <p className="text-xs font-black uppercase tracking-[0.16em] text-brand">Requests</p>
           <div className="mt-2 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div>
-              <h1 className="text-2xl font-black tracking-tight sm:text-[28px]">Booking requests</h1>
-              <p className="mt-1 text-sm font-semibold text-light-muted dark:text-dark-muted">Review every stay request, message the seeker, and keep each room booking moving.</p>
+              <h1 className="text-2xl font-black tracking-tight sm:text-[28px]">Requests</h1>
             </div>
             <div className="relative w-full max-w-sm">
               <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-light-muted dark:text-dark-muted" />
@@ -235,8 +234,7 @@ function LandlordApplicationsPage() {
         {filteredApplications.length === 0 ? (
           <div className="rounded-3xl border border-dashed border-light-border bg-light-card p-10 text-center dark:border-dark-border dark:bg-dark-card">
             <CalendarDays className="mx-auto h-12 w-12 text-brand" />
-            <h2 className="mt-4 text-xl font-black">No booking requests found</h2>
-            <p className="mt-2 text-sm font-semibold text-light-muted dark:text-dark-muted">Try another status or wait for new room requests.</p>
+            <h2 className="mt-4 text-xl font-black">No requests</h2>
           </div>
         ) : (
           <div className="space-y-4">

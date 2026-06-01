@@ -317,9 +317,9 @@ function LocationPicker({ onLocationChange, selectedLocation }) {
       {/* --- Overlays --- */}
       <div className="center-marker-container absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none z-[1000]">
 
-        <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#1a73e8" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#0ea5e9" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
           <circle cx="12" cy="12" r="8" />
-          <circle className="breathing-dot" cx="12" cy="12" r="3" fill="#1a73e8" fillOpacity="0.18" />
+          <circle className="breathing-dot" cx="12" cy="12" r="3" fill="#0ea5e9" fillOpacity="0.18" />
           <line x1="12" y1="2" x2="12" y2="6" />
           <line x1="12" y1="18" x2="12" y2="22" />
           <line x1="2" y1="12" x2="6" y2="12" />

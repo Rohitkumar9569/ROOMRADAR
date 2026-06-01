@@ -1,6 +1,6 @@
 import React from 'react';
 import { useSocket } from '../../../context/SocketContext';
-import { CalendarCheck, Compass, Heart, MessageCircle, Search } from 'lucide-react';
+import { Compass, Heart, MessageCircle, Search, UserRound } from 'lucide-react';
 import MobileBottomNav from '../mobile/MobileBottomNav';
 
 const BottomNavBar = React.memo(function BottomNavBar({ hidden = false }) {
@@ -11,7 +11,7 @@ const BottomNavBar = React.memo(function BottomNavBar({ hidden = false }) {
         { path: '/rooms', label: 'Search', Icon: Search, protected: false, count: 0 },
         { path: '/profile/wishlist', label: 'Saved', Icon: Heart, protected: true, count: 0 },
         { path: '/profile/inbox', label: 'Inbox', Icon: MessageCircle, protected: true, count: unreadNotificationCount, badgeKind: 'messages' },
-        { path: '/profile/my-applications', label: 'Requests', Icon: CalendarCheck, protected: true, count: 0 },
+        { path: '/profile', label: 'You', Icon: UserRound, protected: true, count: 0, end: true, avatar: true },
     ];
 
     return <MobileBottomNav items={navItems} hidden={hidden} variant="student" />;

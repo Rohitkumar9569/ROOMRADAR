@@ -9,10 +9,10 @@ const customStyles = {
     borderRadius: '0.5rem',
     borderWidth: '2px',
     backgroundColor: '#F3F4F6', // bg-gray-100
-    boxShadow: state.isFocused ? '0 0 0 2px #1a73e8' : 'none',
-    borderColor: state.isFocused ? '#1a73e8' : (state.selectProps.error ? '#EF4444' : '#D1D5DB'),
+    boxShadow: state.isFocused ? '0 0 0 3px rgba(255, 56, 92, 0.16)' : 'none',
+    borderColor: state.isFocused ? '#ff385c' : (state.selectProps.error ? '#EF4444' : '#D1D5DB'),
     '&:hover': {
-      borderColor: state.isFocused ? '#1a73e8' : '#8ab4f8',
+      borderColor: state.isFocused ? '#ff385c' : '#9CA3AF',
     },
   }),
   placeholder: (provided) => ({

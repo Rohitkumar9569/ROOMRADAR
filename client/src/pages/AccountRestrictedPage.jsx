@@ -7,7 +7,7 @@ import { useAuth } from '../context/AuthContext';
 import SupportTicketModal from '../components/support/SupportTicketModal';
 import { getAccessScopeForPath, getRoleRestriction, getScopeHomePath, getScopeLabel, isAccountRestricted, isScopeRestricted, normalizeRoleScope } from '../utils/roleRestrictions';
 
-const fallbackReason = 'RoomRadar Trust & Safety restricted this account after an admin review. Check your recent listings, bookings, messages, and verification details before requesting review.';
+const fallbackReason = 'Trust & Safety review required.';
 
 const formatDate = (value) => {
   if (!value) return 'Recently';
@@ -48,7 +48,7 @@ const AccountRestrictedPage = ({ restrictionScope }) => {
       ? { label: 'Continue room search', path: '/' }
       : null;
   const [appealMessage, setAppealMessage] = useState(
-    restriction.appealMessage || 'Please review my account restriction. I have checked my profile, listings, bookings, and messages, and I can share any required proof.'
+    restriction.appealMessage || 'Please review my account restriction.'
   );
   const [submitting, setSubmitting] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -108,7 +108,7 @@ const AccountRestrictedPage = ({ restrictionScope }) => {
             </div>
             <div>
               <p className="text-xs font-black uppercase tracking-[0.18em] text-red-500">Trust & Safety</p>
-              <p className="text-sm font-bold text-light-muted dark:text-dark-muted">RoomRadar account review</p>
+              <p className="text-sm font-bold text-light-muted dark:text-dark-muted">Account review</p>
             </div>
           </div>
           <button type="button" onClick={handleLogout} className="rr-restricted-logout inline-flex items-center gap-2 rounded-full border border-light-border bg-white px-4 py-2 text-xs font-black text-light-muted shadow-sm transition hover:border-red-300 hover:text-red-500 dark:border-dark-border dark:bg-dark-card dark:text-dark-muted">
@@ -122,14 +122,14 @@ const AccountRestrictedPage = ({ restrictionScope }) => {
               <div className="rr-restricted-icon flex h-16 w-16 items-center justify-center rounded-3xl bg-white/14 ring-1 ring-white/20">
                 <ShieldAlert className="h-8 w-8" />
               </div>
-              <p className="rr-restricted-eyebrow mt-8 text-[11px] font-black uppercase tracking-[0.2em] text-red-100">Account restricted</p>
+              <p className="rr-restricted-eyebrow mt-8 text-[11px] font-black uppercase tracking-[0.2em] text-red-100">Restricted</p>
               <h1 className="rr-restricted-title mt-3 max-w-xl text-[clamp(32px,8vw,56px)] font-black leading-[0.98] tracking-tight">
-                Access is paused during safety review.
+                Access paused.
               </h1>
               <p className="rr-restricted-copy mt-5 max-w-2xl text-sm font-semibold leading-7 text-white/82 sm:text-base">
                 {effectiveScope === 'account'
-                  ? `${user?.name || 'Your account'} cannot use booking, hosting, chat, or profile actions until RoomRadar reviews the restriction.`
-                  : `${user?.name || 'This user'} cannot use ${getScopeLabel(effectiveScope).toLowerCase()} actions until RoomRadar reviews this restriction. Other active roles stay available.`}
+                  ? 'Safety review in progress.'
+                  : `${getScopeLabel(effectiveScope)} review in progress.`}
               </p>
 
               <div className="rr-restricted-meta-grid mt-8 grid gap-3 sm:grid-cols-2">
@@ -153,8 +153,8 @@ const AccountRestrictedPage = ({ restrictionScope }) => {
                     <AlertTriangle className="h-5 w-5" />
                   </div>
                   <div>
-                    <p className="text-xs font-black uppercase tracking-[0.14em] text-red-500">Reason shown to user</p>
-                    <p className="mt-2 text-sm font-bold leading-6 text-light-text dark:text-dark-text">
+                    <p className="text-xs font-black uppercase tracking-[0.14em] text-red-500">Reason</p>
+                    <p className="mt-2 line-clamp-3 text-sm font-bold leading-6 text-light-text dark:text-dark-text">
                       {restriction.reason || fallbackReason}
                     </p>
                   </div>
@@ -163,17 +163,16 @@ const AccountRestrictedPage = ({ restrictionScope }) => {
 
               <div className="rr-restricted-steps mt-5 space-y-3">
                 {[
-                  ['Check activity', 'Review your recent listing edits, booking requests, payments, chat messages, and verification details.'],
-                  ['Prepare proof', 'Keep identity proof, room ownership/rent proof, payment screenshots, or clarification ready if support asks.'],
-                  ['Request review', 'Submit one clear review request. Creating another account can delay account restoration.'],
-                ].map(([title, body], index) => (
+                  'Check activity',
+                  'Prepare proof',
+                  'Request review',
+                ].map((title, index) => (
                   <div key={title} className="flex gap-3">
                     <div className="rr-restricted-step-index flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-cyan-500/10 text-xs font-black text-cyan-600 dark:text-cyan-300">
                       {index + 1}
                     </div>
                     <div>
                       <p className="text-sm font-black">{title}</p>
-                      <p className="mt-1 text-xs font-semibold leading-5 text-light-muted dark:text-dark-muted">{body}</p>
                     </div>
                   </div>
                 ))}
@@ -181,10 +180,10 @@ const AccountRestrictedPage = ({ restrictionScope }) => {
 
               <div className="rr-restricted-actions mt-6 grid gap-3 sm:grid-cols-2">
                 <button type="button" onClick={handleRefresh} disabled={refreshing} className="rr-restricted-action inline-flex items-center justify-center gap-2 rounded-2xl border border-light-border bg-white px-4 py-3 text-sm font-black shadow-sm transition hover:border-cyan-300 disabled:opacity-60 dark:border-dark-border dark:bg-dark-card">
-                  <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} /> Refresh status
+                  <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} /> Refresh
                 </button>
                 <button type="button" onClick={() => setSupportOpen(true)} className="rr-restricted-action inline-flex items-center justify-center gap-2 rounded-2xl border border-light-border bg-white px-4 py-3 text-sm font-black shadow-sm transition hover:border-cyan-300 dark:border-dark-border dark:bg-dark-card">
-                  <MessageSquare className="h-4 w-4" /> Message support
+                  <MessageSquare className="h-4 w-4" /> Support
                 </button>
                 {alternativeAccess && (
                   <button type="button" onClick={() => navigate(alternativeAccess.path, { replace: true })} className="rr-restricted-action inline-flex items-center justify-center gap-2 rounded-2xl border border-light-border bg-white px-4 py-3 text-sm font-black shadow-sm transition hover:border-cyan-300 dark:border-dark-border dark:bg-dark-card">
@@ -202,10 +201,7 @@ const AccountRestrictedPage = ({ restrictionScope }) => {
               <p className="rr-restricted-support-pill inline-flex items-center gap-2 rounded-full bg-cyan-500/10 px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.12em] text-cyan-600 dark:text-cyan-300">
                 <LifeBuoy className="h-4 w-4" /> Review request
               </p>
-              <h2 className="mt-4 text-2xl font-black tracking-tight">Tell Trust & Safety what should be reviewed</h2>
-              <p className="mt-2 text-sm font-semibold leading-6 text-light-muted dark:text-dark-muted">
-                This creates or updates a high-priority support ticket for admins.
-              </p>
+              <h2 className="mt-4 text-2xl font-black tracking-tight">Request review</h2>
             </div>
             {isPending && (
               <span className="inline-flex items-center gap-2 rounded-full bg-emerald-500/10 px-4 py-2 text-xs font-black text-emerald-600 dark:text-emerald-300">
@@ -215,7 +211,7 @@ const AccountRestrictedPage = ({ restrictionScope }) => {
           </div>
 
           <label className="mt-5 block text-xs font-black uppercase tracking-[0.12em] text-light-muted dark:text-dark-muted" htmlFor="account-review-message">
-            Your message
+            Message
           </label>
           <textarea
             id="account-review-message"
@@ -228,7 +224,7 @@ const AccountRestrictedPage = ({ restrictionScope }) => {
           <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <p className="flex items-start gap-2 text-xs font-semibold leading-5 text-light-muted dark:text-dark-muted">
               <FileText className="mt-0.5 h-4 w-4 flex-shrink-0 text-cyan-500" />
-              Mention the exact profile, listing, booking, or payment detail you want reviewed.
+              Add exact detail.
             </p>
             <button type="submit" disabled={submitting} className="inline-flex min-h-12 items-center justify-center rounded-2xl bg-brand px-6 text-sm font-black text-white shadow-lg shadow-red-500/20 transition hover:bg-red-600 disabled:opacity-60">
               {submitting ? 'Submitting...' : isPending ? 'Update request' : 'Request review'}

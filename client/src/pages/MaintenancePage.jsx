@@ -9,20 +9,18 @@ const MaintenancePage = ({ settings }) => (
       <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl bg-cyan-500/10 text-cyan-500">
         <Wrench className="h-8 w-8" />
       </div>
-      <p className="mt-6 text-[11px] font-black uppercase tracking-[0.24em] text-cyan-500">RoomRadar maintenance</p>
-      <h1 className="mt-3 text-3xl font-black tracking-tight sm:text-5xl">We are upgrading RoomRadar</h1>
-      <p className="mx-auto mt-4 max-w-xl text-sm font-semibold leading-7 text-light-muted dark:text-dark-muted">
-        RoomRadar is temporarily locked while the admin team performs a rental service update. Admins can still sign in and manage rooms, requests, and support.
-      </p>
+      <p className="mt-6 text-[11px] font-black uppercase tracking-[0.24em] text-cyan-500">Maintenance</p>
+      <h1 className="mt-3 text-3xl font-black tracking-tight sm:text-5xl">Upgrading RoomRadar</h1>
+      <p className="mx-auto mt-4 max-w-xl text-sm font-semibold leading-7 text-light-muted dark:text-dark-muted">Back soon.</p>
 
       <div className="mt-8 grid gap-3 sm:grid-cols-3">
         <div className="rounded-3xl bg-light-bg p-4 dark:bg-dark-input">
           <ShieldCheck className="mx-auto mb-3 h-5 w-5 text-cyan-500" />
-          <p className="text-sm font-black">Verified data safe</p>
+          <p className="text-sm font-black">Data safe</p>
         </div>
         <div className="rounded-3xl bg-light-bg p-4 dark:bg-dark-input">
           <Lock className="mx-auto mb-3 h-5 w-5 text-emerald-500" />
-          <p className="text-sm font-black">Bookings protected</p>
+          <p className="text-sm font-black">Bookings safe</p>
         </div>
         <div className="rounded-3xl bg-light-bg p-4 dark:bg-dark-input">
           <Mail className="mx-auto mb-3 h-5 w-5 text-blue-500" />

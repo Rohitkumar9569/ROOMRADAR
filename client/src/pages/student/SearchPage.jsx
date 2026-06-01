@@ -26,11 +26,11 @@ import {
 } from 'lucide-react';
 
 const sortOptions = [
-  { value: 'recommended', label: 'Recommended' },
+  { value: 'recommended', label: 'Best' },
   { value: 'newest', label: 'Newest' },
-  { value: 'price_asc', label: 'Price Low-High' },
-  { value: 'price_desc', label: 'Price High-Low' },
-  { value: 'popular', label: 'Most Popular' },
+  { value: 'price_asc', label: 'Price ↑' },
+  { value: 'price_desc', label: 'Price ↓' },
+  { value: 'popular', label: 'Popular' },
   { value: 'rating', label: 'Rating' },
 ];
 
@@ -254,8 +254,7 @@ const FilterPanel = ({ filters, setFilters, priceRange, onApply, onClear, isShee
     <div className={`${isSheet ? 'flex h-full flex-col bg-light-bg dark:bg-dark-bg' : 'rounded-2xl border border-light-border bg-light-card p-4 dark:border-dark-border dark:bg-dark-card'}`}>
       <div className={`${isSheet ? 'flex flex-shrink-0 items-center justify-between gap-3 border-b border-light-border bg-light-bg px-3 py-3 dark:border-dark-border dark:bg-dark-bg' : 'mb-4 flex items-center justify-between gap-3'}`}>
         <div>
-          <p className="text-[10px] font-black uppercase tracking-[0.12em] text-brand">Filters</p>
-          <h2 className="mt-1 text-lg font-black">Refine rooms</h2>
+          <h2 className="text-lg font-black">Filters</h2>
         </div>
         {isSheet && (
           <button onClick={onClose} className="flex h-10 w-10 items-center justify-center rounded-full bg-light-bg dark:bg-dark-input">
@@ -272,7 +271,7 @@ const FilterPanel = ({ filters, setFilters, priceRange, onApply, onClear, isShee
               value={filters.city}
               onChange={(event) => setFilters((prev) => ({ ...prev, city: event.target.value }))}
               className="input-field mt-2"
-              placeholder="City, area, landmark, institute..."
+              placeholder="City or area"
             />
           </label>
 
@@ -549,8 +548,7 @@ const CompareModal = ({ rooms, onClose, onRemove }) => {
       <div className="max-h-[92vh] w-full overflow-hidden rounded-t-3xl border border-light-border bg-white shadow-2xl dark:border-dark-border dark:bg-dark-card sm:mx-auto sm:max-w-6xl sm:rounded-3xl">
         <div className="flex items-center justify-between gap-3 border-b border-light-border px-4 py-4 dark:border-dark-border sm:px-6">
           <div className="min-w-0">
-            <p className="text-[10px] font-black uppercase tracking-[0.16em] text-cyan-600 dark:text-cyan-300">Room comparison</p>
-            <h2 className="mt-1 truncate text-xl font-black sm:text-2xl">Compare selected rooms</h2>
+            <h2 className="truncate text-xl font-black sm:text-2xl">Compare</h2>
           </div>
           <button type="button" onClick={onClose} className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-light-bg text-light-muted dark:bg-dark-input dark:text-dark-muted">
             <X className="h-5 w-5" />
@@ -1304,8 +1302,7 @@ function SearchPage() {
 
         <div className="mb-4 rounded-2xl bg-transparent p-0 shadow-none sm:mb-6">
           <div className="mb-3 min-w-0 sm:mb-0">
-            <p className="text-[10px] font-black uppercase tracking-[0.1em] text-brand sm:text-xs">Search & browse</p>
-            <h1 className="mt-1 text-lg font-black tracking-tight sm:text-2xl">
+            <h1 className="text-lg font-black tracking-tight sm:text-2xl">
               {searchMeta?.fallback?.type === 'location_expanded' || searchMeta?.fallback?.type === 'location_primary'
                 ? `${formatCount(total)} rooms${locationHeadingLabel ? ` near ${locationHeadingLabel}` : ''}`
                 : searchMeta?.fallback
@@ -1324,7 +1321,7 @@ function SearchPage() {
             </button>
             <button onClick={() => saveSearchAlert('rooms_search_toolbar')} className="btn-outline col-span-2 inline-flex min-h-11 items-center justify-center gap-2 px-3 py-2 text-sm md:col-span-1">
               <Bell className="h-4 w-4 flex-shrink-0" />
-              <span>Save search</span>
+              <span className="hidden sm:inline">Save</span>
               {savedSearchCount > 0 && <span className="rounded-full bg-brand px-2 py-0.5 text-[10px] font-black text-white">{savedSearchCount}</span>}
             </button>
             <select value={sort} onChange={(event) => { setSort(event.target.value); setPage(1); }} className="input-field col-span-2 min-h-11 w-full py-2 text-sm md:col-span-1 md:w-auto">
@@ -1341,7 +1338,7 @@ function SearchPage() {
                 value={naturalQuery}
                 onChange={(event) => setNaturalQuery(event.target.value)}
                 className="input-field min-h-11 pl-9 text-sm sm:pl-12"
-                placeholder="Try: 2BHK near Haridwar under 10000 for women"
+                placeholder="2BHK near Haridwar"
               />
             </div>
             <button type="submit" disabled={smartLoading || !naturalQuery.trim()} className="btn-primary inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-3 py-2 text-sm disabled:opacity-60 md:px-6">
@@ -1367,7 +1364,7 @@ function SearchPage() {
 
         {searchMeta?.fallback && (
           <div className="mb-5 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold leading-6 text-amber-900 dark:border-amber-500/25 dark:bg-amber-500/10 dark:text-amber-100">
-            {searchMeta.fallback.message || 'No exact match found. Showing closest matching rooms.'}
+            Closest matches shown.
           </div>
         )}
 
@@ -1411,7 +1408,6 @@ function SearchPage() {
                   <X className="h-7 w-7" />
                 </div>
                 <h2 className="mt-5 text-xl font-black sm:text-2xl">Rooms did not load</h2>
-                <p className="mx-auto mt-2 max-w-sm text-sm font-semibold leading-6 text-light-muted dark:text-dark-muted">{loadError}</p>
                 <div className="rr-search-empty-actions mt-6 flex flex-col justify-center gap-3 sm:flex-row">
                   <button type="button" onClick={fetchRooms} className="btn-primary min-h-11">Retry</button>
                   <button type="button" onClick={clearFilters} className="btn-outline min-h-11">Clear filters</button>
@@ -1465,7 +1461,6 @@ function SearchPage() {
               <div className="rr-search-empty-state rounded-3xl border border-dashed border-light-border bg-light-card p-12 text-center dark:border-dark-border dark:bg-dark-card">
                 <SlidersHorizontal className="mx-auto h-10 w-10 text-brand" />
                 <h2 className="mt-5 text-2xl font-black">No rooms found</h2>
-                <p className="mt-2 text-sm font-semibold text-light-muted dark:text-dark-muted">Save this demand or loosen the filters to see nearby options.</p>
                 <div className="rr-search-empty-actions mt-6 flex flex-col justify-center gap-3 sm:flex-row">
                   <button onClick={() => saveSearchAlert('rooms_no_results')} className="btn-primary">Notify me</button>
                   <button onClick={relaxFilters} className="btn-outline">Relax filters</button>
@@ -1481,7 +1476,6 @@ function SearchPage() {
         <div className="fixed inset-x-3 bottom-[calc(var(--rr-bottom-nav-height)+env(safe-area-inset-bottom,0px)+0.75rem)] z-50 rounded-2xl border border-light-border bg-white/95 p-3 shadow-2xl shadow-slate-950/15 backdrop-blur-xl dark:border-dark-border dark:bg-dark-card/95 md:left-1/2 md:right-auto md:w-[min(720px,calc(100vw-2rem))] md:-translate-x-1/2">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="min-w-0">
-              <p className="text-[10px] font-black uppercase tracking-[0.14em] text-cyan-600 dark:text-cyan-300">Compare shortlist</p>
               <p className="truncate text-sm font-black">{comparedRooms.length}/{MAX_COMPARE_ROOMS} rooms selected</p>
             </div>
             <div className="flex min-w-0 flex-1 gap-2 overflow-x-auto sm:justify-end">

@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import api from '../../api';
 import toast from 'react-hot-toast';
@@ -410,8 +410,8 @@ const AdminDashboardPage = () => {
                   <AreaChart data={usageTrendData} margin={{ top: 10, right: 18, left: -14, bottom: 0 }}>
                     <defs>
                       <linearGradient id="adminUsageSessions" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#1a73e8" stopOpacity={0.3} />
-                        <stop offset="95%" stopColor="#1a73e8" stopOpacity={0} />
+                        <stop offset="5%" stopColor="#0ea5e9" stopOpacity={0.3} />
+                        <stop offset="95%" stopColor="#0ea5e9" stopOpacity={0} />
                       </linearGradient>
                       <linearGradient id="adminUsageViews" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="5%" stopColor="#188038" stopOpacity={0.25} />
@@ -423,7 +423,7 @@ const AdminDashboardPage = () => {
                     <YAxis allowDecimals={false} tick={{ fill: 'currentColor', fontSize: 11 }} />
                     <Tooltip />
                     <Area type="monotone" dataKey="pageViews" name="Page views" stroke="#188038" strokeWidth={2.5} fill="url(#adminUsageViews)" />
-                    <Area type="monotone" dataKey="sessions" name="Sessions" stroke="#1a73e8" strokeWidth={2.5} fill="url(#adminUsageSessions)" />
+                    <Area type="monotone" dataKey="sessions" name="Sessions" stroke="#0ea5e9" strokeWidth={2.5} fill="url(#adminUsageSessions)" />
                   </AreaChart>
                 </ResponsiveContainer>
               ) : (
@@ -473,15 +473,15 @@ const AdminDashboardPage = () => {
                   <AreaChart data={signupData} margin={{ top: 10, right: 18, left: -14, bottom: 0 }}>
                     <defs>
                       <linearGradient id="adminSignupGradient" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#1a73e8" stopOpacity={0.35} />
-                        <stop offset="95%" stopColor="#1a73e8" stopOpacity={0} />
+                        <stop offset="5%" stopColor="#0ea5e9" stopOpacity={0.35} />
+                        <stop offset="95%" stopColor="#0ea5e9" stopOpacity={0} />
                       </linearGradient>
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.22)" />
                     <XAxis dataKey="date" tick={{ fill: 'currentColor', fontSize: 11 }} />
                     <YAxis allowDecimals={false} tick={{ fill: 'currentColor', fontSize: 11 }} />
                     <Tooltip />
-                    <Area type="monotone" dataKey="count" name="New Users" stroke="#1a73e8" strokeWidth={3} fill="url(#adminSignupGradient)" />
+                    <Area type="monotone" dataKey="count" name="New Users" stroke="#0ea5e9" strokeWidth={3} fill="url(#adminSignupGradient)" />
                   </AreaChart>
                 </ResponsiveContainer>
               ) : (

@@ -264,7 +264,7 @@ const SmartAppHeader = () => {
     },
   ] : [
     { id: 'login', label: 'Log in', hint: 'Continue to RoomRadar', path: '/login', Icon: UserRound },
-    { id: 'rooms', label: 'Search rooms', hint: 'Find verified stays', path: '/rooms', Icon: Search },
+    { id: 'rooms', label: 'Search', hint: 'Find verified stays', path: '/rooms', Icon: Search },
   ];
 
   const rentalActions = isLandlord ? [
@@ -273,8 +273,8 @@ const SmartAppHeader = () => {
     { id: 'add-room', label: 'Add room', hint: 'Create listing', path: '/landlord/add-room', Icon: PlusCircle },
     { id: 'host-requests', label: 'Requests', hint: 'Booking queue', path: '/landlord/applications', Icon: CalendarCheck },
   ] : [
-    { id: 'search', label: 'Search rooms', hint: 'Map and filters', path: '/rooms', Icon: Search },
-    { id: 'saved', label: 'Saved rooms', hint: 'Wishlist', path: '/profile/wishlist', Icon: Heart },
+    { id: 'search', label: 'Search', hint: 'Map and filters', path: '/rooms', Icon: Search },
+    { id: 'saved', label: 'Saved', hint: 'Wishlist', path: '/profile/wishlist', Icon: Heart },
     { id: 'requests', label: 'Requests', hint: 'Booking status', path: '/profile/my-applications', Icon: CalendarCheck },
   ];
 
@@ -288,7 +288,7 @@ const SmartAppHeader = () => {
     } : null,
     isLandlord ? {
       id: 'switch-search',
-      label: 'Search rooms',
+      label: 'Search',
       hint: 'Room seeker mode',
       Icon: Search,
       run: () => switchRoleSmoothly({ role: 'student', path: '/', switchRole, navigate }),
@@ -401,7 +401,6 @@ const SmartAppHeader = () => {
                         </span>
                         <span className="rr-mobile-more-action-copy">
                           <span>{action.label}</span>
-                          <small>{action.hint}</small>
                         </span>
                       </button>
                     );
@@ -489,7 +488,7 @@ const SmartAppHeader = () => {
           <div className="smart-header-center">
             {isInbox && inboxHeaderSearchActive ? (
               <label className="smart-header-search">
-                  <Search className="h-3.5 w-3.5 flex-shrink-0 text-[#1a73e8]" />
+                  <Search className="h-3.5 w-3.5 flex-shrink-0 text-slate-500 dark:text-slate-300" />
                 <input
                   value={headerSearchTerm}
                   onChange={(event) => setHeaderSearchTerm(event.target.value)}
@@ -513,7 +512,7 @@ const SmartAppHeader = () => {
                       onChange={(event) => setNavbarLocationDraft(event.target.value)}
                       onFocus={() => setIsNavbarSearchFocused(true)}
                       onBlur={() => window.setTimeout(() => setIsNavbarSearchFocused(false), 120)}
-                      placeholder="Search city or area"
+                      placeholder="City or area"
                       aria-label="Search address, area, city, or campus"
                       autoComplete="street-address"
                       enterKeyHint="search"
@@ -525,8 +524,8 @@ const SmartAppHeader = () => {
                   </>
                 ) : (
                   <>
-                    <Search className="h-3.5 w-3.5 flex-shrink-0 text-[#1a73e8]" />
-                    <span>Search rooms</span>
+                    <Search className="h-3.5 w-3.5 flex-shrink-0 text-slate-500 dark:text-slate-300" />
+                    <span>Search</span>
                   </>
                 )}
               </form>

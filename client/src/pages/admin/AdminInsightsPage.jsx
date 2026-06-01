@@ -1,4 +1,4 @@
-﻿import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../../api';
 import toast from 'react-hot-toast';
@@ -166,7 +166,7 @@ const AnalyticsPanel = ({ data }) => {
                 <XAxis dataKey="name" tick={{ fontSize: 11, fill: 'currentColor' }} />
                 <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: 'currentColor' }} />
                 <Tooltip />
-                <Bar dataKey="count" fill="#1a73e8" radius={[10, 10, 0, 0]} />
+                <Bar dataKey="count" fill="#0ea5e9" radius={[10, 10, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           ) : <EmptyState title="No room analytics yet" description="Room status data appears after listings are created." />}
@@ -195,15 +195,15 @@ const AnalyticsPanel = ({ data }) => {
                 <AreaChart data={data.weeklyApplications}>
                   <defs>
                     <linearGradient id="weeklyApps" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#1a73e8" stopOpacity={0.35} />
-                      <stop offset="95%" stopColor="#1a73e8" stopOpacity={0} />
+                      <stop offset="5%" stopColor="#0ea5e9" stopOpacity={0.35} />
+                      <stop offset="95%" stopColor="#0ea5e9" stopOpacity={0} />
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.22)" />
                   <XAxis dataKey="_id" tick={{ fontSize: 11, fill: 'currentColor' }} />
                   <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: 'currentColor' }} />
                   <Tooltip />
-                  <Area dataKey="count" stroke="#1a73e8" strokeWidth={3} fill="url(#weeklyApps)" />
+                  <Area dataKey="count" stroke="#0ea5e9" strokeWidth={3} fill="url(#weeklyApps)" />
                 </AreaChart>
               </ResponsiveContainer>
             ) : <EmptyState title="No recent demand yet" description="Recent booking requests will appear here automatically." />}

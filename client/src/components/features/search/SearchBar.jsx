@@ -59,15 +59,15 @@ const SuggestionsBox = ({ suggestions, onSelect, query, loading }) => (
         transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
         className="location-suggestions-popover rr-search-suggestions absolute left-0 right-0 top-[calc(100%+0.55rem)] z-[10000] w-full overflow-hidden rounded-[1.35rem] border border-light-border bg-white shadow-lg shadow-slate-950/12 dark:border-dark-border dark:bg-dark-card md:rounded-3xl"
     >
-        <div className="border-b border-light-border px-4 py-3 dark:border-dark-border">
-            <p className="text-xs font-black uppercase tracking-[0.08em] text-cyan-600 dark:text-cyan-300">Choose location</p>
-            <p className="mt-0.5 truncate text-sm font-semibold text-light-muted dark:text-dark-muted">{query || 'Search city or area'}</p>
+        <div className="flex items-center gap-2 border-b border-light-border px-4 py-3 dark:border-dark-border">
+            <SearchIcon className="h-4 w-4 flex-shrink-0 text-slate-500 dark:text-neutral-300" />
+            <p className="truncate text-sm font-black text-light-text dark:text-dark-text">{query || 'Location'}</p>
         </div>
         <ul className="max-h-[min(52vh,24rem)] overflow-y-auto">
             {loading && (
                 <li className="rr-search-suggestion-loading flex items-center gap-3 border-b border-light-border px-4 py-3 text-sm font-semibold text-light-muted dark:border-dark-border dark:text-dark-muted">
                     <span className="rr-search-loading-dot" aria-hidden="true" />
-                    Searching locations...
+                    Searching...
                 </li>
             )}
             {suggestions.map((place) => (
@@ -75,9 +75,9 @@ const SuggestionsBox = ({ suggestions, onSelect, query, loading }) => (
                     <button
                         type="button"
                         onClick={() => onSelect(place)}
-                        className="rr-search-suggestion-item flex w-full cursor-pointer items-center gap-3 border-b border-light-border px-4 py-3 text-left transition hover:bg-cyan-500/10 active:bg-cyan-500/15 dark:border-dark-border dark:hover:bg-dark-input last:border-0"
+                        className="rr-search-suggestion-item flex w-full cursor-pointer items-center gap-3 border-b border-light-border px-4 py-3 text-left transition hover:bg-slate-100 active:bg-slate-200 dark:border-dark-border dark:hover:bg-neutral-800 last:border-0"
                     >
-                        <span className="rr-search-suggestion-icon flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-2xl bg-cyan-500/10 text-cyan-600 dark:text-cyan-300">
+                        <span className="rr-search-suggestion-icon flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-2xl bg-slate-100 text-slate-600 dark:bg-neutral-800 dark:text-neutral-200">
                             <MapPinIcon className="h-5 w-5" />
                         </span>
                         <span className="min-w-0">
@@ -326,7 +326,7 @@ function SearchBar({ criteria, onCriteriaChange, onSearch, onClear, inputId = 'h
                         onClick={() => setActivePopover('location')}
                         className="home-location-search-input flex min-h-12 w-full items-center text-left sm:min-h-14"
                     >
-                        <span className="home-location-leading-icon mr-2 hidden h-9 w-9 flex-shrink-0 items-center justify-center rounded-full text-[#1a73e8] sm:inline-flex" aria-hidden="true">
+                        <span className="home-location-leading-icon mr-2 hidden h-9 w-9 flex-shrink-0 items-center justify-center rounded-full text-slate-700 dark:text-slate-100 sm:inline-flex" aria-hidden="true">
                             <MapPinIcon className="h-5 w-5" />
                         </span>
                         <div className="min-w-0 flex-grow">
@@ -336,7 +336,7 @@ function SearchBar({ criteria, onCriteriaChange, onSearch, onClear, inputId = 'h
                                 value={query}
                                 onFocus={() => setActivePopover('location')}
                                 onChange={handleQueryChange}
-                                placeholder="Search city, area, landmark, or institute"
+                                placeholder="City or area"
                                 className="w-full bg-transparent text-[18px] font-medium text-slate-900 outline-none placeholder:text-slate-500 dark:text-white dark:placeholder:text-slate-300 sm:text-[22px]"
                                 autoComplete="off"
                             />
@@ -353,7 +353,7 @@ function SearchBar({ criteria, onCriteriaChange, onSearch, onClear, inputId = 'h
                                 className={`home-location-voice-btn mr-1 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full transition ${
                                     listening
                                         ? 'is-listening bg-rose-500 text-white shadow-lg shadow-rose-500/20'
-                                        : 'text-slate-500 hover:bg-cyan-50 hover:text-cyan-600 dark:text-slate-300 dark:hover:bg-cyan-500/10 dark:hover:text-cyan-200'
+                                        : 'text-slate-500 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-neutral-800 dark:hover:text-white'
                                 }`}
                                 aria-pressed={listening}
                                 aria-label={listening ? 'Stop voice search' : 'Search by voice'}

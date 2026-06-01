@@ -14,14 +14,48 @@ const UserMenu = ({ isOverlay = false }) => {
     const navigate = useNavigate();
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const menuRef = useRef(null);
+    const closeMenuTimerRef = useRef(null);
+
+    const clearMenuCloseTimer = () => {
+        if (!closeMenuTimerRef.current) return;
+        clearTimeout(closeMenuTimerRef.current);
+        closeMenuTimerRef.current = null;
+    };
+
+    const openMenu = () => {
+        clearMenuCloseTimer();
+        setIsMenuOpen(true);
+    };
+
+    const closeMenuSoon = () => {
+        clearMenuCloseTimer();
+        closeMenuTimerRef.current = setTimeout(() => {
+            setIsMenuOpen(false);
+            closeMenuTimerRef.current = null;
+        }, 220);
+    };
 
     useEffect(() => {
         const handleClickOutside = (event) => {
-            if (menuRef.current && !menuRef.current.contains(event.target)) setIsMenuOpen(false);
+            if (menuRef.current && !menuRef.current.contains(event.target)) {
+                if (closeMenuTimerRef.current) {
+                    clearTimeout(closeMenuTimerRef.current);
+                    closeMenuTimerRef.current = null;
+                }
+                setIsMenuOpen(false);
+            }
         };
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
+
+    useEffect(() => () => {
+        if (closeMenuTimerRef.current) clearTimeout(closeMenuTimerRef.current);
+    }, []);
+
+    const handleMenuBlur = (event) => {
+        if (!event.currentTarget.contains(event.relatedTarget)) closeMenuSoon();
+    };
 
     const handleSwitchRole = async () => {
         if (activeRole === 'student') {
@@ -63,17 +97,22 @@ const UserMenu = ({ isOverlay = false }) => {
     if (!user) {
         return (
             <div
-                className="relative flex items-center gap-2"
+                className="rr-desktop-user-menu relative flex items-center gap-2"
                 ref={menuRef}
-                onMouseEnter={() => setIsMenuOpen(true)}
-                onMouseLeave={() => setIsMenuOpen(false)}
+                onMouseEnter={openMenu}
+                onMouseLeave={closeMenuSoon}
+                onFocusCapture={openMenu}
+                onBlurCapture={handleMenuBlur}
             >
                 <Link to="/list-your-room" className={hostLinkClass}>
                     Become a host
                 </Link>
                 <div className="relative">
                     <button
-                        onClick={() => setIsMenuOpen((prev) => !prev)}
+                        onClick={() => {
+                            clearMenuCloseTimer();
+                            setIsMenuOpen((prev) => !prev);
+                        }}
                         className={`group flex min-h-12 items-center gap-2 rounded-full border px-2.5 py-1.5 shadow-sm backdrop-blur-xl transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg ${
                             isOverlay
                                 ? 'border-white/[0.28] bg-white/[0.16] text-white shadow-black/10 ring-1 ring-white/[0.08]'
@@ -178,27 +217,34 @@ const UserMenu = ({ isOverlay = false }) => {
                 </Link>
             )}
             <div
-                className="relative"
-                onMouseEnter={() => setIsMenuOpen(true)}
-                onMouseLeave={() => setIsMenuOpen(false)}
+                className="rr-desktop-user-menu relative"
+                onMouseEnter={openMenu}
+                onMouseLeave={closeMenuSoon}
+                onFocusCapture={openMenu}
+                onBlurCapture={handleMenuBlur}
             >
                 <button
-                    onClick={() => setIsMenuOpen((prev) => !prev)}
+                    onClick={() => {
+                        clearMenuCloseTimer();
+                        setIsMenuOpen((prev) => !prev);
+                    }}
                     className={`flex h-10 w-10 items-center justify-center overflow-hidden rounded-full shadow-sm ring-2 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg ${
                         isOverlay
                             ? 'bg-white/[0.18] ring-white/60 backdrop-blur-xl'
                             : 'bg-slate-900 ring-white/70 dark:bg-slate-700 dark:ring-slate-900/80'
                     }`}
+                    aria-haspopup="menu"
+                    aria-expanded={isMenuOpen}
                 >
                     {renderUserIcon()}
                 </button>
                 {isMenuOpen && (
-                    <div className="absolute right-0 top-full z-50 mt-2 w-64 overflow-hidden rounded-2xl border border-slate-200 bg-white py-2 text-slate-800 shadow-xl dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100">
-                        <NavLink to="/profile/my-applications" className="block px-4 py-2 text-sm font-semibold hover:bg-slate-50 dark:hover:bg-slate-800">My Room Requests</NavLink>
-                        <NavLink to="/profile/wishlist" className="block px-4 py-2 text-sm font-semibold hover:bg-slate-50 dark:hover:bg-slate-800">Wishlist</NavLink>
-                        {user?.roles?.includes('Landlord') && <NavLink to="/landlord/overview" className="block px-4 py-2 text-sm font-semibold hover:bg-slate-50 dark:hover:bg-slate-800">Hosting Dashboard</NavLink>}
-                        <NavLink to="/profile" className="block px-4 py-2 text-sm font-semibold hover:bg-slate-50 dark:hover:bg-slate-800">Account</NavLink>
-                        <button onClick={logout} className="block w-full px-4 py-2 text-left text-sm font-semibold text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10">Log out</button>
+                    <div className={`rr-desktop-user-dropdown absolute right-0 top-full z-50 mt-2 w-64 overflow-hidden rounded-2xl border border-slate-200 bg-white py-2 text-slate-800 shadow-xl dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100 ${isOverlay ? 'is-overlay' : ''}`} role="menu">
+                        <NavLink to="/profile/my-applications" role="menuitem" className="rr-desktop-user-menu-item block px-4 py-2 text-sm font-semibold hover:bg-slate-50 dark:hover:bg-slate-800">My Room Requests</NavLink>
+                        <NavLink to="/profile/wishlist" role="menuitem" className="rr-desktop-user-menu-item block px-4 py-2 text-sm font-semibold hover:bg-slate-50 dark:hover:bg-slate-800">Wishlist</NavLink>
+                        {user?.roles?.includes('Landlord') && <NavLink to="/landlord/overview" role="menuitem" className="rr-desktop-user-menu-item block px-4 py-2 text-sm font-semibold hover:bg-slate-50 dark:hover:bg-slate-800">Hosting Dashboard</NavLink>}
+                        <NavLink to="/profile" role="menuitem" className="rr-desktop-user-menu-item block px-4 py-2 text-sm font-semibold hover:bg-slate-50 dark:hover:bg-slate-800">Account</NavLink>
+                        <button onClick={logout} role="menuitem" className="rr-desktop-user-menu-item is-danger block w-full px-4 py-2 text-left text-sm font-semibold text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10">Log out</button>
                     </div>
                 )}
             </div>
@@ -230,8 +276,8 @@ const Header = () => {
     const header = (
         <header className={`fixed inset-x-0 top-0 z-50 hidden h-[76px] transition-all duration-300 md:block ${isOverlay ? 'rr-desktop-home-header-overlay border-b border-white/10 bg-slate-950/[0.22] text-white shadow-[0_18px_50px_-36px_rgba(0,0,0,0.7)] backdrop-blur-xl' : isHome ? 'rr-desktop-home-header-scrolled' : 'border-b border-slate-200/70 bg-slate-50/90 text-slate-950 shadow-[0_20px_48px_-38px_rgba(15,23,42,0.62)] backdrop-blur-2xl dark:border-slate-800/80 dark:bg-slate-950/90 dark:text-slate-50'}`}>
             <div className="mx-auto grid h-full max-w-7xl grid-cols-[1fr_auto_1fr] items-center gap-5 px-6 lg:px-8">
-                <Link to="/" className="group inline-flex items-center text-2xl font-black tracking-tight" aria-label="RoomRadar home">
-                    <span className="text-[#FF385C]">Room</span><span className="text-cyan-500">Radar</span>
+                <Link to="/" className="rr-desktop-wordmark group inline-flex items-center text-2xl font-black tracking-tight" aria-label="RoomRadar home">
+                    <span>Room</span><span>Radar</span>
                 </Link>
 
                 <div className={`rr-home-nav-pill flex items-center gap-1 rounded-full border px-1.5 py-1.5 shadow-lg backdrop-blur-2xl transition-all duration-300 ${
@@ -248,7 +294,7 @@ const Header = () => {
                         <>
                             <span className="mx-1 h-6 w-px bg-slate-300/80 dark:bg-slate-700/80" />
                             <Link to="/rooms" className="flex h-9 items-center gap-2 rounded-full bg-slate-950 px-4 text-sm font-black text-white shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:bg-slate-800 dark:bg-white dark:text-slate-950 dark:hover:bg-slate-100">
-                                <Search className="h-4 w-4 text-cyan-400 dark:text-cyan-500" />
+                                <Search className="h-4 w-4 text-white/80 dark:text-slate-900" />
                                 Start search
                             </Link>
                         </>

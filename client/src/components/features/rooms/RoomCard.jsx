@@ -592,19 +592,18 @@ function RoomCard({ room, context = 'default', trackingContext, onRemove, imageP
                             <div className="rr-card-photo-shade absolute inset-0" />
                         </>
                     ) : (
-                        <div className="flex h-full w-full flex-col items-center justify-center bg-zinc-100 text-center text-zinc-500 dark:bg-zinc-900 dark:text-zinc-400">
+                        <div className="flex h-full w-full flex-col items-center justify-center bg-zinc-100 text-center text-zinc-500 dark:bg-zinc-900 dark:text-zinc-400" aria-label="Photo pending">
                             <ImageOff className="h-8 w-8" />
-                            <span className="mt-2 px-3 text-[11px] font-black uppercase tracking-wide">Photo pending</span>
                         </div>
                     )}
 
                     {primaryBadge && (
                         <div className="rr-card-badge-stack absolute left-2.5 top-2.5 flex max-w-[70%] items-start sm:left-4 sm:top-4">
-                            <span className={`rr-card-badge ${primaryBadge.className}`}>
+                            <span className={`rr-card-badge ${primaryBadge.className}`} aria-label={primaryBadge.label}>
                                 <span className="rr-card-badge-icon">
                                     {PrimaryBadgeIcon && <PrimaryBadgeIcon />}
                                 </span>
-                                <span className="rr-overlay-label">{primaryBadge.label}</span>
+                                <span className="rr-overlay-label hidden sm:inline">{primaryBadge.label}</span>
                             </span>
                         </div>
                     )}
@@ -615,7 +614,7 @@ function RoomCard({ room, context = 'default', trackingContext, onRemove, imageP
                                 <span className="rr-card-badge-icon">
                                     <Star />
                                 </span>
-                                <span className="rr-new-label">New</span>
+                                <span className="rr-new-label hidden sm:inline">New</span>
                             </span>
                         )}
                         {(user || isSavedContext) && (
@@ -672,7 +671,7 @@ function RoomCard({ room, context = 'default', trackingContext, onRemove, imageP
                 </div>
 
                 <div className="rr-room-card-body flex flex-1 flex-col p-3 sm:p-4">
-                    <p className="rr-card-eyebrow min-w-0 truncate text-[11px] font-bold leading-tight text-light-muted dark:text-dark-muted sm:text-[12px]">
+                    <p className="rr-card-eyebrow hidden min-w-0 truncate text-[11px] font-bold leading-tight text-light-muted dark:text-dark-muted sm:block sm:text-[12px]">
                         {eyebrowLabel}
                     </p>
 
@@ -684,7 +683,7 @@ function RoomCard({ room, context = 'default', trackingContext, onRemove, imageP
                         {(detailHighlights.length ? detailHighlights : [{ key: 'type', label: roomTypeSummary, Icon: ShieldCheck }]).slice(0, 3).map(({ key, label, Icon }) => (
                             <span key={`${key}-${label}`} className="rr-card-detail-chip">
                                 <Icon className="rr-card-detail-icon" />
-                                <span>{label}</span>
+                                <span className="hidden sm:inline">{label}</span>
                             </span>
                         ))}
                     </div>

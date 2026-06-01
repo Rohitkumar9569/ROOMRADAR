@@ -55,11 +55,10 @@ const TextField = ({ icon: Icon, label, type = 'text', value, onChange, name, pl
     </label>
 );
 
-const TrustItem = ({ icon: Icon, title, text }) => (
+const TrustItem = ({ icon: Icon, title }) => (
     <div className="min-w-0 rounded-[1rem] border border-white/24 bg-slate-950/28 p-3 shadow-[0_14px_34px_rgba(15,23,42,0.22)]">
         <Icon className="mb-2 h-4 w-4 text-cyan-200 drop-shadow-[0_0_14px_rgba(103,232,249,0.55)]" />
         <p className="text-[12.5px] font-black leading-tight text-white drop-shadow-[0_1px_8px_rgba(15,23,42,0.6)]">{title}</p>
-        <p className="mt-1 text-[10.5px] font-bold leading-4 text-white/90 drop-shadow-[0_1px_8px_rgba(15,23,42,0.6)]">{text}</p>
     </div>
 );
 
@@ -184,8 +183,8 @@ function AuthPage() {
             eyebrow: 'Account access',
             title: 'Welcome back',
             subtitle: 'Sign in to manage saved rooms, booking requests, host messages, and profile details.',
-            imageTitle: 'Rooms, requests, and host conversations in one place.',
-            imageSubtitle: 'Search verified listings, send requests, talk to hosts, and track every step clearly.',
+            imageTitle: 'Rooms. Requests. Chat.',
+            imageSubtitle: 'All in one place.',
             image: loginImage,
             button: 'Log in',
             switchText: "Don't have an account?",
@@ -196,8 +195,8 @@ function AuthPage() {
             eyebrow: 'New account',
             title: 'Create your account',
             subtitle: 'Use one account for room discovery, request tracking, and host communication.',
-            imageTitle: 'Start with verified rooms and clear booking flow.',
-            imageSubtitle: 'Create one RoomRadar account for room search, saved rooms, requests, and direct host messages.',
+            imageTitle: 'Verified rooms. Clear booking.',
+            imageSubtitle: 'Start faster.',
             image: signupImage,
             button: 'Create account',
             switchText: 'Already have an account?',
@@ -251,9 +250,9 @@ function AuthPage() {
                         </div>
 
                         <div className="grid grid-cols-3 gap-2.5">
-                            <TrustItem icon={Home} title="Real listings" text="Rooms come from published inventory." />
-                            <TrustItem icon={MessageCircle} title="Host chat" text="Keep room questions inside RoomRadar." />
-                            <TrustItem icon={CheckCircle2} title="Clear status" text="Track pending, approved, and confirmed requests." />
+                            <TrustItem icon={Home} title="Listings" />
+                            <TrustItem icon={MessageCircle} title="Chat" />
+                            <TrustItem icon={CheckCircle2} title="Status" />
                         </div>
                     </div>
                 </motion.aside>

@@ -155,9 +155,8 @@ const LandlordRoomCard = ({ room, onDelete, onStatusToggle }) => {
                 {image ? (
                     <img src={image} alt={displayTitle} className="h-full w-full object-cover" />
                 ) : (
-                    <div className="flex h-full w-full flex-col items-center justify-center bg-slate-100 text-slate-500 dark:bg-secondary-900 dark:text-secondary-300">
+                    <div className="flex h-full w-full flex-col items-center justify-center bg-slate-100 text-slate-500 dark:bg-secondary-900 dark:text-secondary-300" aria-label="Photo pending">
                         <ImageOff className="h-7 w-7" />
-                        <span className="mt-2 text-[11px] font-black uppercase tracking-wide">Photo pending</span>
                     </div>
                 )}
                 <div className="absolute inset-0 bg-gradient-to-t from-slate-950/56 via-slate-950/5 to-transparent" />
@@ -236,7 +235,6 @@ const LandlordRoomCard = ({ room, onDelete, onStatusToggle }) => {
 
                 <div className="rr-listing-trust-row">
                     <div className="min-w-0">
-                        <p className="rr-listing-trust-label">Host trust</p>
                         <p className="rr-listing-trust-name">{hostName}</p>
                     </div>
                     <span className={`rr-listing-trust-badge ${isVerifiedHost ? 'is-verified' : 'is-pending'}`}>

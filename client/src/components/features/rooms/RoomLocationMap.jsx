@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import L from 'leaflet';
 import { MapContainer, Marker, Popup, TileLayer, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -30,8 +30,8 @@ const getPoiCategory = (tags = {}) => {
   if (['hospital', 'clinic', 'pharmacy'].includes(tags.amenity)) return { label: 'Health', color: '#dc2626' };
   if (['restaurant', 'cafe'].includes(tags.amenity)) return { label: 'Food', color: '#ea580c' };
   if (['bank', 'atm'].includes(tags.amenity)) return { label: 'Bank', color: '#0f766e' };
-  if (tags.highway === 'bus_stop' || tags.railway || tags.public_transport) return { label: 'Transit', color: '#1a73e8' };
-  if (tags.shop) return { label: 'Shop', color: '#1558d6' };
+  if (tags.highway === 'bus_stop' || tags.railway || tags.public_transport) return { label: 'Transit', color: '#0ea5e9' };
+  if (tags.shop) return { label: 'Shop', color: '#0284c7' };
   if (tags.tourism) return { label: 'Stay', color: '#475569' };
   return { label: 'Nearby', color: '#334155' };
 };

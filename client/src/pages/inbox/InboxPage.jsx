@@ -480,9 +480,6 @@ const ContactInfoDrawer = ({ isOpen, onClose, conversation, currentUser, isLandl
                                     <CheckBadgeIcon className="h-5 w-5" />
                                     Follow-up
                                 </div>
-                                <p className="mt-2 text-sm leading-6 text-cyan-800 dark:text-cyan-50">
-                                    Keep responses short, confirm the next step, and keep payment conversations inside RoomRadar.
-                                </p>
                             </div>
                         </section>
                     </div>
