@@ -1,13 +1,11 @@
 import React from 'react';
-import { Radar } from 'lucide-react';
 
-const sidebarRows = Array.from({ length: 5 });
-const previewCards = Array.from({ length: 4 });
+const listingCards = Array.from({ length: 3 });
 
 const AppLoader = () => {
   return (
     <div
-      className="app-loader-premium fixed inset-0 z-[99999]"
+      className="app-loader-premium app-loader-native fixed inset-0 z-[99999]"
       role="status"
       aria-live="polite"
       aria-label="RoomRadar is loading"
@@ -16,35 +14,45 @@ const AppLoader = () => {
         <span />
       </div>
 
-      <div className="app-loader-card" aria-hidden="true">
+      <div
+        className="app-loader-card"
+        aria-hidden="true"
+        style={{
+          width: 'min(calc(100vw - 2.5rem), 22rem)',
+          maxWidth: 'calc(100vw - 2.5rem)',
+        }}
+      >
         <div className="app-loader-masthead">
-          <div className="app-loader-logo">
-            <span className="app-loader-pulse" />
-            <Radar className="app-loader-logo-icon" />
+          <div className="app-loader-logo app-loader-wordmark">
+            <span className="app-loader-wordmark-text">
+              <span>Room</span>
+              <span>Radar</span>
+            </span>
+            <span className="app-loader-wordmark-scan" />
           </div>
-          <div className="app-loader-channel-lines">
-            <span className="app-loader-line app-loader-line--lg" />
-            <span className="app-loader-line app-loader-line--sm" />
+          <div className="app-loader-brand-copy">
+            <span className="app-loader-brand-name">RoomRadar</span>
+            <span className="app-loader-kicker">Opening verified rooms</span>
           </div>
         </div>
 
-        <div className="app-loader-screen">
-          <div className="app-loader-sidebar">
-            {sidebarRows.map((_, index) => (
-              <span key={index} />
-            ))}
-          </div>
-          <div className="app-loader-content">
-            <div className="app-loader-hero" />
-            <div className="app-loader-grid">
-              {previewCards.map((_, index) => (
-                <div className="app-loader-tile" key={index}>
-                  <span />
-                  <span />
-                </div>
-              ))}
-            </div>
-          </div>
+        <div className="app-loader-search-row">
+          <span className="app-loader-search-dot" />
+          <span className="app-loader-search-line" />
+          <span className="app-loader-search-action" />
+        </div>
+
+        <div className="app-loader-list">
+          {listingCards.map((_, index) => (
+            <article className="app-loader-listing" key={index}>
+              <span className="app-loader-media" />
+              <span className="app-loader-meta">
+                <span className="app-loader-meta-line app-loader-meta-line--title" />
+                <span className="app-loader-meta-line" />
+                <span className="app-loader-meta-line app-loader-meta-line--price" />
+              </span>
+            </article>
+          ))}
         </div>
       </div>
     </div>

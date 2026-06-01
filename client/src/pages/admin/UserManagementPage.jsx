@@ -14,7 +14,7 @@ import { hasAdminPermission } from '../../utils/adminPermissions';
 
 const allRoles = ['Student', 'Landlord', 'Admin', 'Super_Admin', 'Moderator', 'Support'];
 
-const displayRole = (role) => (role === 'Student' ? 'Travelling' : role.replace('_', ' '));
+const displayRole = (role) => (role === 'Student' ? 'Room seeker' : role.replace('_', ' '));
 
 const userHasRole = (user, role) => (
   user.roles?.includes(role) || (role === 'Student' && user.roles?.includes('Landlord'))
@@ -29,7 +29,7 @@ const roleTone = (role) => {
       return 'bg-cyan-500/10 text-cyan-600 dark:text-cyan-300';
     case 'Moderator':
     case 'Support':
-      return 'bg-violet-500/10 text-violet-600 dark:text-violet-300';
+      return 'bg-blue-500/10 text-blue-600 dark:text-blue-300';
     default:
       return 'bg-blue-500/10 text-blue-600 dark:text-blue-300';
   }
@@ -79,7 +79,7 @@ const EditRoleModal = ({ user, onClose, onSave }) => {
       <div className="w-full max-w-lg rounded-3xl border border-light-border bg-light-card p-5 shadow-2xl dark:border-dark-border dark:bg-dark-card">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-cyan-500">RBAC</p>
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-cyan-500">Access</p>
             <h2 className="mt-1 text-xl font-black">Edit roles</h2>
             <p className="mt-1 text-sm font-semibold text-light-muted dark:text-dark-muted">{user.name}</p>
           </div>
@@ -223,12 +223,12 @@ const UserManagementPage = () => {
     <div className="min-h-screen bg-light-bg px-3 py-3 pb-24 text-light-text dark:bg-dark-bg dark:text-dark-text sm:px-6 sm:py-5 lg:px-8">
       <div className="mx-auto max-w-7xl space-y-4 sm:space-y-6">
         <div className="rounded-[1.5rem] border border-light-border bg-light-card p-4 shadow-sm dark:border-dark-border dark:bg-dark-card sm:rounded-[2rem] sm:p-7">
-          <p className="text-[10px] font-black uppercase tracking-[0.18em] text-cyan-500 sm:text-[11px] sm:tracking-[0.22em]">Platform governance</p>
+          <p className="text-[10px] font-black uppercase tracking-[0.18em] text-cyan-500 sm:text-[11px] sm:tracking-[0.22em]">Rental governance</p>
           <div className="mt-2 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between sm:mt-3 sm:gap-4">
             <div className="min-w-0">
-              <h1 className="text-[clamp(23px,7vw,30px)] font-black leading-tight tracking-[-0.02em]">User Management</h1>
+              <h1 className="text-[clamp(23px,7vw,30px)] font-black leading-tight tracking-[-0.02em]">Users & Hosts</h1>
               <p className="mt-2 line-clamp-2 text-[12px] font-semibold leading-5 text-light-muted dark:text-dark-muted sm:text-sm sm:leading-6">
-                Search accounts, manage RBAC roles, ban risky users, and inspect detailed user history.
+                Search accounts, manage operations roles, restrict risky access, and inspect renter or host history.
               </p>
             </div>
             <div className="grid grid-cols-2 gap-2 text-[11px] font-black sm:flex sm:text-sm">

@@ -11,7 +11,7 @@ const PROMPT_VERSION = 'mobile-fallback-v2';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const SHOW_AFTER_MS = 4500;
-const MOBILE_SHOW_AFTER_MS = 1800;
+const MOBILE_SHOW_AFTER_MS = 6500;
 const DISMISS_COOLDOWN_MS = 3 * DAY_MS;
 const CANCEL_COOLDOWN_MS = 7 * DAY_MS;
 
@@ -261,26 +261,36 @@ const PWAInstallPrompt = ({ hidden = false }) => {
   if (!canShow) return null;
 
   return (
-    <div className="pwa-install-shell fixed left-3 right-3 top-[calc(var(--rr-mobile-header-offset,64px)+0.65rem)] z-[60] mx-auto max-w-md md:left-auto md:right-5 md:top-24 md:w-[22rem]">
+    <div className="pwa-install-shell">
       <div className="pwa-install-card overflow-hidden rounded-[1.25rem] border border-white/70 bg-white/95 p-3 text-slate-950 shadow-[0_18px_46px_-30px_rgba(15,23,42,0.55)] backdrop-blur-2xl dark:border-white/10 dark:bg-slate-900/94 dark:text-white">
-        <div className="flex items-center gap-3">
-          <span className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-cyan-500 to-rose-500 text-white shadow-lg shadow-cyan-500/20">
+        <div className="pwa-install-row flex items-start gap-2.5">
+          <span className="pwa-install-icon flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-2xl bg-blue-600 text-white shadow-lg shadow-blue-600/20">
             <Smartphone className="h-5 w-5" />
           </span>
-          <div className="min-w-0 flex-1">
-            <p className="text-sm font-black leading-tight">Download RoomRadar app</p>
-            <p className="mt-0.5 text-[11px] font-semibold leading-4 text-slate-500 dark:text-slate-400">
-              Mobile home screen se fast launch, smoother tabs, app-style navigation.
+          <div className="pwa-install-copy min-w-0 flex-1">
+            <p className="pwa-install-title text-sm font-black leading-tight">Install RoomRadar</p>
+            <p className="pwa-install-subtitle mt-0.5 text-[11px] font-semibold leading-4 text-slate-500 dark:text-slate-400">
+              Fast launch, saved rooms, chat, aur booking updates.
             </p>
           </div>
-          <button
-            type="button"
-            onClick={dismiss}
-            className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-300"
-            aria-label="Dismiss install prompt"
-          >
-            <X className="h-4 w-4" />
-          </button>
+          <div className="pwa-install-actions flex flex-shrink-0 items-center gap-1.5">
+            <button
+              type="button"
+              onClick={handleInstall}
+              className="pwa-install-action inline-flex min-h-9 items-center justify-center gap-1.5 rounded-full bg-slate-950 px-3 text-xs font-black text-white transition active:scale-[0.98] dark:bg-white dark:text-slate-950"
+            >
+              <Download className="h-3.5 w-3.5" />
+              {deferredPrompt ? 'Install' : 'Steps'}
+            </button>
+            <button
+              type="button"
+              onClick={dismiss}
+              className="pwa-install-dismiss flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-300"
+              aria-label="Dismiss install prompt"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
         </div>
 
         {showManualHint && (
@@ -288,15 +298,6 @@ const PWAInstallPrompt = ({ hidden = false }) => {
             {manualInstallText}
           </p>
         )}
-
-        <button
-          type="button"
-          onClick={handleInstall}
-          className="mt-3 inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-2xl bg-slate-950 px-4 text-sm font-black text-white transition active:scale-[0.98] dark:bg-white dark:text-slate-950"
-        >
-          <Download className="h-4 w-4" />
-          {deferredPrompt ? 'Install app' : 'Show install steps'}
-        </button>
       </div>
     </div>
   );

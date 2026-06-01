@@ -5,12 +5,13 @@ import { useUI } from '../../../context/UIContext';
 import { useSocket } from '../../../context/SocketContext';
 import { Compass, FileText, Heart, LogOut, Mail, PanelLeftClose, PanelLeftOpen, User } from 'lucide-react';
 import Tippy from '@tippyjs/react';
+import { getAvatarColorStyle, getAvatarInitial } from '../../../utils/avatar';
 import { preloadRoleDestination, switchRoleSmoothly } from '../../../utils/roleSwitch';
 
 const navItems = [
     { to: '/', label: 'Explore', Icon: Compass, end: true },
     { to: '/profile/wishlist', label: 'Wishlist', Icon: Heart },
-    { to: '/profile/my-applications', label: 'Applications', Icon: FileText },
+    { to: '/profile/my-applications', label: 'Requests', Icon: FileText },
     { to: '/profile/inbox', label: 'Inbox', Icon: Mail, badge: true },
     { to: '/profile', label: 'About me', Icon: User, end: true },
 ];
@@ -21,7 +22,7 @@ const ProfileSidebar = () => {
     const { unreadNotificationCount } = useSocket();
     const navigate = useNavigate();
     const travelProfile = user?.roleProfiles?.student || {};
-    const travelName = travelProfile.name || user?.name || 'Traveller';
+    const travelName = travelProfile.name || user?.name || user?.email || 'Traveller';
     const travelAvatar = travelProfile.avatarUrl || travelProfile.profilePicture || user?.avatarUrl || user?.profilePicture;
     const accountEmail = user?.email || '';
 
@@ -84,7 +85,7 @@ const ProfileSidebar = () => {
                             <p className="text-2xl font-black leading-6 tracking-tight text-light-text dark:text-white">
                                 <span className="text-brand">Room</span><span className="text-cyan-500">Radar</span>
                             </p>
-                            <p className="inline-flex rounded-full bg-cyan-500/10 px-2 py-0.5 text-xs font-extrabold uppercase tracking-[0.1em] text-cyan-600 dark:text-cyan-300">Travelling</p>
+                            <p className="inline-flex rounded-full bg-cyan-500/10 px-2 py-0.5 text-xs font-extrabold uppercase tracking-[0.1em] text-cyan-600 dark:text-cyan-300">Room seeker</p>
                         </div>
                     )}
                     {!isSidebarOpen && (
@@ -109,7 +110,13 @@ const ProfileSidebar = () => {
             <div className={`mt-6 rounded-3xl bg-light-bg p-3 dark:bg-dark-card ${isSidebarOpen ? '' : 'px-2'}`}>
                 <div className={`flex items-center ${isSidebarOpen ? 'gap-3' : 'justify-center'}`}>
                     <Link to="/profile" className="flex h-12 w-12 flex-shrink-0 items-center justify-center overflow-hidden rounded-full bg-brand text-sm font-black text-white">
-                        {travelAvatar ? <img src={travelAvatar} alt={travelName} className="h-full w-full object-cover" /> : travelName.charAt(0).toUpperCase()}
+                        {travelAvatar ? (
+                            <img src={travelAvatar} alt={travelName} className="h-full w-full object-cover" />
+                        ) : (
+                            <span className="rr-avatar-initial" style={getAvatarColorStyle(user?.id || user?._id || accountEmail, travelName)} aria-hidden="true">
+                                {getAvatarInitial(travelName, accountEmail)}
+                            </span>
+                        )}
                     </Link>
                     {isSidebarOpen && (
                         <div className="min-w-0">
@@ -131,7 +138,7 @@ const ProfileSidebar = () => {
                         onClick={handleSwitchRole}
                         onMouseEnter={() => preloadRoleDestination(user?.roles?.includes('Landlord') ? 'landlord' : 'hostForm')}
                         onFocus={() => preloadRoleDestination(user?.roles?.includes('Landlord') ? 'landlord' : 'hostForm')}
-                        className={`rr-role-switch-btn flex w-full items-center rounded-2xl bg-gradient-to-r from-cyan-400 to-cyan-600 px-3 py-3 text-sm font-extrabold text-white shadow-lg shadow-cyan-500/30 transition hover:brightness-105 ${isSidebarOpen ? 'justify-center' : 'justify-center'}`}
+                        className={`rr-role-switch-btn flex w-full items-center rounded-2xl bg-cyan-500 px-3 py-3 text-sm font-extrabold text-white shadow-lg shadow-cyan-500/20 transition hover:bg-cyan-600 ${isSidebarOpen ? 'justify-center' : 'justify-center'}`}
                     >
                         {isSidebarOpen ? (user?.roles?.includes('Landlord') ? 'Switch to Hosting' : 'Become a Host') : 'Host'}
                     </button>

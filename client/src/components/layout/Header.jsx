@@ -2,10 +2,11 @@ import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { Bars3Icon, UserCircleIcon } from '@heroicons/react/24/solid';
-import { Bell, ChevronRight, Home, LogIn, Moon, Search, Sparkles, Sun, UserPlus } from 'lucide-react';
+import { Bell, ChevronRight, Home, LogIn, Moon, Search, ShieldCheck, Sun, UserPlus } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import useScrollState from '../../hooks/useScrollState';
+import { getAvatarColorStyle, getAvatarInitial } from '../../utils/avatar';
 import { preloadRoleDestination, switchRoleSmoothly } from '../../utils/roleSwitch';
 
 const UserMenu = ({ isOverlay = false }) => {
@@ -44,8 +45,12 @@ const UserMenu = ({ isOverlay = false }) => {
     const renderUserIcon = () => {
         const avatar = user?.avatarUrl || user?.profilePicture;
         if (avatar) return <img src={avatar} alt="avatar" className="h-full w-full object-cover" />;
-        if (user?.name) return <span className="font-bold text-white">{user.name.charAt(0).toUpperCase()}</span>;
-        return <UserCircleIcon className="h-8 w-8 text-slate-400" />;
+        const name = user?.name || user?.email || 'RoomRadar';
+        return (
+            <span className="rr-avatar-initial" style={getAvatarColorStyle(user?.id || user?._id || user?.email, name)} aria-hidden="true">
+                {getAvatarInitial(name, user?.email)}
+            </span>
+        );
     };
 
     const hostLinkClass = [
@@ -102,9 +107,9 @@ const UserMenu = ({ isOverlay = false }) => {
                                 }`}
                             >
 
-                            <div className="rounded-[1.28rem] bg-gradient-to-br from-cyan-50 via-white to-rose-50 p-3 ring-1 ring-slate-950/[0.045] dark:from-cyan-400/[0.14] dark:via-slate-900 dark:to-rose-400/[0.10] dark:ring-white/[0.07]">
+                            <div className="rounded-[1.28rem] bg-white p-3 ring-1 ring-slate-950/[0.045] dark:bg-slate-900 dark:ring-white/[0.07]">
                                 <p className="inline-flex items-center gap-1.5 rounded-full bg-cyan-500/10 px-2.5 py-1 text-[11px] font-black uppercase tracking-[0.08em] text-cyan-700 dark:bg-cyan-300/15 dark:text-cyan-100">
-                                    <Sparkles className="h-3.5 w-3.5" />
+                                    <ShieldCheck className="h-3.5 w-3.5" />
                                     Welcome to RoomRadar
                                 </p>
                                 <p className="mt-2 text-[13px] font-bold leading-5 text-slate-600 dark:text-slate-300">
@@ -165,7 +170,7 @@ const UserMenu = ({ isOverlay = false }) => {
                     onFocus={() => preloadRoleDestination(activeRole === 'student' ? 'landlord' : 'student')}
                     className={hostLinkClass}
                 >
-                    {activeRole === 'student' ? 'Switch to Hosting' : 'Switch to Travelling'}
+                    {activeRole === 'student' ? 'Switch to Hosting' : 'Search Rooms'}
                 </button>
             ) : (
                 <Link to="/list-your-room" className={hostLinkClass}>
@@ -189,7 +194,7 @@ const UserMenu = ({ isOverlay = false }) => {
                 </button>
                 {isMenuOpen && (
                     <div className="absolute right-0 top-full z-50 mt-2 w-64 overflow-hidden rounded-2xl border border-slate-200 bg-white py-2 text-slate-800 shadow-xl dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100">
-                        <NavLink to="/profile/my-applications" className="block px-4 py-2 text-sm font-semibold hover:bg-slate-50 dark:hover:bg-slate-800">My Applications</NavLink>
+                        <NavLink to="/profile/my-applications" className="block px-4 py-2 text-sm font-semibold hover:bg-slate-50 dark:hover:bg-slate-800">My Room Requests</NavLink>
                         <NavLink to="/profile/wishlist" className="block px-4 py-2 text-sm font-semibold hover:bg-slate-50 dark:hover:bg-slate-800">Wishlist</NavLink>
                         {user?.roles?.includes('Landlord') && <NavLink to="/landlord/overview" className="block px-4 py-2 text-sm font-semibold hover:bg-slate-50 dark:hover:bg-slate-800">Hosting Dashboard</NavLink>}
                         <NavLink to="/profile" className="block px-4 py-2 text-sm font-semibold hover:bg-slate-50 dark:hover:bg-slate-800">Account</NavLink>
@@ -236,7 +241,7 @@ const Header = () => {
                 }`}>
                     <nav className="flex items-center gap-1">
                         <NavLink to="/rooms" className={getNavLinkClass}>Rooms</NavLink>
-                        <NavLink to="/profile/my-applications" className={getNavLinkClass}>Applications</NavLink>
+                        <NavLink to="/profile/my-applications" className={getNavLinkClass}>Requests</NavLink>
                         <NavLink to="/profile/inbox" className={getNavLinkClass}>Inbox</NavLink>
                     </nav>
                     {isHome && isScrolled && (

@@ -7,7 +7,7 @@ import {
     WrenchScrewdriverIcon, // <-- Corrected Icon for Water Utility
     FireIcon, 
     BuildingLibraryIcon,
-    SparklesIcon, 
+    HomeModernIcon,
     SunIcon, 
     KeyIcon, 
     TruckIcon,
@@ -24,7 +24,7 @@ const amenitiesMap = {
     geyser: { icon: FireIcon, name: 'Geyser' },
     attachedWashroom: { icon: BuildingLibraryIcon, name: 'Attached Washroom' },
     ac: { icon: SunIcon, name: 'Air Conditioner' },
-    fullyFurnished: { icon: SparklesIcon, name: 'Fully Furnished' },
+    fullyFurnished: { icon: HomeModernIcon, name: 'Fully Furnished' },
     parking: { icon: TruckIcon, name: 'Parking' },
     lift: { icon: BuildingOfficeIcon, name: 'Lift' },
     security: { icon: ShieldCheckIcon, name: '24/7 Security' },

@@ -150,7 +150,7 @@ const ActionBlock = ({ message, onUpdateRequest }) => {
                     </div>
 
                     <div className="mt-3 grid grid-cols-2 gap-2">
-                        <InfoPill icon={FaUser} label="Applicant" value={fullName} />
+                        <InfoPill icon={FaUser} label="Room seeker" value={fullName} />
                         <InfoPill icon={FaMobileAlt} label="Contact" value={mobileNumber} />
                         <InfoPill icon={FaCalendarCheck} label="Stay" value={`${stayRange}${durationString ? ` (${durationString})` : ''}`} wide />
                         <InfoPill icon={FaUserFriends} label="Occupants" value={occupantSummary} />
@@ -159,7 +159,7 @@ const ActionBlock = ({ message, onUpdateRequest }) => {
 
                     {userMessage && (
                         <div className="mt-3">
-                            <p className="mb-1.5 text-[10px] font-black uppercase tracking-[0.12em] text-slate-500 dark:text-[#8696a0]">Applicant note</p>
+                            <p className="mb-1.5 text-[10px] font-black uppercase tracking-[0.12em] text-slate-500 dark:text-[#8696a0]">Stay note</p>
                             <MessageBubble>{userMessage}</MessageBubble>
                         </div>
                     )}

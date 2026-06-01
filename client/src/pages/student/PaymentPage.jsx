@@ -154,7 +154,7 @@ const PaymentPage = () => {
                     className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-700 shadow-sm transition hover:border-cyan-200 hover:text-cyan-700 dark:border-secondary-700 dark:bg-secondary-800 dark:text-secondary-200"
                 >
                     <ArrowLeft className="h-4 w-4" />
-                    Applications
+                    Room requests
                 </Link>
 
                 <div className="mt-6 grid gap-6 lg:grid-cols-[1.08fr_0.92fr]">
@@ -180,7 +180,7 @@ const PaymentPage = () => {
                                 <p className="mt-2 text-sm font-black text-slate-950 dark:text-white">{stayDates || 'Not set'}</p>
                             </div>
                             <div className="rounded-2xl bg-slate-50 p-4 dark:bg-secondary-900">
-                                <p className="text-xs font-black uppercase text-slate-500">Applicant</p>
+                                <p className="text-xs font-black uppercase text-slate-500">Room seeker</p>
                                 <p className="mt-2 text-sm font-black text-slate-950 dark:text-white">{application.fullName}</p>
                             </div>
                             <div className="rounded-2xl bg-slate-50 p-4 dark:bg-secondary-900">
@@ -216,7 +216,7 @@ const PaymentPage = () => {
                                     <span className="font-black text-slate-900 dark:text-white">{money(breakdown.securityDeposit)}</span>
                                 </div>
                                 <div className="flex items-center justify-between text-sm">
-                                    <span className="text-slate-600 dark:text-secondary-300">Platform protection</span>
+                                    <span className="text-slate-600 dark:text-secondary-300">Booking protection</span>
                                     <span className="font-black text-slate-900 dark:text-white">{money(breakdown.platformFee)}</span>
                                 </div>
                                 <div className="border-t border-slate-200 pt-3 dark:border-secondary-700">

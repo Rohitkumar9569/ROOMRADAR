@@ -184,7 +184,7 @@ function ReportDamagesPage() {
                                 </label>
                             </div>
                             <div className="mt-4 grid grid-cols-2 md:grid-cols-3 gap-4">
-                                {imagePreviews.map(({ image, url }, index) => (
+                                {imagePreviews.map(({ url }, index) => (
                                     <div key={index} className="relative h-24 w-full overflow-hidden rounded-2xl shadow-sm">
                                         <img
                                             src={url}

@@ -5,7 +5,7 @@ import api from '../../../api';
 import toast from 'react-hot-toast';
 import { 
     Mail, X, Send, MessageCircle, Home, User,
-    Shield, Sparkles, ArrowRight, CheckCircle
+    Shield, ArrowRight, CheckCircle
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { formatListingTitle } from '../../../utils/listingDisplay';
@@ -17,7 +17,6 @@ const money = (value) => `\u20B9${Number(value || 0).toLocaleString('en-IN')}`;
 const InquiryModal = ({ room, onClose }) => {
     const [message, setMessage] = useState('');
     const [loading, setLoading] = useState(false);
-    const [isHovered, setIsHovered] = useState(false);
     const navigate = useNavigate();
     const displayTitle = formatListingTitle(room?.title, 'Room listing');
 
@@ -95,8 +94,7 @@ const InquiryModal = ({ room, onClose }) => {
                 className="relative flex h-full max-h-full w-full flex-col overflow-hidden border-0 bg-slate-50 shadow-none dark:bg-slate-900 md:h-auto md:max-h-[92vh] md:min-h-[600px] md:max-w-4xl md:rounded-2xl md:border md:border-slate-200 md:shadow-2xl md:dark:border-slate-700"
                 onClick={(e) => e.stopPropagation()}
             >
-                {/* Compact Header - Premium Blue/Cyan */}
-                <div className="relative flex-shrink-0 bg-gradient-to-r from-blue-600 via-cyan-600 to-cyan-600 px-4 py-3 shadow-lg dark:from-blue-700 dark:via-cyan-700 dark:to-cyan-700 md:px-6 md:py-4">
+                <div className="relative flex-shrink-0 bg-slate-950 px-4 py-3 shadow-lg md:px-6 md:py-4">
                     <div className="absolute top-2 right-2 md:top-3 md:right-4 z-10">
                         <motion.button
                             onClick={onClose}
@@ -123,7 +121,7 @@ const InquiryModal = ({ room, onClose }) => {
                 </div>
 
                 {/* Content - Full height scrollable area with bottom padding for visibility */}
-                <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-gradient-to-b from-slate-50 to-slate-100 p-3 dark:from-slate-900 dark:to-slate-800 md:p-8 md:pb-4">
+                <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-slate-50 p-3 dark:bg-slate-900 md:p-8 md:pb-4">
                     <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-6 md:min-h-[480px]">
                         {/* Left: Room Info */}
                         <motion.div 
@@ -133,8 +131,8 @@ const InquiryModal = ({ room, onClose }) => {
                             className="space-y-4"
                         >
                             {/* Room Info Card */}
-                            <div className="flex items-start gap-4 p-5 bg-gradient-to-br from-blue-50/80 to-cyan-50/80 dark:from-blue-900/30 dark:to-cyan-900/30 rounded-2xl border border-blue-200/50 dark:border-blue-800/40 shadow-lg shadow-blue-100/50 dark:shadow-black/20">
-                                <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center flex-shrink-0 shadow-xl shadow-blue-500/30">
+                            <div className="flex items-start gap-4 rounded-2xl border border-blue-200/50 bg-blue-50/80 p-5 shadow-lg shadow-blue-100/50 dark:border-blue-800/40 dark:bg-blue-900/20 dark:shadow-black/20">
+                                <div className="flex h-16 w-16 flex-shrink-0 items-center justify-center rounded-2xl bg-cyan-500 shadow-xl shadow-cyan-500/20">
                                     <Home className="w-8 h-8 text-white" />
                                 </div>
                                 <div className="min-w-0 flex-1 pt-1">
@@ -146,7 +144,7 @@ const InquiryModal = ({ room, onClose }) => {
                                         <span className="font-medium">{room.landlord?.name || 'Landlord'}</span>
                                     </div>
                                     <div className="flex items-center gap-2 text-base">
-                                        <span className="font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">{money(room.rent)}/month</span>
+                                        <span className="font-bold text-cyan-700 dark:text-cyan-300">{money(room.rent)}/month</span>
                                     </div>
                                 </div>
                             </div>
@@ -173,7 +171,7 @@ const InquiryModal = ({ room, onClose }) => {
                                 </div>
                                 <div className="flex items-center gap-3 text-sm text-slate-600 dark:text-slate-400">
                                     <div className="p-1.5 bg-cyan-100 dark:bg-cyan-900/30 rounded-lg">
-                                        <Sparkles className="w-4 h-4 text-cyan-600 dark:text-cyan-400" />
+                                        <CheckCircle className="w-4 h-4 text-cyan-600 dark:text-cyan-400" />
                                     </div>
                                     <span className="font-medium">Instant delivery</span>
                                 </div>
@@ -228,18 +226,10 @@ const InquiryModal = ({ room, onClose }) => {
                                     <motion.button 
                                         type="submit" 
                                         disabled={loading}
-                                        onMouseEnter={() => setIsHovered(true)}
-                                        onMouseLeave={() => setIsHovered(false)}
                                         whileHover={!loading ? { scale: 1.02 } : {}}
                                         whileTap={!loading ? { scale: 0.98 } : {}}
-                                        className="group relative flex items-center justify-center gap-2 overflow-hidden px-5 py-2.5 bg-gradient-to-r from-blue-600 via-cyan-600 to-cyan-600 hover:from-blue-700 hover:via-cyan-700 hover:to-cyan-700 text-white font-bold rounded-xl shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300"
+                                        className="group relative flex items-center justify-center gap-2 overflow-hidden rounded-xl bg-cyan-500 px-5 py-2.5 font-bold text-white shadow-lg shadow-cyan-500/20 transition-all duration-300 hover:bg-cyan-600 disabled:cursor-not-allowed disabled:opacity-50"
                                     >
-                                        {/* Shine Effect */}
-                                        <motion.div
-                                            className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent skew-x-12"
-                                            animate={{ x: loading ? 200 : isHovered ? 200 : -200 }}
-                                            transition={{ duration: 0.6 }}
-                                        />
                                         
                                         {loading ? (
                                             <>

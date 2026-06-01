@@ -2,7 +2,6 @@ import React from 'react';
 import Select from 'react-select';
 import { indianCities } from '../../../data/indianCities';
 
-// Professional styling ke liye
 const customStyles = {
   control: (provided, state) => ({
     ...provided,
@@ -10,10 +9,10 @@ const customStyles = {
     borderRadius: '0.5rem',
     borderWidth: '2px',
     backgroundColor: '#F3F4F6', // bg-gray-100
-    boxShadow: state.isFocused ? '0 0 0 2px #4F46E5' : 'none', // focus:ring-indigo-600
-    borderColor: state.isFocused ? '#4F46E5' : (state.selectProps.error ? '#EF4444' : '#D1D5DB'),
+    boxShadow: state.isFocused ? '0 0 0 2px #1a73e8' : 'none',
+    borderColor: state.isFocused ? '#1a73e8' : (state.selectProps.error ? '#EF4444' : '#D1D5DB'),
     '&:hover': {
-      borderColor: state.isFocused ? '#4F46E5' : '#A5B4FC',
+      borderColor: state.isFocused ? '#1a73e8' : '#8ab4f8',
     },
   }),
   placeholder: (provided) => ({

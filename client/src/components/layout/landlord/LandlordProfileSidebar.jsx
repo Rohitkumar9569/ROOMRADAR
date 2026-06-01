@@ -5,6 +5,7 @@ import { useUI } from '../../../context/UIContext';
 import { useSocket } from '../../../context/SocketContext';
 import { Calendar, ClipboardList, LayoutDashboard, List, LogOut, Mail, PanelLeftClose, PanelLeftOpen, PlusCircle, User } from 'lucide-react';
 import Tippy from '@tippyjs/react';
+import { getAvatarColorStyle, getAvatarInitial } from '../../../utils/avatar';
 import { preloadRoleDestination, switchRoleSmoothly } from '../../../utils/roleSwitch';
 
 const navItems = [
@@ -24,7 +25,7 @@ const LandlordProfileSidebar = () => {
     const navigate = useNavigate();
     const inboxCount = unreadNotificationCount || 0;
     const hostProfile = user?.roleProfiles?.landlord || {};
-    const hostName = hostProfile.name || user?.name || 'Host';
+    const hostName = hostProfile.name || user?.name || user?.email || 'Host';
     const hostAvatar = hostProfile.avatarUrl || hostProfile.profilePicture || user?.avatarUrl || user?.profilePicture;
     const accountEmail = user?.email || '';
 
@@ -108,7 +109,13 @@ const LandlordProfileSidebar = () => {
             {isSidebarOpen && <div className="mt-6 rounded-3xl bg-light-bg p-3 dark:bg-dark-card">
                 <div className={`flex items-center ${isSidebarOpen ? 'gap-3' : 'justify-center'}`}>
                     <Link to="/landlord/profile" className="flex h-12 w-12 flex-shrink-0 items-center justify-center overflow-hidden rounded-full bg-brand text-sm font-black text-white">
-                        {hostAvatar ? <img src={hostAvatar} alt={hostName} className="h-full w-full object-cover" /> : hostName.charAt(0).toUpperCase()}
+                        {hostAvatar ? (
+                            <img src={hostAvatar} alt={hostName} className="h-full w-full object-cover" />
+                        ) : (
+                            <span className="rr-avatar-initial" style={getAvatarColorStyle(user?.id || user?._id || accountEmail, hostName)} aria-hidden="true">
+                                {getAvatarInitial(hostName, accountEmail)}
+                            </span>
+                        )}
                     </Link>
                     {isSidebarOpen && (
                         <div className="min-w-0">
@@ -125,14 +132,14 @@ const LandlordProfileSidebar = () => {
             </nav>
 
             <div className={`${isSidebarOpen ? 'mt-4 space-y-2 border-t border-light-border pt-4 dark:border-dark-border' : 'mt-2 space-y-1 border-t border-light-border pt-2 dark:border-dark-border'}`}>
-                <Tippy content="Switch to Travelling" placement="right" disabled={isSidebarOpen}>
+                <Tippy content="Search rooms" placement="right" disabled={isSidebarOpen}>
                     <button
                         onClick={handleSwitchRole}
                         onMouseEnter={() => preloadRoleDestination('student')}
                         onFocus={() => preloadRoleDestination('student')}
-                        className={`rr-role-switch-btn flex w-full items-center justify-center rounded-2xl bg-gradient-to-r from-cyan-400 to-cyan-600 font-extrabold text-white shadow-lg shadow-cyan-500/30 transition hover:brightness-105 ${isSidebarOpen ? 'px-3 py-3 text-sm' : 'min-h-10 px-2 text-[11px]'}`}
+                        className={`rr-role-switch-btn flex w-full items-center justify-center rounded-2xl bg-cyan-500 font-extrabold text-white shadow-lg shadow-cyan-500/20 transition hover:bg-cyan-600 ${isSidebarOpen ? 'px-3 py-3 text-sm' : 'min-h-10 px-2 text-[11px]'}`}
                     >
-                        {isSidebarOpen ? 'Switch to Travelling' : 'Travel'}
+                        {isSidebarOpen ? 'Search rooms' : 'Rooms'}
                     </button>
                 </Tippy>
                 <Tippy content="Log out" placement="right" disabled={isSidebarOpen}>

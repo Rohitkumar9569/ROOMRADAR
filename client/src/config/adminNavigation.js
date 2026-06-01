@@ -17,32 +17,32 @@ export const adminNavigation = [
     section: 'Main',
     items: [
       { name: 'Dashboard', icon: Gauge, path: '/admin/dashboard', permission: 'dashboard:view' },
-      { name: 'Analytics & Reports', icon: BarChart3, path: '/admin/analytics', permission: 'analytics:view' },
+      { name: 'Rental Insights', icon: BarChart3, path: '/admin/analytics', permission: 'analytics:view' },
     ],
   },
   {
-    section: 'Platform Governance',
+    section: 'Rental Operations',
     items: [
-      { name: 'User Management', icon: Users, path: '/admin/users', permission: 'users:view' },
+      { name: 'Users & Hosts', icon: Users, path: '/admin/users', permission: 'users:view' },
       { name: 'Landlord Hub', icon: BriefcaseBusiness, path: '/admin/users?role=Landlord', permission: 'users:view' },
-      { name: 'KYC & Verifications', icon: ShieldCheck, path: '/admin/verifications', badgeKey: 'pendingKycUsersCount', permission: 'verifications:view' },
+      { name: 'Trust Checks', icon: ShieldCheck, path: '/admin/verifications', badgeKey: 'pendingKycUsersCount', permission: 'verifications:view' },
     ],
   },
   {
-    section: 'Listings & Content',
+    section: 'Room Listings',
     items: [
       { name: 'All Rooms', icon: Home, path: '/admin/rooms', permission: 'rooms:view' },
       { name: 'Pending Approvals', icon: FileClock, path: '/admin/rooms?status=Pending', badgeKey: 'pendingRoomsCount', permission: 'rooms:view' },
     ],
   },
   {
-    section: 'Financials',
+    section: 'Payments',
     items: [
       { name: 'Revenue & Commission', icon: CreditCard, path: '/admin/revenue', permission: 'revenue:view' },
     ],
   },
   {
-    section: 'Support & System',
+    section: 'Support Desk',
     items: [
       { name: 'Support Tickets', icon: Headphones, path: '/admin/tickets', badgeKey: 'supportOpenCount', permission: 'tickets:manage' },
       { name: 'System Logs', icon: Activity, path: '/admin/logs', permission: 'logs:view' },

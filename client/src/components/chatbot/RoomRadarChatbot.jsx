@@ -3,19 +3,15 @@ import { Link, useLocation } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
     BedDouble,
-    Bot,
     CheckCircle2,
-    Code2,
-    GraduationCap,
     ImageOff,
-    Lightbulb,
     Loader2,
     MapPin,
+    MessageCircle,
+    Search,
     Send,
     ShieldCheck,
-    Sparkles,
     Star,
-    Target,
     Users,
     X
 } from 'lucide-react';
@@ -25,9 +21,27 @@ import { formatListingTitle } from '../../utils/listingDisplay';
 const suggestions = [
     { label: 'Rooms in Haridwar', Icon: MapPin },
     { label: 'Booking steps', Icon: CheckCircle2 },
-    { label: 'RoomRadar tools', Icon: Sparkles },
+    { label: 'Verified listings', Icon: ShieldCheck },
     { label: 'Top rated rooms', Icon: Star }
 ];
+
+const sanitizeHelpCopy = (value = '') => String(value)
+    .replace(/RoomRadar\s+AI/gi, 'RoomRadar Help')
+    .replace(/\bAI[-\s]?powered\b/gi, 'RoomRadar')
+    .replace(/\bAI\s+assistant\b/gi, 'RoomRadar Help')
+    .replace(/\bassistant\b/gi, 'RoomRadar Help')
+    .replace(/\bchatbot\b/gi, 'help panel')
+    .replace(/\bbot\b/gi, 'help panel')
+    .replace(/\bAI\b/g, 'RoomRadar')
+    .replace(/\bsmart\s+search\b/gi, 'quick search')
+    .replace(/\bsmart\s+help\b/gi, 'room help')
+    .replace(/\bsentiment\b/gi, 'feedback')
+    .replace(/\bintent\b/gi, 'request')
+    .replace(/\banalysis\b/gi, 'review')
+    .replace(/\bproject\b/gi, 'service')
+    .replace(/\bdeveloper team\b/gi, 'RoomRadar team')
+    .replace(/\blead developer\b/gi, 'RoomRadar team')
+    .replace(/\btech stack\b/gi, 'service setup');
 
 const money = (value) => `₹${Number(value || 0).toLocaleString('en-IN')}`;
 
@@ -81,352 +95,15 @@ const detectLanguage = (text = '') => {
 
 const isHinglish = (text = '') => detectLanguage(text) === 'hinglish';
 
-const developerCredit = 'Rohit Kumar, Shubhanshu, Kamal Kumar, and Samrat Prajapati';
-
-const teamProfiles = {
-    rohit: `ROOMRADAR INSIGHT (The Direct Answer)
-Rohit Kumar RoomRadar ke lead creator hain. Woh Gurukul Kangri Vishwavidyalaya, Haridwar me B.Tech CSE final-year student hain.
-
-The Core Idea
-Rohit ka focus technology aur education ko connect karna hai, taaki complex topics simple, clear aur motivating tareeke se samjhaye ja sakein.
-
-Detailed Profile
-Rohit Kumar 2022-2026 batch ke B.Tech CSE student hain. Woh GATE CSE aur GATE DA qualified hain, including DA AIR 7275. Unka focus MERN Stack, TypeScript, Data Science, Cybersecurity, Cloud Computing, Python, C++, React Three Fiber aur AI/ML par hai.
-
-Major projects: RoomRadar, MockPanel, Study Hub, aur 3D Interactive Portfolio. Long-term goal: government job ki direction me grow karna. Rohit daily AI/ML discoveries explore karna pasand karte hain.
-
-Key Takeaways
-- Rohit Kumar RoomRadar ke lead developer aur creator hain.
-- GATE CSE aur DA qualified hain.
-- MERN, TypeScript, Data Science, Cybersecurity aur AI/ML me strong interest rakhte hain.
-- Unka vision learning ko simple, accessible aur motivating banana hai.`,
-    shubhanshu: `Shubhanshu RoomRadar team ke software engineer hain. Unhone TCS NQT exam qualify kiya, interview clear kiya, aur TCS Digital role ke liye select hue. Ab woh TCS me kaam karte hain.
-
-Unka focus DSA, real-world coding problems, LinkedIn brain games, books aur novels par bhi hai. RoomRadar me unka contribution platform ko practical, reliable aur premium engineering direction dene me important hai.`,
-    kamal: `Kamal Kumar RoomRadar team ke software engineer hain. Woh multi-talented hain: coding unki favorite skill hai, DSA me strong interest rakhte hain, aur cooking me bhi kaafi achhe hain.
-
-Kamal novels/books padhna pasand karte hain aur naye AI/ML inventions ko explore karte rehte hain. RoomRadar team me woh product quality, problem solving aur implementation energy add karte hain.`,
-    samrat: `Samrat Prajapati RoomRadar team ke teacher plus software engineer profile wale member hain. Woh same college se connected hain, students ko teach karte hain, aur free time me software engineering/coding par kaam karte hain.
-
-Samrat cricket dekhna pasand karte hain, DSA practice karte hain, books/novels padhte hain, aur AI/ML ke naye ideas ko follow karte hain. RoomRadar team me woh teaching mindset aur engineering discipline dono add karte hain.`
-};
-
-const teamProfilesEnglish = {
-    rohit: `Rohit Kumar is the lead developer and creator behind RoomRadar. He is a final-year B.Tech CSE student at Gurukul Kangri Vishwavidyalaya, Haridwar, and is GATE qualified in both CSE and DA, including DA AIR 7275.`,
-    shubhanshu: `Shubhanshu is a software engineer on the RoomRadar team. He qualified TCS NQT, cleared the interview, was selected for the TCS Digital role, and currently works at TCS. He practices DSA, enjoys LinkedIn brain games, and likes real-world coding problems.`,
-    kamal: `Kamal Kumar is a software engineer on the RoomRadar team. He is multi-talented, loves coding, has strong interest in DSA, and is also an excellent cook. He follows new AI/ML inventions.`,
-    samrat: `Samrat Prajapati is a teacher plus software engineer connected with the same college. He teaches students, works on software engineering in his free time, enjoys cricket, and practices DSA.`
-};
-
-const teamProfilesHindi = {
-    rohit: 'रोहित कुमार RoomRadar के lead developer और creator हैं। वे Gurukul Kangri Vishwavidyalaya, Haridwar में B.Tech CSE final-year student हैं और GATE CSE तथा GATE DA qualified हैं।',
-    shubhanshu: 'शुभांशु RoomRadar team के software engineer हैं। उन्होंने TCS NQT qualify किया, interview clear किया, TCS Digital role के लिए select हुए, और currently TCS में काम करते हैं।',
-    kamal: 'कमल कुमार RoomRadar team के software engineer हैं। वे multi-talented हैं, coding पसंद करते हैं, DSA में strong interest रखते हैं, और cooking में भी अच्छे हैं।',
-    samrat: 'सम्राट प्रजापति teacher plus software engineer profile वाले RoomRadar team member हैं। वे students को teach करते हैं और free time में software engineering पर काम करते हैं।'
-};
-
-const researchedTeamProfiles = {
-    hinglish: {
-        rohit: `Research Snapshot: Rohit Kumar
-
-Direct answer: Rohit Kumar RoomRadar ke lead creator aur AI assistant ke core builder hain. Woh Gurukul Kangri Vishwavidyalaya, Haridwar me B.Tech CSE final-year student hain.
-
-Profile research: Rohit GATE CSE aur GATE DA qualified hain, including DA AIR 7275. Unka engineering focus MERN Stack, TypeScript, Data Science, Cybersecurity, Cloud Computing, Python, C++, React Three Fiber aur AI/ML par hai.
-
-RoomRadar contribution: Rohit product vision, architecture, AI assistant behavior, room discovery flow, aur premium user experience ko drive karte hain.
-
-Key takeaways:
-- Lead developer aur creator of RoomRadar.
-- GATE CSE + GATE DA qualified.
-- AI/ML, MERN, TypeScript, Data Science aur Cybersecurity me strong interest.
-- Vision: learning aur technology ko simple, useful aur accessible banana.`,
-        shubhanshu: `Research Snapshot: Shubhanshu
-
-Direct answer: Shubhanshu RoomRadar team ke software engineer hain. Unhone TCS NQT qualify kiya, interview clear kiya, TCS Digital role ke liye select hue, aur currently TCS me kaam karte hain.
-
-Professional signal: TCS NQT se TCS Digital tak ka journey unki preparation, interview clarity, aur industry-ready engineering mindset ko show karta hai.
-
-Engineering personality: Shubhanshu DSA practice karte hain, LinkedIn brain games enjoy karte hain, aur real-world coding problems solve karna pasand karte hain. Unka style practical problem solving, logic building, aur clean thinking par based hai.
-
-RoomRadar contribution: RoomRadar me Shubhanshu platform ko practical, reliable aur premium engineering direction dene me important role play karte hain.
-
-Key takeaways:
-- Software engineer on the RoomRadar team.
-- TCS NQT qualified and selected for TCS Digital.
-- Currently works at TCS.
-- DSA, LinkedIn brain games, and real-world coding problems me strong interest.`,
-        kamal: `Research Snapshot: Kamal Kumar
-
-Direct answer: Kamal Kumar RoomRadar team ke software engineer hain. Woh multi-talented hain, coding unki favorite skill hai, DSA me strong interest rakhte hain, aur cooking me bhi achhe hain.
-
-Engineering personality: Kamal ka profile balanced builder wala hai: problem solving, implementation energy, learning curiosity, aur creative discipline.
-
-Interests: Woh books/novels padhna pasand karte hain aur naye AI/ML inventions explore karte rehte hain.
-
-RoomRadar contribution: Kamal product quality, feature implementation, debugging mindset, aur practical coding energy add karte hain.
-
-Key takeaways:
-- Software engineer on the RoomRadar team.
-- Coding aur DSA me strong interest.
-- Multi-talented: engineering plus cooking.
-- AI/ML discoveries aur books/novels me curiosity.`,
-        samrat: `Research Snapshot: Samrat Prajapati
-
-Direct answer: Samrat Prajapati RoomRadar team ke teacher plus software engineer profile wale member hain. Woh same college se connected hain, students ko teach karte hain, aur free time me software engineering/coding par kaam karte hain.
-
-Professional personality: Samrat teaching mindset aur engineering discipline ka mix le kar aate hain. Isliye unka thinking style explanation, patience, aur structured problem solving par focused hai.
-
-Interests: Samrat cricket dekhna pasand karte hain, DSA practice karte hain, books/novels padhte hain, aur AI/ML ke naye ideas follow karte hain.
-
-RoomRadar contribution: RoomRadar me Samrat learning-oriented perspective, clarity, and disciplined engineering thinking add karte hain.
-
-Key takeaways:
-- Teacher plus software engineer profile.
-- Students ko teach karte hain.
-- DSA, cricket, reading, and AI/ML ideas me interest.
-- Team me teaching mindset aur engineering discipline add karte hain.`
-    },
-    english: {
-        rohit: `Research Snapshot: Rohit Kumar
-
-Direct answer: Rohit Kumar is the lead creator of RoomRadar and the core builder behind its AI assistant. He is a final-year B.Tech CSE student at Gurukul Kangri Vishwavidyalaya, Haridwar.
-
-Profile research: Rohit is GATE qualified in CSE and DA, including DA AIR 7275. His technical focus includes MERN Stack, TypeScript, Data Science, Cybersecurity, Cloud Computing, Python, C++, React Three Fiber, and AI/ML.
-
-RoomRadar contribution: Rohit drives product vision, architecture, AI assistant behavior, room discovery flow, and the premium user experience.
-
-Key takeaways:
-- Lead developer and creator of RoomRadar.
-- GATE CSE and GATE DA qualified.
-- Strong interest in AI/ML, MERN, TypeScript, Data Science, and Cybersecurity.
-- Vision: make technology and learning simple, useful, and accessible.`,
-        shubhanshu: `Research Snapshot: Shubhanshu
-
-Direct answer: Shubhanshu is a software engineer on the RoomRadar team. He qualified TCS NQT, cleared the interview, was selected for the TCS Digital role, and currently works at TCS.
-
-Professional signal: His path from TCS NQT to TCS Digital shows preparation, interview clarity, and an industry-ready engineering mindset.
-
-Engineering personality: Shubhanshu practices DSA, enjoys LinkedIn brain games, and likes real-world coding problems. His style is practical, logic-driven, and focused on clean problem solving.
-
-RoomRadar contribution: At RoomRadar, Shubhanshu adds practical engineering direction, reliability, and premium problem-solving energy.
-
-Key takeaways:
-- Software engineer on the RoomRadar team.
-- TCS NQT qualified and selected for TCS Digital.
-- Currently works at TCS.
-- Strong interest in DSA, LinkedIn brain games, and real-world coding problems.`,
-        kamal: `Research Snapshot: Kamal Kumar
-
-Direct answer: Kamal Kumar is a software engineer on the RoomRadar team. He is multi-talented, loves coding, has strong interest in DSA, and is also an excellent cook.
-
-Engineering personality: Kamal brings a balanced builder mindset: problem solving, implementation energy, learning curiosity, and creative discipline.
-
-Interests: He reads books and novels and keeps exploring new AI/ML inventions.
-
-RoomRadar contribution: Kamal adds product quality, feature implementation, debugging mindset, and practical coding energy.
-
-Key takeaways:
-- Software engineer on the RoomRadar team.
-- Strong interest in coding and DSA.
-- Multi-talented: engineering plus cooking.
-- Curious about AI/ML discoveries and books/novels.`,
-        samrat: `Research Snapshot: Samrat Prajapati
-
-Direct answer: Samrat Prajapati is a teacher plus software engineer profile on the RoomRadar team. He is connected with the same college, teaches students, and works on software engineering/coding in his free time.
-
-Professional personality: Samrat brings a mix of teaching mindset and engineering discipline, so his thinking style is focused on explanation, patience, and structured problem solving.
-
-Interests: He enjoys cricket, practices DSA, reads books and novels, and follows new AI/ML ideas.
-
-RoomRadar contribution: Samrat adds a learning-oriented perspective, clarity, and disciplined engineering thinking to RoomRadar.
-
-Key takeaways:
-- Teacher plus software engineer profile.
-- Teaches students.
-- Interested in DSA, cricket, reading, and AI/ML ideas.
-- Adds teaching mindset and engineering discipline to the team.`
-    }
-};
-
-const wantsDetailedTeamProfile = (text = '') => (
-    /(detail|details|detailed|research|researched|deep|full|bio|profile|about|journey|background|complete|premium|proper|pura|poora|baare\s+me|bare\s+me|jankari|jaankari|kisi bhi team member)/i.test(text)
-);
-
-const isKamalCookingQuestion = (profileKey, text = '') => (
-    profileKey === 'kamal'
-    && /(food|cook|cooking|khana|khaana|banata|banate|banati|banane|chef|recipe|dish)/i.test(text)
-);
-
-const createKamalCookingReply = (text = '') => (
-    detectLanguage(text) === 'english'
-        ? `Yes. Kamal Kumar is known on the RoomRadar team as a multi-talented software engineer who is also excellent at cooking.
-
-Premium profile note: coding is his favorite skill, he has strong interest in DSA, reads books and novels, and keeps exploring new AI/ML inventions. That mix of engineering focus plus creative cooking energy makes his RoomRadar contribution feel practical, curious, and quality-driven.`
-        : `Haan, Kamal Kumar food/cooking me kaafi achhe hain. RoomRadar team me unka profile sirf software engineer tak limited nahi hai; woh multi-talented builder hain.
-
-Premium profile note: coding unki favorite skill hai, DSA me strong interest rakhte hain, books/novels padhna pasand karte hain, aur naye AI/ML inventions explore karte rehte hain. Team me woh product quality, problem solving aur implementation energy add karte hain.`
-);
-
-const getTeamProfileReply = (profileKey, text = '') => {
-    const language = detectLanguage(text);
-    if (isKamalCookingQuestion(profileKey, text)) return createKamalCookingReply(text);
-    const researchedProfiles = language === 'english' ? researchedTeamProfiles.english : researchedTeamProfiles.hinglish;
-    if (researchedProfiles[profileKey]) return researchedProfiles[profileKey];
-    if (language === 'english') return teamProfilesEnglish[profileKey] || teamProfilesEnglish.rohit;
-    if (language === 'hindi') return teamProfilesHindi[profileKey] || teamProfilesHindi.rohit;
-    return teamProfiles[profileKey] || teamProfiles.rohit;
-};
-
-const teamProfileVisuals = {
-    rohit: {
-        eyebrow: 'ROOMRADAR INSIGHT',
-        title: 'Rohit Kumar',
-        subtitle: 'Lead creator of RoomRadar',
-        directAnswer: 'Rohit Kumar RoomRadar ke lead creator hain. Woh Gurukul Kangri Vishwavidyalaya, Haridwar me B.Tech CSE final-year student hain.',
-        chips: ['RoomRadar creator', 'GATE CSE qualified', 'GATE DA qualified', 'AIR 7275'],
-        sections: [
-            {
-                icon: 'lightbulb',
-                title: 'Core idea',
-                body: 'Technology aur education ko connect karke complex topics ko simple, clear aur motivating banana.'
-            },
-            {
-                icon: 'graduation',
-                title: 'Education',
-                body: 'B.Tech CSE final-year student, 2022-2026 batch, Gurukul Kangri Vishwavidyalaya, Haridwar.'
-            },
-            {
-                icon: 'code',
-                title: 'Tech focus',
-                body: 'MERN Stack, TypeScript, Data Science, Cybersecurity, Cloud Computing, Python, C++, React Three Fiber aur AI/ML.'
-            },
-            {
-                icon: 'sparkles',
-                title: 'Major projects',
-                body: 'RoomRadar, MockPanel, Study Hub, aur 3D Interactive Portfolio.'
-            },
-            {
-                icon: 'target',
-                title: 'Long-term goal',
-                body: 'Government job ki direction me grow karna aur learning ko more accessible banana.'
-            }
-        ],
-        takeaways: [
-            'RoomRadar ke lead developer aur creator.',
-            'GATE CSE aur GATE DA qualified, including DA AIR 7275.',
-            'AI/ML, MERN, TypeScript, Data Science aur Cybersecurity me strong interest.',
-            'Vision: learning ko simple, accessible aur motivating banana.'
-        ]
-    },
-    shubhanshu: {
-        eyebrow: 'TEAM RESEARCH BRIEF',
-        title: 'Shubhanshu',
-        subtitle: 'Software engineer at RoomRadar',
-        directAnswer: 'Shubhanshu RoomRadar team ke software engineer hain. Unhone TCS NQT qualify kiya, interview clear kiya, TCS Digital role ke liye select hue, aur currently TCS me kaam karte hain.',
-        chips: ['TCS Digital', 'NQT qualified', 'DSA practice', 'Brain games'],
-        sections: [
-            {
-                icon: 'graduation',
-                title: 'Career signal',
-                body: 'TCS NQT qualify karna, interview clear karna, aur TCS Digital role ke liye select hona unki preparation aur industry readiness show karta hai.'
-            },
-            {
-                icon: 'code',
-                title: 'Engineering style',
-                body: 'DSA practice, LinkedIn brain games, logic building, aur real-world coding problems par strong focus.'
-            },
-            {
-                icon: 'sparkles',
-                title: 'RoomRadar role',
-                body: 'Platform ko practical, reliable aur premium engineering direction dene me important contribution.'
-            }
-        ],
-        takeaways: [
-            'RoomRadar team ke software engineer.',
-            'TCS NQT qualified and selected for TCS Digital.',
-            'Currently TCS me kaam karte hain.',
-            'DSA, LinkedIn brain games aur real-world coding problems pasand hain.'
-        ]
-    },
-    kamal: {
-        eyebrow: 'TEAM RESEARCH BRIEF',
-        title: 'Kamal Kumar',
-        subtitle: 'Software engineer at RoomRadar',
-        directAnswer: 'Kamal Kumar RoomRadar team ke software engineer hain. Woh multi-talented builder hain: coding unki favorite skill hai, DSA me strong interest rakhte hain, aur food/cooking me bhi kaafi achhe hain.',
-        chips: ['Coding lover', 'DSA focused', 'Cooking skill', 'AI/ML curious'],
-        sections: [
-            {
-                icon: 'code',
-                title: 'Engineering style',
-                body: 'Problem solving, feature implementation, debugging mindset, aur practical coding energy.'
-            },
-            {
-                icon: 'lightbulb',
-                title: 'Creative side',
-                body: 'Cooking me achhe hain, books/novels padhna pasand karte hain, aur naye AI/ML inventions explore karte rehte hain.'
-            },
-            {
-                icon: 'sparkles',
-                title: 'RoomRadar role',
-                body: 'Product quality aur implementation energy add karte hain.'
-            }
-        ],
-        takeaways: [
-            'RoomRadar team ke software engineer.',
-            'Coding aur DSA me strong interest.',
-            'AI/ML discoveries aur books/novels me curiosity.',
-            'Engineering ke saath cooking me bhi strong creative side.'
-        ]
-    },
-    samrat: {
-        eyebrow: 'TEAM RESEARCH BRIEF',
-        title: 'Samrat Prajapati',
-        subtitle: 'Teacher plus software engineer profile',
-        directAnswer: 'Samrat Prajapati RoomRadar team ke teacher plus software engineer profile wale member hain. Woh students ko teach karte hain aur free time me software engineering/coding par kaam karte hain.',
-        chips: ['Teacher mindset', 'Software engineering', 'DSA practice', 'Cricket lover'],
-        sections: [
-            {
-                icon: 'graduation',
-                title: 'Teaching side',
-                body: 'Students ko teach karte hain, isliye explanation, patience aur structured thinking unki strength hai.'
-            },
-            {
-                icon: 'code',
-                title: 'Engineering side',
-                body: 'Free time me software engineering, coding aur DSA practice par kaam karte hain.'
-            },
-            {
-                icon: 'sparkles',
-                title: 'RoomRadar role',
-                body: 'Team me teaching clarity, disciplined thinking aur learning-oriented perspective add karte hain.'
-            }
-        ],
-        takeaways: [
-            'Teacher plus software engineer profile.',
-            'Students ko teach karte hain.',
-            'DSA, cricket, reading aur AI/ML ideas me interest.',
-            'RoomRadar me teaching mindset aur engineering discipline add karte hain.'
-        ]
-    }
-};
-
-const getTeamProfileVisual = (profileKey) => teamProfileVisuals[profileKey] || null;
+const developerCredit = 'the RoomRadar team';
 
 const createDeveloperCreditReply = (text = '') => (
     detectLanguage(text) === 'hindi'
-        ? `RoomRadar और इस AI assistant को ${developerCredit} ने बनाया है।`
+        ? `RoomRadar ${developerCredit} चलाती है। यह help panel rooms खोजने, booking request भेजने, host chat और support ticket में help करता है।`
         : isHinglish(text)
-            ? `RoomRadar aur is AI assistant ko ${developerCredit} ne banaya hai. Rohit, Shubhanshu, Kamal aur Samrat is project ke developer team members hain.`
-            : `RoomRadar and this AI assistant were built by ${developerCredit}. Rohit, Shubhanshu, Kamal, and Samrat are the developer team behind this project.`
+            ? `RoomRadar ko ${developerCredit} operate karti hai. Ye help panel room search, booking request, host chat aur support ticket ke liye hai.`
+            : `RoomRadar is operated by ${developerCredit}. This help panel is here for room search, booking requests, host chat, and support tickets.`
 );
-
-const getTeamProfileKey = (text = '') => {
-    if (/\brohit\b|\brk\b/i.test(text)) return 'rohit';
-    if (/shubhanshu|subhanshu/i.test(text)) return 'shubhanshu';
-    if (/\bkamal\b/i.test(text)) return 'kamal';
-    if (/samrat|prajapati/i.test(text)) return 'samrat';
-    return null;
-};
 
 const isTeamOverviewQuestion = (text = '') => {
     const lower = text.toLowerCase();
@@ -435,30 +112,11 @@ const isTeamOverviewQuestion = (text = '') => {
 };
 
 const createTeamOverviewReply = (text = '') => {
-    const detailed = wantsDetailedTeamProfile(text);
     if (detectLanguage(text) === 'english') {
-        return detailed
-            ? `RoomRadar team research brief:
-
-1. Rohit Kumar - Lead creator of RoomRadar. GATE CSE and GATE DA qualified, with strong focus on MERN Stack, TypeScript, Data Science, Cybersecurity, Cloud, Python, C++, React Three Fiber, and AI/ML.
-2. Shubhanshu - Software engineer on the RoomRadar team. TCS NQT qualified, cleared the interview, selected for TCS Digital, and currently works at TCS. He practices DSA, enjoys LinkedIn brain games, and likes real-world coding problems.
-3. Kamal Kumar - Software engineer, multi-talented builder, coding lover, DSA-focused, curious about AI/ML inventions, and also excellent at cooking.
-4. Samrat Prajapati - Teacher plus software engineer profile. He teaches students, practices DSA, enjoys cricket, reads books/novels, and follows AI/ML ideas.
-
-Together, they bring product vision, industry engineering, implementation energy, teaching clarity, and AI curiosity to RoomRadar.`
-            : 'RoomRadar was built by Rohit Kumar, Shubhanshu, Kamal Kumar, and Samrat Prajapati. Ask any name for a detailed profile.';
+        return 'RoomRadar is run by the RoomRadar team with a focus on verified room listings, host communication, booking records, support tickets, and safer rental decisions.';
     }
 
-    return detailed
-        ? `RoomRadar team ka research-style brief:
-
-1. Rohit Kumar - RoomRadar ke lead creator. GATE CSE aur GATE DA qualified, MERN, TypeScript, Data Science, Cybersecurity, Cloud, Python, C++, React Three Fiber aur AI/ML me strong focus.
-2. Shubhanshu - RoomRadar team ke software engineer. TCS NQT qualify kiya, interview clear kiya, TCS Digital role ke liye select hue, aur currently TCS me kaam karte hain. DSA, LinkedIn brain games aur real-world coding problems pasand hain.
-3. Kamal Kumar - Software engineer, multi-talented builder, coding lover, DSA focused, AI/ML inventions explore karte hain, aur cooking me bhi achhe hain.
-4. Samrat Prajapati - Teacher plus software engineer profile. Students ko teach karte hain, DSA practice karte hain, cricket pasand karte hain, books/novels padhte hain, aur AI/ML ideas follow karte hain.
-
-Together, team RoomRadar me product vision, industry engineering, implementation energy, teaching clarity aur AI curiosity add karti hai.`
-        : 'RoomRadar team me Rohit Kumar, Shubhanshu, Kamal Kumar aur Samrat Prajapati hain. Kisi bhi naam ke saath "details me batao" likho, main premium profile brief de dunga.';
+    return 'RoomRadar team verified room listings, host communication, booking records, support tickets aur safer rental decisions par focus karti hai.';
 };
 
 const isPriceNegotiationQuestion = (text = '') => {
@@ -482,15 +140,11 @@ const getDirectFallbackReply = (text = '') => {
     const lower = text.toLowerCase();
     if (/^(hi|hii|hello|hey|namaste|namaskar)\b/i.test(text.trim()) || /^\s*[\u0928][\u092e][\u0938]/.test(text)) {
         if (detectLanguage(text) === 'hindi') {
-            return 'नमस्ते! मैं RoomRadar AI हूँ। City, budget या room type बताइए, मैं real listings search कर दूँगा।';
+            return 'नमस्ते! मैं RoomRadar Help हूँ। City, budget या room type बताइए, मैं real listings search कर दूँगा।';
         }
         return isHinglish(text)
-            ? 'Hi! Main RoomRadar AI hoon. City, budget ya room type bhejo, main real listings search kar dunga.'
-            : 'Hi! I am RoomRadar AI. Tell me your city, budget, or room type and I will search real listings.';
-    }
-    const profileKey = getTeamProfileKey(text);
-    if (profileKey) {
-        return getTeamProfileReply(profileKey, text);
+            ? 'Hi! Main RoomRadar Help hoon. City, budget ya room type bhejo, main real listings search kar dunga.'
+            : 'Hi! I am RoomRadar Help. Tell me your city, budget, or room type and I will search real listings.';
     }
     if (isTeamOverviewQuestion(text)) {
         return createTeamOverviewReply(text);
@@ -501,11 +155,11 @@ const getDirectFallbackReply = (text = '') => {
     }
     if (/(tum kaun|aap kaun|who are you|what are you)/i.test(lower)) {
         if (detectLanguage(text) === 'hindi') {
-            return 'मैं RoomRadar AI assistant हूँ। मैं real rooms खोजने और booking flow में help करता हूँ।';
+            return 'मैं RoomRadar Help हूँ। मैं real rooms खोजने और booking flow में help करता हूँ।';
         }
         return isHinglish(text)
-            ? 'Main RoomRadar AI assistant hoon. Main real rooms dhoondhne aur booking flow me help karta hoon.'
-            : 'I am the RoomRadar AI assistant. I help you find real rooms and complete the booking flow.';
+            ? 'Main RoomRadar Help hoon. Main real rooms dhoondhne aur booking flow me help karta hoon.'
+            : 'I am RoomRadar Help. I help you find real rooms and complete the booking flow.';
     }
     if (isPriceNegotiationQuestion(text)) {
         return createPriceNegotiationReply(text);
@@ -645,8 +299,8 @@ const fallbackReply = (text, rooms, filters = extractLocalFilters(text)) => {
                 : '';
     if (isHinglish(text)) {
         return rooms.length
-            ? `AI provider response slow tha, isliye maine RoomRadar ke real database se ${rooms.length} matching room dhoondh diye.${sortNote} View Details se direct booking flow open hoga.`
-            : 'AI provider slow tha aur exact room match nahi mila. City, budget ya room type thoda change karke bhejo, main real listings me dobara search karunga.';
+            ? `RoomRadar Help slow tha, isliye maine RoomRadar ke real database se ${rooms.length} matching room dhoondh diye.${sortNote} View Details se direct booking flow open hoga.`
+            : 'RoomRadar Help slow tha aur exact room match nahi mila. City, budget ya room type thoda change karke bhejo, main real listings me dobara search karunga.';
     }
     const englishSortNote = filters.sort === 'price_asc'
         ? ' Results are ordered from low price to high.'
@@ -656,8 +310,8 @@ const fallbackReply = (text, rooms, filters = extractLocalFilters(text)) => {
                 ? ' Best rated options are shown first.'
                 : '';
     return rooms.length
-        ? `The AI provider was slow, so I searched the real RoomRadar database and found ${rooms.length} matching rooms.${englishSortNote}`
-        : 'The AI provider was slow and no exact room match was found. Try another city, budget, or room type.';
+        ? `RoomRadar Help was slow, so I searched the real RoomRadar database and found ${rooms.length} matching rooms.${englishSortNote}`
+        : 'RoomRadar Help was slow and no exact room match was found. Try another city, budget, or room type.';
 };
 
 const hasLocalRoomSearchIntent = (text = '', filters = extractLocalFilters(text)) => {
@@ -681,13 +335,13 @@ const getOfflineKnowledgeReply = (text = '') => {
         return 'Bilkul sahi point hai. Har question par room card bhejna irritating hota hai. Main answer-first mode follow karunga: room cards sirf clear room-search request par aayenge.';
     }
     if (/(feature|features|module|modules|roomradar|room radar|platform|app|project)/i.test(lower)) {
-        return 'RoomRadar me room search, booking requests, landlord listings, real-time chat, wishlist, reviews, notifications, support tickets, verification, admin moderation, insights aur AI assistance available hai.';
+        return 'RoomRadar me verified room search, host listings, booking requests, real-time chat, wishlist, reviews, support tickets, trust checks, rent details aur host dashboard available hai.';
     }
     if (/(tech stack|technology|mern|react|node|express|mongodb|socket|cloudinary|jwt|api|database)/i.test(lower)) {
-        return 'RoomRadar MERN stack par based hai: React + Vite frontend, Node/Express backend, MongoDB/Mongoose database, JWT auth, Socket.IO chat, aur Multer/Cloudinary uploads.';
+        return 'RoomRadar ka public help panel rental users ke liye hai. Main rooms, rent, location, booking request, host chat, wishlist, reviews, support aur verification flow me help kar sakta hoon.';
     }
     if (/(book|booking|request|confirm|kaise)/i.test(lower)) {
-        return 'Room book karne ke liye room details open karo, Request to Book submit karo, stay details fill karo, phir landlord approval ke baad confirmation complete hota hai.';
+        return 'Room book karne ke liye room details open karo, Request this room submit karo, stay details fill karo, phir host approval ke baad confirmation complete hota hai.';
     }
     if (/(admin|complain|complaint|report|support|ticket|issue|problem)/i.test(lower)) {
         return 'Room ya landlord ke against complain karne ke liye support option open karo, issue clearly likho, room name/booking detail add karo, aur ticket submit karo. Admin us ticket ko review karega.';
@@ -780,16 +434,14 @@ const RoomRadarChatbot = () => {
         setMessages(outgoing);
         setInput('');
 
-        const directProfileKey = getTeamProfileKey(trimmed);
         const directReply = getDirectFallbackReply(trimmed);
         if (directReply) {
-            const directMeta = createClientAnalysis(trimmed, directProfileKey ? 'Team profile' : 'Answer only', []);
+            const directMeta = createClientAnalysis(trimmed, 'Answer only', []);
             setMessages([
                 ...outgoing,
                 {
                     role: 'assistant',
                     content: directReply,
-                    profileVisual: getTeamProfileVisual(directProfileKey),
                     rooms: [],
                     provider: 'browser-knowledge',
                     fallback: false,
@@ -864,7 +516,7 @@ const RoomRadarChatbot = () => {
                     ...current,
                     {
                         role: 'assistant',
-                        content: error.response?.data?.error || 'RoomRadar AI is reconnecting. Please try once more after refreshing the server.',
+                        content: error.response?.data?.error || 'RoomRadar Help is reconnecting. Please try once more after refreshing the server.',
                         rooms: [],
                         sentiment: localMeta.sentiment,
                         intent: localMeta.intent,
@@ -945,15 +597,15 @@ const RoomRadarChatbot = () => {
                 whileHover={{ scale: 1.04 }}
                 whileTap={{ scale: 0.95 }}
                 className={`floating-chatbot ${isHomeRoute ? 'is-home-route' : 'is-compact-route'} ${scrollTucked ? 'is-scroll-tucked' : ''} ${isCompactLauncher ? 'is-compact-launcher' : ''}`}
-                aria-label="Open RoomRadar AI Assistant"
+                aria-label="Open RoomRadar help"
             >
                 <span className="floating-chatbot-halo" />
                 <span className="floating-chatbot-icon" aria-hidden="true">
-                    <Bot />
+                    <MessageCircle />
                 </span>
                 <span className="floating-chatbot-copy">
-                    <span>Smart help</span>
-                    <strong>Ask</strong>
+                    <span>Room help</span>
+                    <strong>Help</strong>
                 </span>
             </motion.button>
 
@@ -980,10 +632,10 @@ const RoomRadarChatbot = () => {
                                         <span>RR</span>
                                     </span>
                                     <div>
-                                        <h2>RoomRadar AI</h2>
+                                        <h2>RoomRadar Help</h2>
                                         <p className="rr-chatbot-status">
                                             <span />
-                                            Intent aware
+                                            Ready
                                         </p>
                                     </div>
                                 </div>
@@ -991,7 +643,7 @@ const RoomRadarChatbot = () => {
                                     type="button"
                                     onClick={() => setOpen(false)}
                                     className="rr-chatbot-close"
-                                    aria-label="Close assistant"
+                                    aria-label="Close RoomRadar help"
                                 >
                                     <X />
                                 </button>
@@ -1005,13 +657,13 @@ const RoomRadarChatbot = () => {
 
                                     {messages.length === 0 && (
                                         <div className="rr-chatbot-empty">
-                                            <div className="rr-chatbot-empty-card" aria-label="Room search assistant">
+                                            <div className="rr-chatbot-empty-card" aria-label="Room search help">
                                                 <span className="rr-chatbot-empty-icon">
-                                                    <Sparkles />
+                                                    <Search />
                                                 </span>
                                                 <div>
-                                                    <h3>Ask smarter</h3>
-                                                    <span>Rooms, booking, project, support.</span>
+                                                    <h3>Room help</h3>
+                                                    <span>Rooms, booking, rent, support.</span>
                                                 </div>
                                             </div>
                                             <div className="rr-chatbot-suggestion-grid">
@@ -1050,7 +702,7 @@ const RoomRadarChatbot = () => {
                                     <input
                                         value={input}
                                         onChange={(event) => setInput(event.target.value)}
-                                        placeholder="Ask about rooms or RoomRadar..."
+                                        placeholder="Search rooms, booking, support..."
                                         className="min-h-[44px] flex-1 bg-transparent px-3 text-sm font-semibold outline-none placeholder:text-light-muted dark:placeholder:text-dark-muted"
                                     />
                                     <button
@@ -1074,28 +726,19 @@ const RoomRadarChatbot = () => {
 const MessageBubble = ({ message, closeDrawer }) => {
     const isUser = message.role === 'user';
     const hasRooms = message.rooms?.length > 0;
-    const hasProfileVisual = Boolean(message.profileVisual);
-    const showAssistantAvatar = !isUser && !hasRooms && !hasProfileVisual;
-    const showAnalysisMeta = !isUser && (message.sentiment?.label || message.intent?.label);
-
+    const showAssistantAvatar = !isUser && !hasRooms;
+    const displayContent = isUser ? message.content : sanitizeHelpCopy(message.content);
     return (
-        <div className={`rr-message-row ${isUser ? 'is-user' : 'is-assistant'} ${hasRooms || hasProfileVisual ? 'has-rich-content' : ''}`}>
+        <div className={`rr-message-row ${isUser ? 'is-user' : 'is-assistant'} ${hasRooms ? 'has-rich-content' : ''}`}>
             {showAssistantAvatar && (
                 <span className="rr-message-avatar">
-                    <Bot />
+                    <MessageCircle />
                 </span>
             )}
-            <div className={`${isUser ? 'max-w-[82%] items-end' : hasRooms || hasProfileVisual ? 'rr-message-rich min-w-0 flex-1' : 'min-w-0 flex-1 items-start'}`}>
-                {message.profileVisual ? (
-                    <ProfileInsightCard visual={message.profileVisual} />
-                ) : (
-                    <div className={`rr-message-bubble ${isUser ? 'is-user' : 'is-assistant'}`}>
-                        {message.content}
-                    </div>
-                )}
-                {showAnalysisMeta && (
-                    <MessageAnalysisMeta sentiment={message.sentiment} intent={message.intent} analysis={message.analysis} />
-                )}
+            <div className={`${isUser ? 'max-w-[82%] items-end' : hasRooms ? 'rr-message-rich min-w-0 flex-1' : 'min-w-0 flex-1 items-start'}`}>
+                <div className={`rr-message-bubble ${isUser ? 'is-user' : 'is-assistant'}`}>
+                    {displayContent}
+                </div>
                 {hasRooms && (
                     <div className="rr-chat-room-results mt-3 grid gap-3">
                         {message.rooms.map((room, index) => (
@@ -1113,85 +756,6 @@ const MessageBubble = ({ message, closeDrawer }) => {
         </div>
     );
 };
-
-const MessageAnalysisMeta = ({ sentiment, intent, analysis }) => (
-    <div className="rr-message-analysis-meta" title={analysis?.reason || ''}>
-        <span>
-            <Sparkles />
-            Tone: {sentiment?.label || analysis?.tone || 'neutral'}
-        </span>
-        <span>
-            <Target />
-            {intent?.label || analysis?.intent || 'Answer'}
-        </span>
-        {analysis?.roomCards === 'not_shown' && (
-            <span className="is-muted">No cards</span>
-        )}
-    </div>
-);
-
-const insightIcons = {
-    lightbulb: Lightbulb,
-    graduation: GraduationCap,
-    code: Code2,
-    sparkles: Sparkles,
-    target: Target
-};
-
-const ProfileInsightCard = ({ visual }) => (
-    <article className="rr-profile-insight-card">
-        <div className="rr-profile-insight-hero">
-            <span className="rr-profile-ai-mark">
-                <Bot />
-            </span>
-            <div className="min-w-0">
-                <p>{visual.eyebrow}</p>
-                <h3>{visual.title}</h3>
-                <span>{visual.subtitle}</span>
-            </div>
-        </div>
-
-        <p className="rr-profile-direct-answer">{visual.directAnswer}</p>
-
-        <div className="rr-profile-chip-grid">
-            {visual.chips.map((chip) => (
-                <span key={chip}>
-                    <CheckCircle2 />
-                    {chip}
-                </span>
-            ))}
-        </div>
-
-        <div className="rr-profile-section-grid">
-            {visual.sections.map((section) => {
-                const Icon = insightIcons[section.icon] || Sparkles;
-                return (
-                    <section key={section.title} className="rr-profile-section">
-                        <span>
-                            <Icon />
-                        </span>
-                        <div>
-                            <h4>{section.title}</h4>
-                            <p>{section.body}</p>
-                        </div>
-                    </section>
-                );
-            })}
-        </div>
-
-        <section className="rr-profile-takeaways">
-            <h4>Key takeaways</h4>
-            <ul>
-                {visual.takeaways.map((item) => (
-                    <li key={item}>
-                        <CheckCircle2 />
-                        <span>{item}</span>
-                    </li>
-                ))}
-            </ul>
-        </section>
-    </article>
-);
 
 const ChatRoomCard = ({ room, index, sort, closeDrawer }) => {
     const amenities = getRoomAmenityLabels(room);

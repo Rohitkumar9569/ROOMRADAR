@@ -236,6 +236,8 @@ function RoomCard({ room, context = 'default', trackingContext, onRemove, imageP
     ), [cardRoom.imageUrl, cardRoom.imageUrls, cardRoom.images]);
 
     const [currentImageIndex, setCurrentImageIndex] = useState(0);
+    const [photoDirection, setPhotoDirection] = useState('next');
+    const [failedImageUrls, setFailedImageUrls] = useState([]);
     const [isHovered, setIsHovered] = useState(false);
     const [isMediaVisible, setIsMediaVisible] = useState(false);
     const [isActiveMobilePreview, setIsActiveMobilePreview] = useState(false);
@@ -253,6 +255,11 @@ function RoomCard({ room, context = 'default', trackingContext, onRemove, imageP
     const isWishlisted = Boolean(user?.wishlist?.some((item) => String(item?._id || item) === String(roomId)));
     const rating = cardRoom.averageRating || cardRoom.rating;
     const isGuestFavourite = Number(rating || 0) >= 4.8;
+    const availableImageUrls = useMemo(
+        () => imageUrls.filter((url) => !failedImageUrls.includes(url)),
+        [failedImageUrls, imageUrls]
+    );
+
     const handleWishlistClick = useCallback(async (event) => {
         event.preventDefault();
         event.stopPropagation();
@@ -301,17 +308,32 @@ function RoomCard({ room, context = 'default', trackingContext, onRemove, imageP
         }
     }, [addToWishlist, analyticsContext, cardRoom.city, cardRoom.location?.city, isSavedContext, isWishlisted, onRemove, removeFromWishlist, roomId, user]);
 
+    const showImageByOffset = useCallback((offset) => {
+        if (availableImageUrls.length <= 1) return;
+        setPhotoDirection(offset >= 0 ? 'next' : 'prev');
+        setCurrentImageIndex((prevIndex) => (prevIndex + offset + availableImageUrls.length) % availableImageUrls.length);
+    }, [availableImageUrls.length]);
+
     const handleNextImage = useCallback((event) => {
         event.preventDefault();
         event.stopPropagation();
-        setCurrentImageIndex((prevIndex) => (prevIndex + 1) % imageUrls.length);
-    }, [imageUrls.length]);
+        showImageByOffset(1);
+    }, [showImageByOffset]);
 
     const handlePrevImage = useCallback((event) => {
         event.preventDefault();
         event.stopPropagation();
-        setCurrentImageIndex((prevIndex) => (prevIndex - 1 + imageUrls.length) % imageUrls.length);
-    }, [imageUrls.length]);
+        showImageByOffset(-1);
+    }, [showImageByOffset]);
+
+    const handlePhotoError = useCallback(() => {
+        const failedUrl = availableImageUrls[currentImageIndex];
+        if (!failedUrl) return;
+        setFailedImageUrls((previousUrls) => (
+            previousUrls.includes(failedUrl) ? previousUrls : [...previousUrls, failedUrl]
+        ));
+        setCurrentImageIndex(0);
+    }, [availableImageUrls, currentImageIndex]);
 
     const handleCardClickCapture = useCallback((event) => {
         if (suppressNextClickRef.current) {
@@ -336,7 +358,7 @@ function RoomCard({ room, context = 'default', trackingContext, onRemove, imageP
     }, [analyticsContext, cardRoom._match?.matchedLabels, cardRoom._recommendation?.group, cardRoom.city, cardRoom.listingCategory, cardRoom.location?.city, cardRoom.rent, cardRoom.status, position, roomId]);
 
     const handleMediaTouchStart = useCallback((event) => {
-        if (imageUrls.length <= 1) return;
+        if (availableImageUrls.length <= 1) return;
         const touch = event.touches?.[0];
         if (!touch) return;
         touchStartRef.current = {
@@ -344,10 +366,10 @@ function RoomCard({ room, context = 'default', trackingContext, onRemove, imageP
             y: touch.clientY,
             time: typeof performance !== 'undefined' ? performance.now() : Date.now(),
         };
-    }, [imageUrls.length]);
+    }, [availableImageUrls.length]);
 
     const handleMediaTouchEnd = useCallback((event) => {
-        if (imageUrls.length <= 1 || !touchStartRef.current) return;
+        if (availableImageUrls.length <= 1 || !touchStartRef.current) return;
         const touch = event.changedTouches?.[0];
         if (!touch) {
             touchStartRef.current = null;
@@ -366,18 +388,14 @@ function RoomCard({ room, context = 'default', trackingContext, onRemove, imageP
         event.preventDefault();
         event.stopPropagation();
         suppressNextClickRef.current = true;
-        setCurrentImageIndex((prevIndex) => (
-            deltaX > 0
-                ? (prevIndex + 1) % imageUrls.length
-                : (prevIndex - 1 + imageUrls.length) % imageUrls.length
-        ));
+        showImageByOffset(deltaX > 0 ? 1 : -1);
 
         if (typeof window !== 'undefined') {
             window.setTimeout(() => {
                 suppressNextClickRef.current = false;
             }, 520);
         }
-    }, [imageUrls.length]);
+    }, [availableImageUrls.length, showImageByOffset]);
 
     const handleMediaTouchCancel = useCallback(() => {
         touchStartRef.current = null;
@@ -393,11 +411,18 @@ function RoomCard({ room, context = 'default', trackingContext, onRemove, imageP
 
     useEffect(() => {
         setCurrentImageIndex(0);
-    }, [imageUrls.length]);
+    }, [availableImageUrls.length]);
+
+    useEffect(() => {
+        setFailedImageUrls((previousUrls) => {
+            const nextUrls = previousUrls.filter((url) => imageUrls.includes(url));
+            return nextUrls.length === previousUrls.length ? previousUrls : nextUrls;
+        });
+    }, [imageUrls]);
 
     useEffect(() => {
         const mediaNode = mediaRef.current;
-        if (!mediaNode || imageUrls.length <= 1 || typeof IntersectionObserver === 'undefined') {
+        if (!mediaNode || availableImageUrls.length <= 1 || typeof IntersectionObserver === 'undefined') {
             setIsMediaVisible(true);
             return undefined;
         }
@@ -409,10 +434,10 @@ function RoomCard({ room, context = 'default', trackingContext, onRemove, imageP
 
         observer.observe(mediaNode);
         return () => observer.disconnect();
-    }, [imageUrls.length]);
+    }, [availableImageUrls.length]);
 
     useEffect(() => {
-        if (canPreviewOnHover || imageUrls.length <= 1 || typeof window === 'undefined') {
+        if (canPreviewOnHover || availableImageUrls.length <= 1 || typeof window === 'undefined') {
             setIsActiveMobilePreview(false);
             return undefined;
         }
@@ -442,9 +467,9 @@ function RoomCard({ room, context = 'default', trackingContext, onRemove, imageP
             releaseMobilePreviewListeners();
             setIsActiveMobilePreview(false);
         };
-    }, [canPreviewOnHover, imageUrls.length]);
+    }, [availableImageUrls.length, canPreviewOnHover]);
 
-    const shouldAutoAdvanceImages = imageUrls.length > 1
+    const shouldAutoAdvanceImages = availableImageUrls.length > 1
         && isMediaVisible
         && (canPreviewOnHover ? isHovered : isActiveMobilePreview);
     const activeSlideDuration = canPreviewOnHover ? IMAGE_AUTO_ADVANCE_MS : MOBILE_IMAGE_AUTO_ADVANCE_MS;
@@ -454,15 +479,36 @@ function RoomCard({ room, context = 'default', trackingContext, onRemove, imageP
         if (typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return undefined;
 
         const previewTimer = window.setInterval(() => {
-            setCurrentImageIndex((prevIndex) => (prevIndex + 1) % imageUrls.length);
+            setPhotoDirection('next');
+            setCurrentImageIndex((prevIndex) => (prevIndex + 1) % availableImageUrls.length);
         }, activeSlideDuration);
 
         return () => window.clearInterval(previewTimer);
-    }, [activeSlideDuration, imageUrls.length, shouldAutoAdvanceImages]);
+    }, [activeSlideDuration, availableImageUrls.length, shouldAutoAdvanceImages]);
+
+    useEffect(() => {
+        if (availableImageUrls.length <= 1 || typeof window === 'undefined') return undefined;
+        const preloadIndexes = [
+            (currentImageIndex + 1) % availableImageUrls.length,
+            (currentImageIndex - 1 + availableImageUrls.length) % availableImageUrls.length,
+        ];
+        const preloaders = preloadIndexes
+            .map((index) => availableImageUrls[index])
+            .filter(Boolean)
+            .map((url) => {
+                const image = new window.Image();
+                image.decoding = 'async';
+                image.src = url;
+                return image;
+            });
+        return () => {
+            preloaders.forEach((image) => { image.onload = null; image.onerror = null; });
+        };
+    }, [availableImageUrls, currentImageIndex]);
 
     const imageLoading = imagePriority ? 'eager' : 'lazy';
     const imageFetchPriority = imagePriority ? 'high' : 'auto';
-    const indicatorCount = Math.min(imageUrls.length, 5);
+    const indicatorCount = Math.min(availableImageUrls.length, 5);
     const activeIndicatorIndex = indicatorCount > 0 ? currentImageIndex % indicatorCount : 0;
     const displayTitle = formatListingTitle(cardRoom.title, '');
     const rentAmount = Number(cardRoom.rent);
@@ -529,20 +575,21 @@ function RoomCard({ room, context = 'default', trackingContext, onRemove, imageP
                     onTouchEnd={handleMediaTouchEnd}
                     onTouchCancel={handleMediaTouchCancel}
                 >
-                    {imageUrls.length > 0 ? (
+                    {availableImageUrls.length > 0 ? (
                         <>
                             <img
-                                key={imageUrls[currentImageIndex]}
-                                src={imageUrls[currentImageIndex]}
+                                key={`${availableImageUrls[currentImageIndex]}-${currentImageIndex}`}
+                                src={availableImageUrls[currentImageIndex]}
                                 alt={displayTitle}
-                                className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.018]"
+                                className={`rr-card-photo-img rr-photo-${photoDirection} h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.018]`}
                                 loading={imageLoading}
                                 decoding="async"
                                 fetchpriority={imageFetchPriority}
                                 sizes="(max-width: 639px) 100vw, (max-width: 1023px) 50vw, 280px"
                                 draggable="false"
+                                onError={handlePhotoError}
                             />
-                            <div className="absolute inset-0 bg-gradient-to-t from-slate-950/18 via-transparent to-black/8 opacity-70" />
+                            <div className="rr-card-photo-shade absolute inset-0" />
                         </>
                     ) : (
                         <div className="flex h-full w-full flex-col items-center justify-center bg-zinc-100 text-center text-zinc-500 dark:bg-zinc-900 dark:text-zinc-400">
@@ -587,7 +634,7 @@ function RoomCard({ room, context = 'default', trackingContext, onRemove, imageP
                         )}
                     </div>
 
-                    {isHovered && imageUrls.length > 1 && (
+                    {isHovered && availableImageUrls.length > 1 && (
                         <>
                             <button
                                 type="button"
@@ -608,9 +655,9 @@ function RoomCard({ room, context = 'default', trackingContext, onRemove, imageP
                         </>
                     )}
 
-                    {imageUrls.length > 1 && (
+                    {availableImageUrls.length > 1 && (
                         <div className="rr-image-progress-strip" style={{ '--rr-slide-duration': `${activeSlideDuration}ms` }}>
-                            {imageUrls.slice(0, indicatorCount).map((_, slideIndex) => (
+                            {availableImageUrls.slice(0, indicatorCount).map((_, slideIndex) => (
                                 <span
                                     key={slideIndex}
                                     className={`rr-image-progress-dot ${shouldAutoAdvanceImages && activeIndicatorIndex === slideIndex ? 'is-active' : ''}`}

@@ -88,7 +88,7 @@ const LandlordOverviewPage = () => {
         if ((stats?.pendingRequests || 0) > 0) {
             items.push({
                 title: `${stats.pendingRequests} request${stats.pendingRequests === 1 ? '' : 's'} need review`,
-                caption: 'Fast responses improve tenant confidence.',
+                caption: 'Fast responses improve seeker confidence.',
                 link: '/landlord/applications?status=pending',
                 Icon: BellRing,
             });
@@ -144,7 +144,7 @@ const LandlordOverviewPage = () => {
     const pendingApplications = stats?.pendingApplications || [];
 
     return (
-        <div className="min-h-full overflow-hidden bg-[radial-gradient(circle_at_top_left,rgba(6,182,212,0.10),transparent_28%),linear-gradient(180deg,#f8fafc_0%,#f1f5f9_100%)] text-light-text dark:bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.12),transparent_30%),linear-gradient(180deg,#0d1117_0%,#111827_100%)] dark:text-dark-text">
+        <div className="min-h-full overflow-hidden bg-slate-50 text-light-text dark:bg-dark-bg dark:text-dark-text">
             <MobileDashboardHero user={user} stats={stats} />
 
             <div className="mx-auto max-w-7xl space-y-4 px-4 pb-28 pt-2 md:space-y-7 md:px-0 md:py-0">
@@ -153,7 +153,7 @@ const LandlordOverviewPage = () => {
                         <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-brand">Hosting command center</p>
                         <h1 className="mt-2 text-xl font-black tracking-tight sm:text-2xl">Welcome back, {user?.name || 'Host'}</h1>
                         <p className="mt-2 max-w-2xl text-[13px] leading-6 text-light-muted dark:text-dark-muted sm:text-sm">
-                            Review requests, manage listings, and track every booking until host and applicant both confirm.
+                            Review requests, manage listings, and track every booking until host and room seeker both confirm.
                         </p>
                     </div>
                     <Link to="/landlord/add-room" className="btn-primary inline-flex items-center justify-center gap-2">
@@ -264,7 +264,7 @@ const LandlordOverviewPage = () => {
                                 </div>
                             </div>
                             <p className="mt-4 text-sm leading-6 text-light-muted dark:text-dark-muted">
-                                Calculated from confirmed applications in the current month.
+                                Calculated from confirmed room bookings in the current month.
                             </p>
                         </Link>
                     </aside>
@@ -282,7 +282,7 @@ const LandlordOverviewPage = () => {
 };
 
 const LandlordOverviewSkeleton = () => (
-    <div className="min-h-full overflow-hidden bg-[linear-gradient(180deg,#f8fafc_0%,#f1f5f9_100%)] text-light-text dark:bg-[linear-gradient(180deg,#0f0f0f_0%,#181818_100%)] dark:text-dark-text">
+    <div className="min-h-full overflow-hidden bg-slate-50 text-light-text dark:bg-dark-bg dark:text-dark-text">
         <section className="px-4 pb-4 pt-3 md:hidden">
             <div className="mx-auto max-w-xl rounded-[1.75rem] border border-slate-200 bg-white/82 p-4 shadow-[0_18px_52px_-42px_rgba(15,23,42,0.5)] dark:border-white/10 dark:bg-[#181818]">
                 <div className="flex items-center justify-between gap-3">
@@ -321,7 +321,7 @@ const LandlordOverviewSkeleton = () => (
 const MobileDashboardHero = ({ user, stats }) => (
     <section className="px-4 pb-4 pt-3 md:hidden">
         <div className="relative isolate mx-auto max-w-xl overflow-hidden rounded-[2rem] border border-white/70 bg-white/72 p-4 text-slate-950 shadow-[0_24px_70px_-42px_rgba(15,23,42,0.42)] backdrop-blur-2xl dark:border-white/10 dark:bg-slate-900/72 dark:text-slate-50 dark:shadow-[0_24px_70px_-36px_rgba(0,0,0,0.72)]">
-            <div className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-r from-cyan-300/24 via-white/32 to-rose-300/28 dark:from-cyan-400/14 dark:via-white/5 dark:to-brand/18" />
+            <div className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-transparent" />
             <div className="pointer-events-none absolute -right-16 -top-20 h-44 w-44 rounded-full bg-brand/12 blur-3xl dark:bg-brand/20" />
             <div className="pointer-events-none absolute -bottom-20 -left-12 h-40 w-40 rounded-full bg-cyan-500/12 blur-3xl dark:bg-cyan-400/16" />
 
@@ -420,7 +420,7 @@ const PendingRequestRow = ({ application, onApprove, onReject, onOpenDetails, di
                     onOpenDetails?.();
                 }
             }}
-            aria-label={`Review details for ${student.name || application.fullName || 'applicant'}`}
+            aria-label={`Review details for ${student.name || application.fullName || 'room seeker'}`}
             className="grid cursor-pointer gap-4 bg-light-card p-4 transition hover:bg-cyan-50/60 dark:bg-dark-card dark:hover:bg-cyan-950/20 lg:grid-cols-[1fr_auto] lg:items-center"
         >
             <div className="flex min-w-0 gap-4">
@@ -430,7 +430,7 @@ const PendingRequestRow = ({ application, onApprove, onReject, onOpenDetails, di
                         {displayTitle}
                     </Link>
                     <p className="mt-1 truncate text-sm text-light-muted dark:text-dark-muted">
-                        Applicant: {student.name || application.fullName || 'Applicant'}
+                        Room seeker: {student.name || application.fullName || 'Room seeker'}
                     </p>
                     <p className="mt-1 text-xs font-semibold text-light-muted dark:text-dark-muted">
                         {application.checkInDate ? format(new Date(application.checkInDate), 'dd MMM yyyy') : 'Move-in pending'} · {money(room.rent)} / mo

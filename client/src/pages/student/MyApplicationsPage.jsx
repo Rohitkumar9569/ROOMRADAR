@@ -122,7 +122,7 @@ const StayChangeModal = ({ application, onClose, onSuccess }) => {
     return (
         <div className="fixed inset-0 z-[90] flex items-end justify-center bg-slate-950/45 px-3 py-3 backdrop-blur-sm sm:items-center sm:p-6">
             <form onSubmit={handleSubmit} className="w-full max-w-lg overflow-hidden rounded-[1.75rem] bg-white shadow-[0_24px_80px_rgba(15,23,42,0.28)] dark:bg-slate-950">
-                <div className="bg-[linear-gradient(135deg,#0f766e_0%,#0f172a_58%,#0891b2_100%)] p-5 text-white">
+                <div className="bg-slate-950 p-5 text-white">
                     <div className="flex items-start justify-between gap-4">
                         <div>
                             <p className="text-[10px] font-black uppercase tracking-[0.16em] text-white/70">{changeType}</p>
@@ -184,9 +184,9 @@ const EmptyState = ({ hasSearch, activeFilter }) => (
         <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-cyan-50 text-cyan-600 dark:bg-cyan-500/15 dark:text-cyan-300">
             <FileText className="h-8 w-8" />
         </div>
-        <h3 className="mt-5 text-2xl font-black text-slate-950 dark:text-white">No matching applications</h3>
+        <h3 className="mt-5 text-2xl font-black text-slate-950 dark:text-white">No matching room requests</h3>
         <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-500 dark:text-secondary-300">
-            {hasSearch ? 'Try a different room or landlord name.' : `No ${activeFilter || 'current'} applications yet. Premium rooms you request will appear here.`}
+            {hasSearch ? 'Try a different room or landlord name.' : `No ${activeFilter || 'current'} room requests yet. Rooms you request will appear here.`}
         </p>
         <Link
             to="/rooms"
@@ -357,7 +357,7 @@ const MyApplicationsPage = () => {
             setTabCache(APPLICATIONS_CACHE_KEY, { applications: nextApplications });
             setApplications(nextApplications);
         } catch (error) {
-            if (!cached) toast.error('Failed to fetch your applications.');
+            if (!cached) toast.error('Failed to fetch your room requests.');
         } finally {
             setLoading(false);
         }
@@ -406,7 +406,7 @@ const MyApplicationsPage = () => {
                     });
                     toast.success('Request cancelled.', { id: toastId });
                 } catch (error) {
-                    toast.error(error.response?.data?.message || 'Failed to cancel application.', { id: toastId });
+                    toast.error(error.response?.data?.message || 'Failed to cancel request.', { id: toastId });
                 }
             },
         });
@@ -462,10 +462,10 @@ const MyApplicationsPage = () => {
             <div className="mx-auto max-w-7xl">
                 <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
                     <div>
-                        <p className="text-sm font-black uppercase text-cyan-600 dark:text-cyan-300">Booking control center</p>
-                        <h1 className="mt-1 text-2xl font-black tracking-tight text-slate-950 dark:text-white sm:text-[28px]">My Applications</h1>
+                        <p className="text-sm font-black uppercase text-cyan-600 dark:text-cyan-300">My room requests</p>
+                        <h1 className="mt-1 text-2xl font-black tracking-tight text-slate-950 dark:text-white sm:text-[28px]">Booking requests</h1>
                         <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500 dark:text-secondary-300">
-                            Track every request from first inquiry to landlord approval, tenant confirmation, and final agreement.
+                            Track each room from first inquiry to host approval, your confirmation, and final agreement.
                         </p>
                     </div>
 

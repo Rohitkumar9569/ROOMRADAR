@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import api from '../../api';
 import toast from 'react-hot-toast';
 import Spinner from '../../components/common/Spinner';
-import { AlertTriangle, ArrowLeft, BadgeCheck, Calendar, FileText, Home, Mail, ShieldCheck, UserX, X } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, BadgeCheck, Calendar, FileText, Home, Mail, ShieldCheck, UserRound, UserX, X } from 'lucide-react';
 import { format } from 'date-fns';
 import { confirmToast } from '../../utils/confirmToast';
 import { getScopeLabel, getScopeStatus, normalizeRoleScope } from '../../utils/roleRestrictions';
@@ -11,10 +11,11 @@ import { notifyAdminCountsChanged } from '../../utils/adminEvents';
 import { triggerHaptic } from '../../utils/haptics';
 import { useAuth } from '../../context/AuthContext';
 import { hasAdminPermission } from '../../utils/adminPermissions';
+import { getAvatarColorStyle, getAvatarInitial } from '../../utils/avatar';
 
 const allRoles = ['Student', 'Landlord', 'Admin', 'Super_Admin', 'Moderator', 'Support'];
 
-const displayRole = (role) => (role === 'Student' ? 'Travelling' : role.replace('_', ' '));
+const displayRole = (role) => (role === 'Student' ? 'Room seeker' : role.replace('_', ' '));
 
 const userHasRole = (user, role) => (
   user?.roles?.includes(role) || (role === 'Student' && user?.roles?.includes('Landlord'))
@@ -23,7 +24,7 @@ const userHasRole = (user, role) => (
 const roleTone = (role) => {
   if (['Admin', 'Super_Admin'].includes(role)) return 'bg-red-500/10 text-red-600 dark:text-red-300';
   if (role === 'Landlord') return 'bg-cyan-500/10 text-cyan-600 dark:text-cyan-300';
-  if (['Moderator', 'Support'].includes(role)) return 'bg-violet-500/10 text-violet-600 dark:text-violet-300';
+  if (['Moderator', 'Support'].includes(role)) return 'bg-blue-500/10 text-blue-600 dark:text-blue-300';
   return 'bg-blue-500/10 text-blue-600 dark:text-blue-300';
 };
 
@@ -49,7 +50,7 @@ const EditRoleModal = ({ user, onClose, onSave }) => {
       <div className="w-full max-w-lg rounded-3xl border border-light-border bg-light-card p-5 shadow-2xl dark:border-dark-border dark:bg-dark-card">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-cyan-500">RBAC</p>
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-cyan-500">Access</p>
             <h2 className="mt-1 text-xl font-black">Edit roles</h2>
             <p className="mt-1 text-sm font-semibold text-light-muted dark:text-dark-muted">{user.name}</p>
           </div>
@@ -93,7 +94,7 @@ const StatBox = ({ label, value, icon: Icon }) => (
 const UserDetailTabs = ({ user }) => {
   const [activeTab, setActiveTab] = useState('applications');
   const tabs = [
-    { id: 'applications', label: 'Applications', icon: FileText },
+    { id: 'applications', label: 'Room requests', icon: FileText },
     ...(user.roles.includes('Landlord') ? [{ id: 'listings', label: 'Listings', icon: Home }] : []),
   ];
 
@@ -269,11 +270,13 @@ const AdminUserDetailsPage = () => {
         {user && (
           <>
             <div className="overflow-hidden rounded-[2rem] border border-light-border bg-light-card shadow-sm dark:border-dark-border dark:bg-dark-card">
-              <div className="bg-gradient-to-br from-cyan-500 via-cyan-600 to-dark-sidebar p-6 text-white sm:p-8">
+              <div className="rr-admin-solid-hero bg-slate-950 p-6 text-white sm:p-8">
                 <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
                   <div className="flex items-center gap-4">
-                    <div className="flex h-20 w-20 items-center justify-center rounded-3xl bg-white/15 text-3xl font-black ring-1 ring-white/25 backdrop-blur">
-                      {user.name?.charAt(0).toUpperCase()}
+                    <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-3xl bg-white/15 text-3xl font-black ring-1 ring-white/25 backdrop-blur">
+                      <span className="rr-avatar-initial" style={getAvatarColorStyle(user._id || user.email, user.name)} aria-hidden="true">
+                        {getAvatarInitial(user.name, user.email)}
+                      </span>
                     </div>
                     <div>
                       <div className="flex flex-wrap items-center gap-2">
@@ -309,7 +312,7 @@ const AdminUserDetailsPage = () => {
               </div>
 
               <div className="grid gap-4 p-5 sm:grid-cols-2 lg:grid-cols-4">
-                <StatBox label="Applications" value={user.applications?.length ?? 0} icon={FileText} />
+                <StatBox label="Room requests" value={user.applications?.length ?? 0} icon={FileText} />
                 <StatBox label="Listings" value={user.roles.includes('Landlord') ? (user.listings?.length ?? 0) : 'N/A'} icon={Home} />
                 <StatBox label="Verification" value={user.isVerified ? 'Verified' : 'Needs review'} icon={ShieldCheck} />
                 <StatBox label="Account" value={user.status || 'Active'} icon={UserX} />

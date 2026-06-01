@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+﻿import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../../api';
 import toast from 'react-hot-toast';
@@ -72,7 +72,7 @@ const MetricCard = ({ label, value, icon: Icon, tone = 'cyan', detail, to }) => 
     green: 'text-emerald-500 bg-emerald-500/10',
     amber: 'text-amber-500 bg-amber-500/10',
     red: 'text-red-500 bg-red-500/10',
-    violet: 'text-violet-500 bg-violet-500/10',
+    violet: 'text-blue-600 bg-blue-500/10',
   };
 
   const content = (
@@ -150,10 +150,10 @@ const AnalyticsPanel = ({ data }) => {
   const applicationChart = (data?.applicationStatusBreakdown || []).map((item) => ({ name: item._id || 'Unknown', count: item.count }));
 
   return (
-    <PageShell eyebrow="Analytics & Reports" title="Platform Intelligence" subtitle="Real-time growth, listing health, booking lifecycle, and city demand insights from MongoDB.">
+    <PageShell eyebrow="Rental insights" title="RoomRadar operations" subtitle="Real-time listing health, booking lifecycle, service fee, and city demand insights.">
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-3 lg:grid-cols-3">
         <MetricCard label="Gross booking value" value={money(data?.revenue?.grossBookingValue)} icon={CreditCard} tone="green" />
-        <MetricCard label="Platform fees" value={money(data?.revenue?.platformFees)} icon={TrendingUp} tone="cyan" />
+        <MetricCard label="Service fees" value={money(data?.revenue?.platformFees)} icon={TrendingUp} tone="cyan" />
         <MetricCard label="Paid volume" value={money(data?.revenue?.paidPayments)} icon={CheckCircle2} tone="violet" />
       </div>
 
@@ -166,13 +166,13 @@ const AnalyticsPanel = ({ data }) => {
                 <XAxis dataKey="name" tick={{ fontSize: 11, fill: 'currentColor' }} />
                 <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: 'currentColor' }} />
                 <Tooltip />
-                <Bar dataKey="count" fill="#06b6d4" radius={[10, 10, 0, 0]} />
+                <Bar dataKey="count" fill="#1a73e8" radius={[10, 10, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           ) : <EmptyState title="No room analytics yet" description="Room status data appears after listings are created." />}
         </Card>
 
-        <Card title="Application Status" subtitle="Booking requests across the lifecycle">
+        <Card title="Booking Request Status" subtitle="Room requests across the lifecycle">
           {applicationChart.length ? (
             <ResponsiveContainer width="100%" height={220}>
               <BarChart data={applicationChart}>
@@ -183,30 +183,30 @@ const AnalyticsPanel = ({ data }) => {
                 <Bar dataKey="count" fill="#10b981" radius={[10, 10, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
-          ) : <EmptyState title="No application data yet" description="Booking lifecycle data appears after users send requests." />}
+          ) : <EmptyState title="No booking request data yet" description="Booking lifecycle data appears after seekers send room requests." />}
         </Card>
       </div>
 
       <div className="grid gap-4 sm:gap-6 xl:grid-cols-5">
         <div className="xl:col-span-3">
-          <Card title="Weekly Applications" subtitle="Recent booking demand trend">
+          <Card title="Weekly Booking Requests" subtitle="Recent room demand trend">
             {(data?.weeklyApplications || []).length ? (
               <ResponsiveContainer width="100%" height={220}>
                 <AreaChart data={data.weeklyApplications}>
                   <defs>
                     <linearGradient id="weeklyApps" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#06b6d4" stopOpacity={0.35} />
-                      <stop offset="95%" stopColor="#06b6d4" stopOpacity={0} />
+                      <stop offset="5%" stopColor="#1a73e8" stopOpacity={0.35} />
+                      <stop offset="95%" stopColor="#1a73e8" stopOpacity={0} />
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.22)" />
                   <XAxis dataKey="_id" tick={{ fontSize: 11, fill: 'currentColor' }} />
                   <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: 'currentColor' }} />
                   <Tooltip />
-                  <Area dataKey="count" stroke="#06b6d4" strokeWidth={3} fill="url(#weeklyApps)" />
+                  <Area dataKey="count" stroke="#1a73e8" strokeWidth={3} fill="url(#weeklyApps)" />
                 </AreaChart>
               </ResponsiveContainer>
-            ) : <EmptyState title="No recent demand yet" description="Recent applications will appear here automatically." />}
+            ) : <EmptyState title="No recent demand yet" description="Recent booking requests will appear here automatically." />}
           </Card>
         </div>
         <div className="xl:col-span-2">
@@ -239,7 +239,7 @@ const AnalyticsPanel = ({ data }) => {
 };
 
 const VerificationPanel = ({ data }) => (
-  <PageShell eyebrow="Trust & Safety" title="KYC & Verification Center" subtitle="Review user verification signals and property documents before risk reaches the marketplace.">
+  <PageShell eyebrow="Trust checks" title="KYC & property review" subtitle="Review user verification signals and property documents before risk reaches renters and hosts.">
       <div className="grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-4">
       <MetricCard label="Verified users" value={data?.totals?.verified || 0} icon={ShieldCheck} tone="green" to="/admin/users" />
       <MetricCard label="Unverified users" value={data?.totals?.unverified || 0} icon={Users} tone="amber" to="/admin/verifications" />
@@ -286,26 +286,26 @@ const VerificationPanel = ({ data }) => (
 );
 
 const RevenuePanel = ({ data }) => (
-  <PageShell eyebrow="Financials" title="Revenue & Commission" subtitle="Track booking value, platform fee, transaction health, pending payment and payout exposure.">
+  <PageShell eyebrow="Payments" title="Revenue & service fee" subtitle="Track booking value, service fee, transaction health, pending payment, and host payout exposure.">
     <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-3 lg:grid-cols-4">
       <MetricCard label="Gross value" value={money(data?.summary?.grossBookingValue)} icon={CreditCard} tone="green" />
-      <MetricCard label="Platform fee" value={money(data?.summary?.platformFees)} icon={TrendingUp} tone="cyan" />
+      <MetricCard label="Service fee" value={money(data?.summary?.platformFees)} icon={TrendingUp} tone="cyan" />
       <MetricCard label="Pending payments" value={money(data?.summary?.pendingPayments)} icon={FileClock} tone="amber" />
       <MetricCard label="Paid payments" value={money(data?.summary?.paidPayments)} icon={CheckCircle2} tone="violet" />
     </div>
 
     <div className="grid gap-4 sm:gap-6 xl:grid-cols-2">
-      <Card title="Landlord Payout Exposure" subtitle="Estimated payout from approved or confirmed applications">
+      <Card title="Host Payout Exposure" subtitle="Estimated payout from approved or confirmed room requests">
         <div className="space-y-3">
           {(data?.payoutByLandlord || []).length ? data.payoutByLandlord.map((row) => (
             <div key={row._id || row.landlord?.email} className="flex items-center justify-between rounded-2xl bg-light-bg p-3 dark:bg-dark-input">
               <div>
                 <p className="font-bold">{row.landlord?.name || 'Unknown landlord'}</p>
-                <p className="text-xs font-semibold text-light-muted dark:text-dark-muted">{row.applications} application(s)</p>
+                <p className="text-xs font-semibold text-light-muted dark:text-dark-muted">{row.applications} request(s)</p>
               </div>
               <p className="font-black text-cyan-600 dark:text-cyan-300">{money(row.payoutEstimate)}</p>
             </div>
-          )) : <EmptyState title="No payout exposure" description="Payout estimates appear after approved applications." />}
+          )) : <EmptyState title="No payout exposure" description="Payout estimates appear after approved room requests." />}
         </div>
       </Card>
 
@@ -688,7 +688,7 @@ const TicketsPanel = ({ data }) => {
   ];
 
   return (
-    <PageShell eyebrow="Resolution Center" title="Support & Disputes" subtitle="Important tickets are sorted first, with quick filters for support, safety, payment, ban review, and room approval issues.">
+    <PageShell eyebrow="Support desk" title="Support & disputes" subtitle="Important tickets are sorted first, with quick filters for support, safety, payment, account review, and room approval issues.">
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
         <MetricCard label="Needs action" value={stats.attention} icon={Inbox} tone="amber" />
         <MetricCard label="Urgent or high" value={stats.urgent} icon={AlertTriangle} tone="red" />
@@ -777,7 +777,7 @@ const TicketsPanel = ({ data }) => {
 };
 
 const LogsPanel = ({ data }) => (
-  <PageShell eyebrow="System" title="Audit Logs" subtitle="Track sensitive admin actions such as approvals, role changes, bans, deletes, and settings updates.">
+  <PageShell eyebrow="Operations" title="Audit logs" subtitle="Track sensitive admin actions such as approvals, role changes, account holds, deletes, and settings updates.">
     <Card title="Recent Admin Actions" subtitle="Latest 100 governance events">
       <div className="space-y-3">
         {(data || []).length ? data.map((log) => (
@@ -833,7 +833,7 @@ const SettingsPanel = ({ data, setData }) => {
       const response = await updateSettings(payload);
       setData(response);
       triggerHaptic('success');
-      toast.success('Platform settings updated.');
+      toast.success('Rental settings updated.');
     } catch (err) {
       triggerHaptic('error');
       toast.error('Could not update settings.');
@@ -856,20 +856,20 @@ const SettingsPanel = ({ data, setData }) => {
     } catch (error) {
       setForm(form);
       triggerHaptic('error');
-      toast.error('Could not update platform switch.');
+      toast.error('Could not update rental switch.');
     } finally {
       setSavingSwitch('');
     }
   };
 
   return (
-    <PageShell eyebrow="System Settings" title="Platform Settings" subtitle="Control fee defaults, verification behavior, maintenance mode, and support routing from one place.">
+    <PageShell eyebrow="Rental settings" title="RoomRadar settings" subtitle="Control service fee defaults, verification behavior, maintenance mode, and support routing from one place.">
       <div className="grid gap-4 sm:gap-6 xl:grid-cols-3">
         <div className="xl:col-span-2">
-          <Card title="Business Controls" subtitle="These values are saved in MongoDB and used by the platform admin layer.">
+          <Card title="Business Controls" subtitle="These values control RoomRadar fees, booking rules, and support behavior.">
             <div className="grid gap-4 sm:grid-cols-2">
               <label className="space-y-2">
-                <span className="text-sm font-bold">Platform fee</span>
+                <span className="text-sm font-bold">Service fee</span>
                 <input className="input-field" type="number" min="0" value={form.platformFee ?? 0} onChange={(event) => updateField('platformFee', event.target.value)} />
               </label>
               <label className="space-y-2">
@@ -877,7 +877,7 @@ const SettingsPanel = ({ data, setData }) => {
                 <input className="input-field" type="number" min="0" max="100" value={form.commissionPercent ?? 0} onChange={(event) => updateField('commissionPercent', event.target.value)} />
               </label>
               <label className="space-y-2">
-                <span className="text-sm font-bold">Platform fee percentage</span>
+                <span className="text-sm font-bold">Service fee percentage</span>
                 <input className="input-field" type="number" min="0" max="100" value={form.platformFeePercentage ?? 0} onChange={(event) => updateField('platformFeePercentage', event.target.value)} />
               </label>
               <label className="space-y-2 sm:col-span-2">
@@ -899,7 +899,7 @@ const SettingsPanel = ({ data, setData }) => {
             </div>
           </Card>
         </div>
-        <Card title="Operational Switches" subtitle="Toggle platform-level behavior safely.">
+        <Card title="Operational Switches" subtitle="Toggle rental service behavior safely.">
           <div className="space-y-3">
             {[
               ['maintenanceMode', 'Maintenance mode'],
@@ -918,7 +918,7 @@ const SettingsPanel = ({ data, setData }) => {
               >
                 <span>
                   <span className="block text-sm font-bold">{label}</span>
-                  {savingSwitch === key && <span className="text-xs font-semibold text-cyan-500">Saving to MongoDB...</span>}
+                  {savingSwitch === key && <span className="text-xs font-semibold text-cyan-500">Saving settings...</span>}
                 </span>
                 <span className={`h-6 w-11 rounded-full p-1 transition ${form[key] ? 'bg-cyan-500' : 'bg-gray-300 dark:bg-dark-border'}`}>
                   <span className={`block h-4 w-4 rounded-full bg-white transition ${form[key] ? 'translate-x-5' : ''}`} />

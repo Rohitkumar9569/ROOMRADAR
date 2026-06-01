@@ -25,7 +25,7 @@ const clearSlowApiNotice = (config, { failed = false } = {}) => {
 
   if (metadata.slowApiToastShown) {
     if (failed) {
-      toast.error('Could not reach RoomRadar server. Please retry once.', { id: SLOW_API_TOAST_ID, duration: 5000 });
+      toast.error('RoomRadar server unavailable. Retry once.', { id: SLOW_API_TOAST_ID, duration: 5000 });
     } else {
       toast.success('Connected.', { id: SLOW_API_TOAST_ID, duration: 1400 });
     }
@@ -61,7 +61,7 @@ api.interceptors.request.use(
       };
       config.metadata.slowApiTimer = window.setTimeout(() => {
         config.metadata.slowApiToastShown = true;
-        toast.loading('Waking RoomRadar server. Please wait a few seconds.', {
+        toast.loading('Connecting to RoomRadar...', {
           id: SLOW_API_TOAST_ID,
           duration: 30000,
         });

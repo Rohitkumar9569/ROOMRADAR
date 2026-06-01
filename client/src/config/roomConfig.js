@@ -57,7 +57,7 @@ export const roomConfig = {
         { key: 'wardrobe', label: 'Wardrobe', type: 'boolean', icon: 'archive', showOnCard: false, showOnDetail: true, filterable: false },
         { key: 'kitchenAccess', label: 'Kitchen Access', type: 'boolean', icon: 'chef-hat', showOnCard: false, showOnDetail: true, filterable: true },
         { key: 'waterPurifier', label: 'Water Purifier', type: 'boolean', icon: 'filter', showOnCard: false, showOnDetail: true, filterable: true },
-        { key: 'housekeeping', label: 'Housekeeping', type: 'boolean', icon: 'sparkles', showOnCard: false, showOnDetail: true, filterable: true },
+        { key: 'housekeeping', label: 'Housekeeping', type: 'boolean', icon: 'shield', showOnCard: false, showOnDetail: true, filterable: true },
       ],
     },
     {
@@ -72,7 +72,7 @@ export const roomConfig = {
         { key: 'electricityBilling', label: 'Electricity Billing', type: 'select', required: true, default: 'Metered separately', options: ['Included in rent', 'Metered separately', 'Fixed monthly', 'Not included'], icon: 'zap', showOnCard: false, showOnDetail: true, filterable: true },
         { key: 'waterCharge', label: 'Water Charge / Month', type: 'number', required: false, default: 0, icon: 'droplets', format: 'currency', showOnCard: false, showOnDetail: true },
         { key: 'paymentPreference', label: 'Payment Preference', type: 'select', required: true, default: 'Online or Offline', options: ['Online only', 'Offline cash allowed', 'UPI / Bank transfer', 'Online or Offline'], icon: 'wallet', showOnCard: true, showOnDetail: true, filterable: true },
-        { key: 'offlinePaymentAllowed', label: 'Offline Payment Allowed', type: 'boolean', icon: 'banknote', showOnCard: false, showOnDetail: true, filterable: true },
+        { key: 'offlinePaymentAllowed', label: 'Offline payment', type: 'boolean', icon: 'banknote', showOnCard: false, showOnDetail: true, filterable: true },
         { key: 'rentNegotiable', label: 'Rent Negotiable', type: 'boolean', icon: 'handshake', showOnCard: false, showOnDetail: true, filterable: true },
         { key: 'minimumStay', label: 'Minimum Stay (months)', type: 'number', required: false, default: 1, icon: 'calendar', unit: 'months', valueUnit: true, showOnCard: false, showOnDetail: true },
         { key: 'cancellationPolicy', label: 'Cancellation Policy', type: 'select', required: true, default: 'Flexible', options: ['Flexible', 'Moderate', 'Strict'], icon: 'calendar-x', showOnCard: false, showOnDetail: true, filterable: true },

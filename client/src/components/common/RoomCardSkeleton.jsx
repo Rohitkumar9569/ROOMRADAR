@@ -38,10 +38,10 @@ function RoomCardSkeleton({ variant = 'default' }) {
   // Default card variant for premium room cards
   return (
     <div
-      className="relative overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800"
+      className="rr-room-card rr-room-card-skeleton relative overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800"
+      aria-hidden="true"
     >
-      {/* Image Section */}
-      <div className="skeleton-wave relative aspect-[16/10] overflow-hidden bg-gray-200 dark:bg-gray-700 max-sm:aspect-[4/3]">
+      <div className="rr-room-card-media skeleton-wave relative aspect-[16/10] overflow-hidden bg-gray-200 dark:bg-gray-700 max-sm:aspect-[4/3]">
         
         {/* Badge placeholders */}
         <div className="absolute top-3 left-3 flex gap-2">
@@ -59,21 +59,20 @@ function RoomCardSkeleton({ variant = 'default' }) {
         </div>
       </div>
 
-      {/* Content Section */}
-      <div className="min-h-[12.55rem] p-4">
-        <div className="flex items-center justify-between gap-3">
-          <SkeletonBar width="w-36" height="h-3.5" className="bg-gray-200 dark:bg-gray-700" />
+      <div className="rr-room-card-body min-h-[12.55rem] p-4">
+        <SkeletonBar width="w-36" height="h-3.5" className="rr-card-eyebrow bg-gray-200 dark:bg-gray-700" />
+        <div className="rr-room-card-title mt-3 space-y-1.5">
+          <SkeletonBar width="w-10/12" height="h-5" className="bg-gray-200 dark:bg-gray-700" />
+          <SkeletonBar width="w-9/12" height="h-5" className="bg-gray-200 dark:bg-gray-700" />
         </div>
-        <SkeletonBar width="w-10/12" height="h-5" className="mt-3 bg-gray-200 dark:bg-gray-700" />
-        <SkeletonBar width="w-9/12" height="h-5" className="mt-1.5 bg-gray-200 dark:bg-gray-700" />
-        <div className="mt-2 grid grid-cols-2 gap-1.5">
+        <div className="rr-card-detail-chips mt-2 grid grid-cols-2 gap-1.5">
           <SkeletonBar width="w-full" height="h-6" className="rounded-full bg-gray-200 dark:bg-gray-700" />
           <SkeletonBar width="w-full" height="h-6" className="rounded-full bg-gray-200 dark:bg-gray-700" />
           <SkeletonBar width="w-7/12" height="h-6" className="rounded-full bg-gray-200 dark:bg-gray-700" />
         </div>
-        <SkeletonBar width="w-full" height="h-6" className="mt-1.5 rounded-xl bg-gray-200 dark:bg-gray-700" />
+        <SkeletonBar width="w-full" height="h-6" className="rr-room-card-location mt-1.5 rounded-xl bg-gray-200 dark:bg-gray-700" />
 
-        <div className="mt-2.5 flex items-baseline justify-between gap-2 rounded-2xl bg-gray-100 p-2 dark:bg-gray-700/60">
+        <div className="rr-room-card-footer mt-2.5 flex items-baseline justify-between gap-2 rounded-2xl bg-gray-100 p-2 dark:bg-gray-700/60">
           <SkeletonBar width="w-24" height="h-6" className="bg-gray-200 dark:bg-gray-700" />
           <SkeletonBar width="w-10" height="h-3" className="bg-gray-200 dark:bg-gray-700" />
         </div>

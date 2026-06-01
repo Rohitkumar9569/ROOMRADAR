@@ -317,20 +317,13 @@ function LocationPicker({ onLocationChange, selectedLocation }) {
       {/* --- Overlays --- */}
       <div className="center-marker-container absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none z-[1000]">
 
-        {/*  Premium SVG Marker  */}
-        <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-          <defs>
-            <linearGradient id="premium-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" style={{ stopColor: '#8A2BE2', stopOpacity: 1 }} />
-              <stop offset="100%" style={{ stopColor: '#4F46E5', stopOpacity: 1 }} />
-            </linearGradient>
-          </defs>
-          <circle cx="12" cy="12" r="8" stroke="url(#premium-gradient)" />
-          <circle className="breathing-dot" cx="12" cy="12" r="3" stroke="url(#premium-gradient)" fill="url(#premium-gradient)" fillOpacity="0.3" />
-          <line x1="12" y1="2" x2="12" y2="6" stroke="url(#premium-gradient)" />
-          <line x1="12" y1="18" x2="12" y2="22" stroke="url(#premium-gradient)" />
-          <line x1="2" y1="12" x2="6" y2="12" stroke="url(#premium-gradient)" />
-          <line x1="18" y1="12" x2="22" y2="12" stroke="url(#premium-gradient)" />
+        <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#1a73e8" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="12" cy="12" r="8" />
+          <circle className="breathing-dot" cx="12" cy="12" r="3" fill="#1a73e8" fillOpacity="0.18" />
+          <line x1="12" y1="2" x2="12" y2="6" />
+          <line x1="12" y1="18" x2="12" y2="22" />
+          <line x1="2" y1="12" x2="6" y2="12" />
+          <line x1="18" y1="12" x2="22" y2="12" />
         </svg>
 
       </div>

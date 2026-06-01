@@ -4,15 +4,15 @@ import { Home, Lock, Mail, ShieldCheck, Wrench } from 'lucide-react';
 
 const MaintenancePage = ({ settings }) => (
   <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-light-bg px-4 py-10 text-light-text dark:bg-dark-bg dark:text-dark-text">
-    <div className="absolute inset-x-0 top-0 h-72 bg-gradient-to-b from-cyan-500/15 via-transparent to-transparent dark:from-cyan-400/10" />
+    <div className="absolute inset-x-0 top-0 h-72 bg-transparent" />
     <div className="relative w-full max-w-3xl overflow-hidden rounded-[2rem] border border-light-border bg-white p-6 text-center shadow-2xl shadow-slate-950/10 dark:border-dark-border dark:bg-dark-sidebar dark:shadow-black/30 sm:p-10">
       <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl bg-cyan-500/10 text-cyan-500">
         <Wrench className="h-8 w-8" />
       </div>
       <p className="mt-6 text-[11px] font-black uppercase tracking-[0.24em] text-cyan-500">RoomRadar maintenance</p>
-      <h1 className="mt-3 text-3xl font-black tracking-tight sm:text-5xl">We are upgrading the platform</h1>
+      <h1 className="mt-3 text-3xl font-black tracking-tight sm:text-5xl">We are upgrading RoomRadar</h1>
       <p className="mx-auto mt-4 max-w-xl text-sm font-semibold leading-7 text-light-muted dark:text-dark-muted">
-        RoomRadar is temporarily locked while the admin team performs a platform update. Admins can still sign in and manage the system.
+        RoomRadar is temporarily locked while the admin team performs a rental service update. Admins can still sign in and manage rooms, requests, and support.
       </p>
 
       <div className="mt-8 grid gap-3 sm:grid-cols-3">
@@ -25,7 +25,7 @@ const MaintenancePage = ({ settings }) => (
           <p className="text-sm font-black">Bookings protected</p>
         </div>
         <div className="rounded-3xl bg-light-bg p-4 dark:bg-dark-input">
-          <Mail className="mx-auto mb-3 h-5 w-5 text-violet-500" />
+          <Mail className="mx-auto mb-3 h-5 w-5 text-blue-500" />
           <p className="text-sm font-black">{settings?.supportEmail || 'support@roomradar.in'}</p>
         </div>
       </div>

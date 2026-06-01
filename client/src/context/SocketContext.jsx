@@ -1,6 +1,6 @@
 // client/src/context/SocketContext.jsx
 
-import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { io } from 'socket.io-client';
 import toast from 'react-hot-toast';
 import { useAuth } from './AuthContext';
@@ -24,9 +24,10 @@ export const SocketProvider = ({ children }) => {
     const { user, activeRole, refreshUser } = useAuth();
     const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
     const socket = useRef();
+    const userId = user?._id;
 
-    const refreshUnreadConversationCount = async () => {
-        if (!user) {
+    const refreshUnreadConversationCount = useCallback(async () => {
+        if (!userId) {
             setUnreadNotificationCount(0);
             return;
         }
@@ -37,12 +38,12 @@ export const SocketProvider = ({ children }) => {
         } catch (error) {
             setUnreadNotificationCount(0);
         }
-    };
+    }, [userId]);
 
     // Effect for fetching the initial count
     useEffect(() => {
         refreshUnreadConversationCount();
-    }, [user?._id]);
+    }, [refreshUnreadConversationCount]);
 
     // Effect for managing the socket connection and listeners
     useEffect(() => {
@@ -85,14 +86,14 @@ export const SocketProvider = ({ children }) => {
                         }}
                         className={`${toastState.visible ? 'animate-enter' : 'animate-leave'} pointer-events-auto flex w-[min(92vw,23rem)] items-center gap-3 rounded-[1.15rem] border border-slate-200/80 bg-white/96 p-3 text-left text-slate-950 shadow-[0_18px_46px_-30px_rgba(15,23,42,0.55)] backdrop-blur-xl dark:border-slate-700/70 dark:bg-slate-900/96 dark:text-white`}
                     >
-                        <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-cyan-500 text-sm font-black text-white shadow-lg shadow-cyan-500/20">
+                        <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-[#00a884] text-sm font-black text-white shadow-lg shadow-[0_12px_24px_-18px_rgba(0,168,132,0.75)]">
                             RR
                         </span>
                         <span className="min-w-0 flex-1">
                             <span className="block truncate text-[13px] font-black leading-tight">{title}</span>
                             <span className="mt-0.5 block rr-line-clamp-2 text-[12px] font-semibold leading-4 text-slate-600 dark:text-slate-300">{body}</span>
                         </span>
-                        <span className="flex-shrink-0 rounded-full bg-cyan-500/10 px-2.5 py-1 text-[10px] font-black uppercase text-cyan-700 dark:text-cyan-200">
+                        <span className="flex-shrink-0 rounded-full bg-[#e7fce3] px-2.5 py-1 text-[10px] font-black uppercase text-[#008069] dark:bg-[#005c4b] dark:text-[#d9fdd3]">
                             Inbox
                         </span>
                     </button>
@@ -215,13 +216,15 @@ export const SocketProvider = ({ children }) => {
                 }
             };
         }
-    }, [user, activeRole]);
+        return undefined;
+    }, [user, activeRole, refreshUnreadConversationCount, refreshUser]);
 
-    const value = {
+    const value = useMemo(() => ({
         socket: socket.current,
         unreadNotificationCount,
-        setUnreadNotificationCount // Allow components to reset count, e.g., after reading messages
-    };
+        setUnreadNotificationCount,
+        refreshUnreadConversationCount
+    }), [unreadNotificationCount, refreshUnreadConversationCount]);
 
     return (
         <SocketContext.Provider value={value}>

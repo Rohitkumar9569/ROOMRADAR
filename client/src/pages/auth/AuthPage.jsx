@@ -197,7 +197,7 @@ function AuthPage() {
             title: 'Create your account',
             subtitle: 'Use one account for room discovery, request tracking, and host communication.',
             imageTitle: 'Start with verified rooms and clear booking flow.',
-            imageSubtitle: 'Create one RoomRadar account for travelling, saved rooms, requests, and direct host messages.',
+            imageSubtitle: 'Create one RoomRadar account for room search, saved rooms, requests, and direct host messages.',
             image: signupImage,
             button: 'Create account',
             switchText: 'Already have an account?',
@@ -206,8 +206,8 @@ function AuthPage() {
         };
 
     return (
-        <main className="relative min-h-dvh overflow-hidden bg-[radial-gradient(circle_at_50%_0%,rgba(6,182,212,0.10),transparent_18rem),linear-gradient(180deg,#f8fafc_0%,#eef6fb_100%)] text-light-text dark:bg-[radial-gradient(circle_at_50%_0%,rgba(34,211,238,0.12),transparent_18rem),linear-gradient(180deg,#0f0f0f_0%,#181818_100%)] dark:text-dark-text lg:h-dvh">
-            <div className="absolute inset-x-0 top-0 h-44 bg-gradient-to-b from-cyan-500/12 via-transparent to-transparent dark:from-cyan-400/10" />
+        <main className="relative min-h-dvh overflow-hidden bg-slate-50 text-light-text dark:bg-dark-bg dark:text-dark-text lg:h-dvh">
+            <div className="absolute inset-x-0 top-0 h-44 bg-transparent" />
             <div className="pointer-events-none absolute left-1/2 top-0 hidden h-[26rem] w-[42rem] -translate-x-1/2 rounded-full bg-cyan-400/10 blur-3xl dark:bg-cyan-300/10 lg:block" />
 
             <header className="relative z-10 mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:h-[4.25rem] lg:px-8">
@@ -225,7 +225,7 @@ function AuthPage() {
                 </button>
             </header>
 
-            <section className="relative z-10 mx-auto grid min-h-[calc(100dvh-4rem)] max-w-7xl items-start gap-5 px-4 pb-5 pt-7 sm:px-6 sm:pt-8 lg:h-[calc(100dvh-4.25rem)] lg:min-h-0 lg:grid-cols-[minmax(0,0.92fr)_minmax(430px,0.82fr)] lg:items-center lg:gap-8 lg:px-8 lg:py-6">
+            <section className="rr-auth-shell relative z-10 mx-auto grid min-h-[calc(100dvh-4rem)] max-w-7xl items-start gap-5 px-4 pb-5 pt-7 sm:px-6 sm:pt-8 lg:h-[calc(100dvh-4.25rem)] lg:min-h-0 lg:grid-cols-[minmax(0,0.92fr)_minmax(430px,0.82fr)] lg:items-center lg:gap-8 lg:px-8 lg:py-6">
                 <motion.aside
                     initial={{ opacity: 0, y: 18 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -234,7 +234,7 @@ function AuthPage() {
                 >
                     <img src={modeCopy.image} alt="RoomRadar verified room interior" className="absolute inset-0 h-full w-full object-cover" />
                     <div className="absolute inset-0 bg-gradient-to-b from-slate-950/18 via-slate-950/18 to-slate-950/56" />
-                    <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_18%,rgba(34,211,238,0.22),transparent_35%),radial-gradient(circle_at_85%_18%,rgba(255,56,92,0.18),transparent_30%)]" />
+                    <div className="absolute inset-0 bg-slate-950/8" />
                     <div className="relative flex h-full flex-col justify-between p-6 text-white xl:p-8">
                         <div className="inline-flex w-fit items-center gap-2 rounded-full border border-white/28 bg-white/18 px-4 py-2 text-[11px] font-black uppercase tracking-[0.16em] text-white shadow-[0_12px_32px_rgba(15,23,42,0.18)]">
                             <ShieldCheck className="h-4 w-4 text-cyan-200" />
@@ -242,7 +242,7 @@ function AuthPage() {
                         </div>
 
                         <div className="mx-auto max-w-[30rem] text-center">
-                            <h1 className="mx-auto max-w-[18ch] bg-gradient-to-r from-white via-cyan-100 to-rose-100 bg-clip-text text-[clamp(1.45rem,2.15vw,2.15rem)] font-black leading-[1.08] tracking-[-0.025em] text-transparent drop-shadow-[0_3px_22px_rgba(15,23,42,0.72)]">
+                            <h1 className="mx-auto max-w-[18ch] text-[clamp(1.45rem,2.15vw,2.15rem)] font-black leading-[1.08] tracking-[-0.025em] text-white drop-shadow-[0_3px_22px_rgba(15,23,42,0.72)]">
                                 {modeCopy.imageTitle}
                             </h1>
                             <p className="mx-auto mt-3 max-w-[26rem] text-[13px] font-bold leading-5 text-cyan-50 drop-shadow-[0_2px_16px_rgba(15,23,42,0.7)]">
@@ -252,7 +252,7 @@ function AuthPage() {
 
                         <div className="grid grid-cols-3 gap-2.5">
                             <TrustItem icon={Home} title="Real listings" text="Rooms come from published inventory." />
-                            <TrustItem icon={MessageCircle} title="Host chat" text="Keep room questions inside the platform." />
+                            <TrustItem icon={MessageCircle} title="Host chat" text="Keep room questions inside RoomRadar." />
                             <TrustItem icon={CheckCircle2} title="Clear status" text="Track pending, approved, and confirmed requests." />
                         </div>
                     </div>
@@ -262,7 +262,7 @@ function AuthPage() {
                     initial={{ opacity: 0, y: 18 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.45, delay: 0.08, ease: 'easeOut' }}
-                    className="no-scrollbar mx-auto w-full max-w-[30rem] rounded-[2rem] border border-light-border bg-white/96 p-5 shadow-[0_24px_70px_-42px_rgba(15,23,42,0.55)] ring-1 ring-cyan-500/10 backdrop-blur-xl dark:border-dark-border dark:bg-[#181818]/96 dark:shadow-black/45 dark:ring-cyan-300/10 sm:p-7 lg:max-h-full lg:overflow-y-auto lg:p-7 xl:p-8"
+                    className="rr-auth-panel no-scrollbar mx-auto w-full max-w-[30rem] rounded-[2rem] border border-light-border bg-white/96 p-5 shadow-[0_24px_70px_-42px_rgba(15,23,42,0.55)] ring-1 ring-cyan-500/10 backdrop-blur-xl dark:border-dark-border dark:bg-[#181818]/96 dark:shadow-black/45 dark:ring-cyan-300/10 sm:p-7 lg:max-h-full lg:overflow-y-auto lg:p-7 xl:p-8"
                 >
                     <div className="mb-5 sm:mb-6">
                         <span className="inline-flex items-center gap-2 rounded-full bg-cyan-500/10 px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.13em] text-cyan-700 dark:bg-cyan-400/10 dark:text-cyan-300">
@@ -349,7 +349,7 @@ function AuthPage() {
                             <div className="rounded-2xl border border-cyan-100 bg-cyan-50 p-3 text-xs font-semibold leading-5 text-cyan-800 dark:border-cyan-500/20 dark:bg-cyan-500/10 dark:text-cyan-200">
                                 {settings?.allowNewSignups === false
                                     ? 'New signups are temporarily paused. Existing users and admins can still log in.'
-                                    : 'Use at least 6 characters. Hosting and travelling profile details can be managed separately later.'}
+                                    : 'Use at least 6 characters. Hosting and room seeker details can be managed separately later.'}
                             </div>
                         )}
 

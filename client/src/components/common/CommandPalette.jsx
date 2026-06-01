@@ -27,7 +27,7 @@ const adminRoles = ['Admin', 'Super_Admin', 'Moderator', 'Support'];
 const normalize = (value) => String(value || '').toLowerCase();
 
 const baseActions = [
-  { id: 'home', label: 'Home', hint: 'Room discovery', path: '/', Icon: Home, keywords: 'landing travelling search' },
+  { id: 'home', label: 'Home', hint: 'Room discovery', path: '/', Icon: Home, keywords: 'landing room seeker search' },
   { id: 'rooms', label: 'Search rooms', hint: 'Map and filters', path: '/rooms', Icon: Search, keywords: 'explore listings find' },
 ];
 
@@ -58,7 +58,7 @@ function CommandPalette() {
     if (isStudent) {
       next.push(
         { id: 'wishlist', label: 'Wishlist', hint: 'Saved rooms', path: '/profile/wishlist', Icon: Heart, keywords: 'saved favorite rooms' },
-        { id: 'applications', label: 'My applications', hint: 'Booking status', path: '/profile/my-applications', Icon: ShieldCheck, keywords: 'booking approved confirmed' }
+        { id: 'applications', label: 'My room requests', hint: 'Booking status', path: '/profile/my-applications', Icon: ShieldCheck, keywords: 'booking approved confirmed' }
       );
     }
 
@@ -67,7 +67,7 @@ function CommandPalette() {
         { id: 'landlord-overview', label: 'Landlord dashboard', hint: 'Host command center', path: '/landlord/overview', Icon: Gauge, keywords: 'host dashboard overview' },
         { id: 'add-room', label: 'Add new room', hint: 'Create listing', path: '/landlord/add-room', Icon: Plus, keywords: 'listing create property' },
         { id: 'my-rooms', label: 'My rooms', hint: 'Inventory', path: '/landlord/my-rooms', Icon: Home, keywords: 'listings properties inventory' },
-        { id: 'landlord-applications', label: 'Applications', hint: 'Lead pipeline', path: '/landlord/applications', Icon: Users, keywords: 'booking requests leads' },
+        { id: 'landlord-applications', label: 'Booking requests', hint: 'Host queue', path: '/landlord/applications', Icon: Users, keywords: 'booking requests host queue' },
         { id: 'calendar', label: 'Booking calendar', hint: 'Availability', path: '/landlord/calendar', Icon: CalendarDays, keywords: 'dates gaps bookings' },
         { id: 'insights', label: 'Host insights', hint: 'Views and earnings', path: '/landlord/insights', Icon: BarChart3, keywords: 'analytics performance revenue' }
       );
@@ -91,7 +91,7 @@ function CommandPalette() {
       const canOpenAdminSettings = isAdmin && hasAdminPermission(user, 'settings:manage');
       next.push(
         { id: 'support', label: 'Support tickets', hint: canOpenAdminTickets ? 'Admin queue' : 'Help center', path: canOpenAdminTickets ? '/admin/tickets' : inboxPath, Icon: LifeBuoy, keywords: 'help issue ticket' },
-        { id: 'settings', label: canOpenAdminSettings ? 'Platform settings' : 'Account settings', hint: 'Preferences', path: canOpenAdminSettings ? '/admin/settings' : activeRole === 'landlord' ? '/landlord/profile' : '/profile', Icon: Settings, keywords: 'settings preferences' },
+        { id: 'settings', label: canOpenAdminSettings ? 'Rental settings' : 'Account settings', hint: 'Preferences', path: canOpenAdminSettings ? '/admin/settings' : activeRole === 'landlord' ? '/landlord/profile' : '/profile', Icon: Settings, keywords: 'settings preferences' },
         {
           id: 'logout',
           label: 'Logout',

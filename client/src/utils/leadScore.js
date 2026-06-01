@@ -66,7 +66,7 @@ export const calculateLeadScore = (application = {}) => {
   return {
     score: finalScore,
     signals: signals.slice(0, 4),
-    label: finalScore >= 75 ? 'Highly qualified' : finalScore >= 55 ? 'Review ready' : 'Needs details',
+    label: finalScore >= 75 ? 'Ready to approve' : finalScore >= 55 ? 'Host review ready' : 'Needs details',
     tone: finalScore >= 75 ? 'emerald' : finalScore >= 55 ? 'cyan' : 'amber',
   };
 };

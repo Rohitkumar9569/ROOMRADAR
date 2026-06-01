@@ -87,7 +87,7 @@ const BookingPage = () => {
         occupants: 1,
         fullName: user?.name || '',
         mobileNumber: sanitizePhoneInput(user?.mobileNumber || user?.phone || ''),
-        purposeOfStay: 'Travelling',
+        purposeOfStay: 'Student / Individual',
         idProofType: 'Aadhaar Card',
         emergencyName: '',
         emergencyPhone: '',
@@ -268,7 +268,7 @@ const BookingPage = () => {
             });
             setStep(3);
             triggerHaptic('success');
-            toast.success('Booking request sent to the landlord.');
+            toast.success('Booking request sent to the host.');
         } catch (err) {
             triggerHaptic('error');
             toast.error(err.response?.data?.message || 'Could not send booking request.');
@@ -314,7 +314,7 @@ const BookingPage = () => {
                                     <p className="text-xs font-bold uppercase tracking-[0.2em] text-brand">Request to book</p>
                                     <h1 className="mt-2 text-3xl font-semibold text-light-text dark:text-dark-text">Complete your room request</h1>
                                     <p className="mt-2 max-w-2xl text-sm leading-6 text-light-muted dark:text-dark-muted">
-                                        Your request goes to the landlord first. After approval, you confirm from your applications page.
+                                        Your request goes to the host first. After approval, you confirm from your room requests page.
                                     </p>
                                 </div>
                                 <div className="flex items-center gap-2 overflow-x-auto pb-1">
@@ -416,7 +416,7 @@ const BookingPage = () => {
                                         </Field>
                                         <Field label="Purpose of stay" icon={Home}>
                                             <select value={form.purposeOfStay} onChange={(event) => updateForm('purposeOfStay', event.target.value)} className="input-field">
-                                                <option>Travelling</option>
+                                                <option>Student / Individual</option>
                                                 <option>Working Professional</option>
                                                 <option>Family</option>
                                             </select>
@@ -446,7 +446,7 @@ const BookingPage = () => {
                                             <input value={form.emergencyPhone} onChange={(event) => updateForm('emergencyPhone', event.target.value)} className="input-field" {...phoneInputProps} />
                                         </Field>
                                         <div className="col-span-2">
-                                            <label className="mb-2 block text-sm font-semibold">Message to landlord</label>
+                                            <label className="mb-2 block text-sm font-semibold">Message to host</label>
                                             <textarea
                                                 value={form.message}
                                                 onChange={(event) => updateForm('message', event.target.value)}
@@ -486,7 +486,7 @@ const BookingPage = () => {
                                             </div>
                                         </div>
                                         <div className="rounded-2xl bg-amber-50 p-4 text-sm leading-6 text-amber-900 ring-1 ring-amber-100 dark:bg-amber-500/10 dark:text-amber-100 dark:ring-amber-400/20">
-                                            {room.cancellationPolicy || 'Requesting is free. Final confirmation happens only after the landlord approves your request.'}
+                                            {room.cancellationPolicy || 'Requesting is free. Final confirmation happens only after the host approves your request.'}
                                         </div>
                                         <label className="flex cursor-pointer items-start gap-3 rounded-2xl border border-light-border p-4 dark:border-dark-border">
                                             <input
@@ -496,7 +496,7 @@ const BookingPage = () => {
                                                 className="mt-1 h-5 w-5 rounded border-light-border text-cyan-500 focus:ring-cyan-500"
                                             />
                                             <span className="text-sm leading-6 text-light-muted dark:text-dark-muted">
-                                                I agree that this request will be shared with the landlord for verification and approval.
+                                                I agree that this request will be shared with the host for verification and approval.
                                             </span>
                                         </label>
                                     </motion.div>
@@ -516,7 +516,7 @@ const BookingPage = () => {
                                         <p className="mt-2 text-sm text-light-muted dark:text-dark-muted">Booking ID</p>
                                         <p className="mt-1 font-mono text-lg font-bold text-brand">{bookingResult?._id || 'Created'}</p>
                                         <div className="mt-8 grid gap-3 text-left sm:grid-cols-3">
-                                            {['Landlord reviews your profile', 'You get approval notification', 'Confirm booking from applications'].map((item, index) => (
+                                            {['Host reviews your stay details', 'You get approval notification', 'Confirm booking from room requests'].map((item, index) => (
                                                 <div key={item} className="rounded-2xl border border-light-border p-4 dark:border-dark-border">
                                                     <span className="flex h-8 w-8 items-center justify-center rounded-full bg-cyan-500 text-sm font-bold text-white">{index + 1}</span>
                                                     <p className="mt-3 text-sm font-semibold">{item}</p>
@@ -524,7 +524,7 @@ const BookingPage = () => {
                                             ))}
                                         </div>
                                         <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
-                                            <Link to="/profile/my-applications" className="btn-primary">View my applications</Link>
+                                            <Link to="/profile/my-applications" className="btn-primary">View room requests</Link>
                                             <Link to="/rooms" className="btn-outline">Explore more rooms</Link>
                                         </div>
                                     </motion.div>

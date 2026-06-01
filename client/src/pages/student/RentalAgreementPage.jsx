@@ -36,7 +36,7 @@ const RentalAgreementPage = () => {
     const [loading, setLoading] = useState(true);
     const isLandlordAgreement = location.pathname.startsWith('/landlord/');
     const backTo = isLandlordAgreement ? '/landlord/applications?status=confirmed' : '/profile/my-applications';
-    const backLabel = isLandlordAgreement ? 'Applications' : 'Applications';
+    const backLabel = isLandlordAgreement ? 'Booking requests' : 'My room requests';
 
     useEffect(() => {
         const fetchApplication = async () => {
@@ -208,7 +208,7 @@ const RentalAgreementPage = () => {
                                 <div className="mt-5 space-y-3">
                                     <PriceRow label="Monthly rent" value={breakdown.rent} />
                                     <PriceRow label="Security deposit" value={breakdown.securityDeposit} />
-                                    <PriceRow label="Platform protection" value={breakdown.platformFee} />
+                                    <PriceRow label="Booking protection" value={breakdown.platformFee} />
                                     <div className="border-t border-slate-200 pt-3 dark:border-secondary-700">
                                         <PriceRow label="Total confirmed" value={breakdown.total} strong />
                                     </div>

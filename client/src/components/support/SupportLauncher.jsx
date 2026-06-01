@@ -15,8 +15,8 @@ const getContextFromPath = (path = '') => {
   if (path.startsWith('/landlord/applications') || path.startsWith('/landlord/calendar')) {
     return {
       category: 'booking',
-      subject: 'Landlord booking or guest issue',
-      message: 'I need help with a guest booking, application, or stay schedule. Details:\n',
+      subject: 'Host booking request issue',
+      message: 'I need help with a guest booking request or stay schedule. Details:\n',
       scope: 'landlord',
     };
   }

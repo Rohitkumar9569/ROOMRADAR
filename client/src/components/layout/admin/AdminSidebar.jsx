@@ -34,7 +34,7 @@ const AdminSidebar = ({ counts = {} }) => {
                     <p className="text-lg font-black tracking-tight">
                         <span className="text-brand">Room</span><span className="text-cyan-500">Radar</span>
                     </p>
-                    <p className="text-xs font-black uppercase tracking-[0.16em] text-light-muted dark:text-dark-muted">Admin OS</p>
+                    <p className="text-xs font-black uppercase tracking-[0.16em] text-light-muted dark:text-dark-muted">Rental ops</p>
                 </div>
             </Link>
 

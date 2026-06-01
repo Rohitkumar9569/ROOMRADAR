@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { format } from 'date-fns';
 import toast from 'react-hot-toast';
-import { BadgeCheck, CalendarClock, CalendarDays, CheckCircle2, FileText, MessageCircle, Search, ShieldCheck, Star, Timer, XCircle, Zap } from 'lucide-react';
+import { BadgeCheck, Building2, CalendarClock, CalendarDays, CheckCircle2, FileText, MessageCircle, Search, ShieldCheck, Star, Timer, XCircle, Zap } from 'lucide-react';
 import api from '../../api';
 import Spinner from '../../components/common/Spinner';
 import ApplicationReviewDrawer from '../../components/features/booking/ApplicationReviewDrawer';
@@ -35,7 +35,7 @@ function LandlordApplicationsPage() {
       const { data } = await api.get('/applications/landlord');
       setApplications(Array.isArray(data) ? data : []);
     } catch (error) {
-      toast.error('Could not load applications.');
+      toast.error('Could not load booking requests.');
     } finally {
       setLoading(false);
     }
@@ -169,8 +169,8 @@ function LandlordApplicationsPage() {
           <p className="text-xs font-black uppercase tracking-[0.16em] text-brand">Booking requests</p>
           <div className="mt-2 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div>
-              <h1 className="text-2xl font-black tracking-tight sm:text-[28px]">Applications</h1>
-              <p className="mt-1 text-sm font-semibold text-light-muted dark:text-dark-muted">Review every room request and keep the booking lifecycle moving.</p>
+              <h1 className="text-2xl font-black tracking-tight sm:text-[28px]">Booking requests</h1>
+              <p className="mt-1 text-sm font-semibold text-light-muted dark:text-dark-muted">Review every stay request, message the seeker, and keep each room booking moving.</p>
             </div>
             <div className="relative w-full max-w-sm">
               <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-light-muted dark:text-dark-muted" />
@@ -178,7 +178,7 @@ function LandlordApplicationsPage() {
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
                 className="input-field pl-11"
-                placeholder="Search applicant or room"
+                placeholder="Search seeker or room"
               />
             </div>
           </div>
@@ -190,7 +190,7 @@ function LandlordApplicationsPage() {
               <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-600 text-white"><BadgeCheck className="h-5 w-5" /></span>
               <div>
                 <p className="text-2xl font-black text-emerald-700 dark:text-emerald-200">{leadSummary.highlyQualified}</p>
-                <p className="text-xs font-black uppercase tracking-[0.12em] text-emerald-700/75 dark:text-emerald-200/75">Highly qualified</p>
+                <p className="text-xs font-black uppercase tracking-[0.12em] text-emerald-700/75 dark:text-emerald-200/75">Ready to approve</p>
               </div>
             </div>
           </div>
@@ -208,7 +208,7 @@ function LandlordApplicationsPage() {
               <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-500 text-white"><ShieldCheck className="h-5 w-5" /></span>
               <div>
                 <p className="text-2xl font-black text-amber-700 dark:text-amber-200">{leadSummary.missingDetails}</p>
-                <p className="text-xs font-black uppercase tracking-[0.12em] text-amber-700/75 dark:text-amber-200/75">Need screening</p>
+                <p className="text-xs font-black uppercase tracking-[0.12em] text-amber-700/75 dark:text-amber-200/75">Needs details</p>
               </div>
             </div>
           </div>
@@ -235,8 +235,8 @@ function LandlordApplicationsPage() {
         {filteredApplications.length === 0 ? (
           <div className="rounded-3xl border border-dashed border-light-border bg-light-card p-10 text-center dark:border-dark-border dark:bg-dark-card">
             <CalendarDays className="mx-auto h-12 w-12 text-brand" />
-            <h2 className="mt-4 text-xl font-black">No applications found</h2>
-            <p className="mt-2 text-sm font-semibold text-light-muted dark:text-dark-muted">Try another status or wait for new booking requests.</p>
+            <h2 className="mt-4 text-xl font-black">No booking requests found</h2>
+            <p className="mt-2 text-sm font-semibold text-light-muted dark:text-dark-muted">Try another status or wait for new room requests.</p>
           </div>
         ) : (
           <div className="space-y-4">
@@ -257,19 +257,19 @@ function LandlordApplicationsPage() {
                       setDetailApplication(application);
                     }
                   }}
-                  aria-label={`Review details for ${application.student?.name || application.fullName || 'applicant'}`}
+                  aria-label={`Review booking details for ${application.student?.name || application.fullName || 'room seeker'}`}
                   className="cursor-pointer rounded-3xl border border-light-border bg-light-card p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-cyan-300 hover:shadow-lg dark:border-dark-border dark:bg-dark-card dark:hover:border-cyan-700/60"
                 >
                   <div className="flex flex-col gap-4 md:flex-row md:items-center">
                     <div className="flex items-center gap-4 md:w-[35%]">
                       <div className="flex h-20 w-20 flex-shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-brand/10 text-lg font-black text-brand">
-                        {roomImage ? <img src={roomImage} alt={application.room?.title || 'Room'} className="h-full w-full object-cover" loading="lazy" /> : (application.room?.title?.charAt(0) || 'R')}
+                        {roomImage ? <img src={roomImage} alt={application.room?.title || 'Room'} className="h-full w-full object-cover" loading="lazy" /> : <Building2 className="h-7 w-7" aria-hidden="true" />}
                       </div>
                       <div className="min-w-0">
                         <Link onClick={(event) => event.stopPropagation()} to={application.room?._id ? `/room/${application.room._id}` : '/landlord/my-rooms'} className="block truncate text-base font-black hover:text-brand">
                           {application.room?.title || 'Room'}
                         </Link>
-                        <p className="mt-1 truncate text-sm font-semibold text-light-muted dark:text-dark-muted">{application.student?.name || 'Applicant'}</p>
+                        <p className="mt-1 truncate text-sm font-semibold text-light-muted dark:text-dark-muted">{application.student?.name || 'Room seeker'}</p>
                         {Number(application.student?.guestAverageRating || 0) > 0 && (
                           <p className="mt-1 inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2 py-0.5 text-[11px] font-black text-amber-700 dark:text-amber-300">
                             <Star className="h-3 w-3 fill-current" />

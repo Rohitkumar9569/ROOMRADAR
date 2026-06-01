@@ -13,7 +13,7 @@ const ROLE_SCOPE_ALIASES = {
 
 const ROLE_SCOPE_LABELS = {
   account: 'Account',
-  student: 'Travelling',
+  student: 'Room seeker',
   landlord: 'Landlord',
 };
 

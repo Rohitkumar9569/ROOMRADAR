@@ -1,45 +1,44 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { FaExternalLinkAlt, FaFacebook, FaInstagram, FaTwitter } from 'react-icons/fa';
+import { FaFacebook, FaInstagram, FaTwitter } from 'react-icons/fa';
+import { BadgeCheck, MapPin, MessageCircle, ReceiptText } from 'lucide-react';
 import SupportLauncher from '../support/SupportLauncher';
 
-const developers = [
+const rentalHighlights = [
   {
-    initials: 'RK',
-    name: 'Rohit Kumar',
-    role: 'Lead Developer',
-    color: 'from-brand to-red-600',
-    detail: 'GATE DA & CSE Qualifier (AIR 7275) - MERN Stack - Final Year B.Tech CSE',
-    href: 'https://rohitkumar-portfolio.vercel.app',
-    linkLabel: 'View portfolio',
+    name: 'Verified stays',
+    role: 'Listing checks',
+    Icon: BadgeCheck,
+    badgeClass: 'bg-emerald-600',
+    detail: 'Photos, rent, location, amenities, and host details are reviewed before a room goes live.',
   },
   {
-    initials: 'S',
-    name: 'Shubhanshu',
-    role: 'Software Engineer',
-    color: 'from-cyan-500 to-cyan-700',
-    detail: 'TCS Digital - NQT Qualified - TCS Engineer - LinkedIn Brain Games - DSA',
+    name: 'Host contact',
+    role: 'Direct room chat',
+    Icon: MessageCircle,
+    badgeClass: 'bg-blue-600',
+    detail: 'Seekers can message the host, ask stay questions, and keep every booking conversation in one place.',
   },
   {
-    initials: 'KK',
-    name: 'Kamal Kumar',
-    role: 'Software Engineer',
-    color: 'from-purple-500 to-purple-700',
-    detail: 'Multi-talented - Chef & Coder - DSA Enthusiast - AI/ML Explorer',
+    name: 'Booking record',
+    role: 'Request tracking',
+    Icon: ReceiptText,
+    badgeClass: 'bg-slate-700',
+    detail: 'Every request, approval, payment confirmation, agreement, and support ticket stays connected to the room.',
   },
   {
-    initials: 'SP',
-    name: 'Samrat Prajapati',
-    role: 'Teacher & Engineer',
-    color: 'from-green-500 to-green-700',
-    detail: 'College Teacher - Software Engineer - Cricket Lover - DSA Practitioner',
+    name: 'Local discovery',
+    role: 'City-first search',
+    Icon: MapPin,
+    badgeClass: 'bg-brand',
+    detail: 'Search by city, locality, budget, move-in date, room type, rules, and practical amenities.',
   },
 ];
 
 const footerLinks = [
   { label: 'Explore Rooms', to: '/rooms' },
   { label: 'List Your Room', to: '/list-your-room' },
-  { label: 'Applications', to: '/profile/my-applications' },
+  { label: 'My Room Requests', to: '/profile/my-applications' },
   { label: 'Inbox', to: '/profile/inbox' },
 ];
 
@@ -107,41 +106,30 @@ function Footer({ className = '' }) {
         </div>
 
         <div className="mt-8 border-t border-light-border pt-6 dark:border-white/10 sm:mt-10 sm:pt-8">
-          <p className="text-center text-xs font-bold uppercase tracking-[0.14em] text-cyan-500 dark:text-cyan-400">Developed by</p>
+          <p className="text-center text-xs font-bold uppercase tracking-[0.14em] text-cyan-500 dark:text-cyan-400">RoomRadar rental promise</p>
           <div className="mt-4 grid grid-cols-1 gap-2.5 sm:mt-6 sm:grid-cols-2 sm:gap-4 md:grid-cols-4">
-            {developers.map((developer) => {
+            {rentalHighlights.map((highlight) => {
+              const Icon = highlight.Icon;
               const content = (
-                <span className={`group flex min-h-0 items-center gap-3 rounded-2xl border border-light-border bg-light-bg p-3 text-left transition-all hover:-translate-y-1 hover:border-cyan-400/50 hover:bg-white hover:shadow-xl hover:shadow-cyan-500/10 dark:border-white/10 dark:bg-white/5 dark:hover:bg-white/10 sm:min-h-44 sm:flex-col sm:items-center sm:p-4 sm:text-center ${developer.href ? 'cursor-pointer ring-1 ring-transparent hover:ring-cyan-300/50' : 'cursor-default'}`}>
-                  <span className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br ${developer.color} text-sm font-black text-white shadow-lg transition-transform group-hover:scale-110 sm:mb-3 sm:h-12 sm:w-12 sm:text-lg`}>
-                    {developer.initials}
+                <span className="group flex min-h-0 cursor-default items-center gap-3 rounded-2xl border border-light-border bg-light-bg p-3 text-left transition-all hover:-translate-y-1 hover:border-cyan-400/50 hover:bg-white hover:shadow-xl hover:shadow-cyan-500/10 dark:border-white/10 dark:bg-white/5 dark:hover:bg-white/10 sm:min-h-44 sm:flex-col sm:items-center sm:p-4 sm:text-center">
+                  <span className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full ${highlight.badgeClass} text-sm font-black text-white shadow-lg transition-transform group-hover:scale-110 sm:mb-3 sm:h-12 sm:w-12 sm:text-lg`}>
+                    <Icon className="h-5 w-5 sm:h-6 sm:w-6" aria-hidden="true" />
                   </span>
                   <span className="min-w-0">
-                    <span className="block truncate text-sm font-bold text-light-text dark:text-white">{developer.name}</span>
-                    <span className="mt-0.5 block truncate text-[11px] font-black text-cyan-500 dark:text-cyan-400 sm:mt-1 sm:text-xs">{developer.role}</span>
+                    <span className="block truncate text-sm font-bold text-light-text dark:text-white">{highlight.name}</span>
+                    <span className="mt-0.5 block truncate text-[11px] font-black text-cyan-500 dark:text-cyan-400 sm:mt-1 sm:text-xs">{highlight.role}</span>
                     <span className="mt-3 hidden text-xs leading-relaxed text-light-muted transition-colors group-hover:text-light-text dark:text-gray-500 dark:group-hover:text-gray-300 sm:block">
-                      {developer.detail}
+                      {highlight.detail}
                     </span>
-                    {developer.href && (
-                      <span className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-cyan-500 px-3 py-1.5 text-[11px] font-black text-white shadow-sm shadow-cyan-500/20 transition group-hover:bg-cyan-600">
-                        {developer.linkLabel || 'Open link'}
-                        <FaExternalLinkAlt className="h-2.5 w-2.5" />
-                      </span>
-                    )}
                   </span>
                 </span>
               );
 
-              return developer.href ? (
-                <a key={developer.name} href={developer.href} target="_blank" rel="noopener noreferrer" aria-label={`${developer.name} portfolio`}>
-                  {content}
-                </a>
-              ) : (
-                <span key={developer.name}>{content}</span>
-              );
+              return <span key={highlight.name}>{content}</span>;
             })}
           </div>
           <p className="mx-auto mt-4 max-w-xs text-center text-[11px] font-semibold leading-5 text-light-muted dark:text-gray-600 sm:mt-6 sm:max-w-none sm:text-xs">
-            Gurukul Kangri Vishwavidyalaya, Haridwar - AI/ML, DSA, and real-world tech.
+            Built for real room discovery, safer host conversations, and clear rental decisions.
           </p>
           <p className="mt-4 text-center text-[11px] text-light-muted dark:text-gray-500 sm:mt-6 sm:text-xs">&copy; 2026 RoomRadar. All rights reserved.</p>
         </div>

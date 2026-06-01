@@ -1,17 +1,17 @@
 import React, { useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { NavLink, useLocation } from 'react-router-dom';
+import { UserRound } from 'lucide-react';
 import { useAuth } from '../../../context/AuthContext';
+import { getAvatarColorStyle, getAvatarInitial } from '../../../utils/avatar';
 import { prefetchRoute, warmRoutesWhenIdle } from '../../../utils/routePrefetch';
-
-const getInitial = (name = 'R') => name.charAt(0).toUpperCase();
 
 const getProfile = (user, activeRole) => {
   const normalizedRole = String(activeRole || '').toLowerCase();
   const profile = normalizedRole === 'landlord' ? user?.roleProfiles?.landlord : user?.roleProfiles?.student;
 
   return {
-    name: profile?.name || user?.name || 'RoomRadar',
+    name: profile?.name || user?.name || user?.email || 'RoomRadar',
     avatar: profile?.avatarUrl || profile?.profilePicture || user?.avatarUrl || user?.profilePicture,
   };
 };
@@ -40,6 +40,12 @@ const MobileBottomNav = ({ items, hidden = false, currentPath, className = '', v
   };
 
   const activeIndex = Math.max(0, items.findIndex(getActiveState));
+  const getBadgeClassName = (item) => {
+    const isMessageBadge = item.badgeKind === 'messages'
+      || String(item.path || '').includes('/inbox')
+      || String(item.label || '').toLowerCase() === 'inbox';
+    return `rr-bottom-badge ${isMessageBadge ? 'rr-message-count-badge' : ''}`.trim();
+  };
 
   const nav = (
     <nav className={`app-mobile-bottom-nav fixed bottom-0 left-0 right-0 z-50 w-full md:hidden ${className}`} aria-label="Primary mobile navigation">
@@ -84,7 +90,15 @@ const MobileBottomNav = ({ items, hidden = false, currentPath, className = '', v
                       <span className={`rr-bottom-icon ${active ? 'is-active' : ''}`}>
                         {item.avatar ? (
                           <span className={`rr-bottom-avatar ${active ? 'is-active' : ''}`}>
-                            {profile.avatar ? <img src={profile.avatar} alt={profile.name} /> : <span>{getInitial(profile.name)}</span>}
+                            {profile.avatar ? (
+                              <img src={profile.avatar} alt={profile.name} />
+                            ) : user ? (
+                              <span className="rr-avatar-initial" style={getAvatarColorStyle(user.id || user._id || user.email, profile.name)} aria-hidden="true">
+                                {getAvatarInitial(profile.name, user.email)}
+                              </span>
+                            ) : (
+                              <UserRound className="rr-avatar-fallback-icon" aria-hidden="true" />
+                            )}
                           </span>
                         ) : (
                           <Icon
@@ -94,7 +108,7 @@ const MobileBottomNav = ({ items, hidden = false, currentPath, className = '', v
                           />
                         )}
                         {badge > 0 && (
-                          <span className="rr-bottom-badge">
+                          <span className={getBadgeClassName(item)} aria-label={`${badge} unread messages`}>
                             {badge > 99 ? '99+' : badge}
                           </span>
                         )}

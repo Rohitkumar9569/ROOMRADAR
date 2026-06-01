@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+﻿import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import api from '../../api';
 import toast from 'react-hot-toast';
@@ -48,7 +48,7 @@ const StatCard = ({ title, value, icon: Icon, tone = 'cyan', linkTo, caption }) 
     green: 'bg-emerald-500/10 text-emerald-500 shadow-emerald-500/10',
     amber: 'bg-amber-500/10 text-amber-500 shadow-amber-500/10',
     red: 'bg-red-500/10 text-red-500 shadow-red-500/10',
-    violet: 'bg-violet-500/10 text-violet-500 shadow-violet-500/10',
+    violet: 'bg-blue-500/10 text-blue-600 shadow-blue-500/10',
   };
 
   const content = (
@@ -113,7 +113,7 @@ const RecentActivityFeed = ({ activities }) => {
         </Link>
       )) : (
         <div className="rounded-2xl border border-dashed border-light-border p-8 text-center text-sm font-semibold text-light-muted dark:border-dark-border dark:text-dark-muted">
-          No platform activity yet.
+          No room activity yet.
         </div>
       )}
     </div>
@@ -293,13 +293,13 @@ const AdminDashboardPage = () => {
       <div className="mx-auto max-w-7xl space-y-4 sm:space-y-6">
         <div className="overflow-hidden rounded-[1.5rem] border border-light-border bg-light-card shadow-sm dark:border-dark-border dark:bg-dark-card sm:rounded-[2rem]">
           <div className="relative p-4 sm:p-7">
-            <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-cyan-400 via-brand to-amber-400" />
-            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-cyan-500 sm:text-[11px] sm:tracking-[0.22em]">Platform command center</p>
+            <div className="absolute inset-x-0 top-0 h-1 bg-brand" />
+            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-cyan-500 sm:text-[11px] sm:tracking-[0.22em]">Rental command center</p>
             <div className="mt-2 flex flex-col gap-3 md:flex-row md:items-end md:justify-between sm:mt-3 sm:gap-4">
               <div className="min-w-0">
                 <h1 className="text-[clamp(22px,6vw,30px)] font-black leading-tight tracking-tight">Admin Dashboard</h1>
                 <p className="mt-2 max-w-2xl text-[12px] font-semibold leading-5 text-light-muted dark:text-dark-muted sm:text-sm sm:leading-6">
-                  Monitor users, listings, revenue, trust signals, and support load from one premium control room.
+                  Monitor renters, hosts, listings, payments, trust checks, and support load from one rental operations desk.
                 </p>
               </div>
               <div className="grid grid-cols-2 gap-2 text-[11px] font-bold sm:flex sm:text-xs">
@@ -316,7 +316,7 @@ const AdminDashboardPage = () => {
           <StatCard title="Rooms" value={stats?.totalRooms ?? 0} icon={Home} tone="violet" linkTo="/admin/rooms" caption="All listings" />
           <StatCard title="Published" value={stats?.publishedRoomsCount ?? 0} icon={FileCheck} tone="green" linkTo="/admin/rooms?status=Published" caption="Live rooms" />
           <StatCard title="Pending" value={stats?.pendingRoomsCount ?? 0} icon={FileClock} tone="amber" linkTo="/admin/rooms?status=Pending" caption="Need review" />
-          <StatCard title="Applications" value={stats?.totalApplications ?? 0} icon={FileText} tone="red" linkTo="/admin/analytics" caption="Booking flow" />
+          <StatCard title="Booking Requests" value={stats?.totalApplications ?? 0} icon={FileText} tone="red" linkTo="/admin/analytics" caption="Room demand" />
           <StatCard title="Live Now" value={stats?.usage?.liveNow ?? 0} icon={Radio} tone="green" linkTo="/admin/analytics" caption={`${stats?.usage?.liveLoggedInUsers ?? 0} signed in`} />
           <StatCard title="Today Sessions" value={stats?.usage?.todaySessions ?? 0} icon={Activity} tone="cyan" linkTo="/admin/analytics" caption="Web + app users" />
           <StatCard title="Page Views" value={stats?.usage?.todayPageViews ?? 0} icon={Eye} tone="violet" linkTo="/admin/analytics" caption="Today traffic" />
@@ -336,7 +336,7 @@ const AdminDashboardPage = () => {
                 <p className="mt-1 text-2xl font-black">{stats?.usage?.mobileSessionsToday ?? 0}</p>
               </Link>
               <Link to="/admin/analytics" className="rounded-2xl bg-light-bg p-3 transition hover:-translate-y-0.5 hover:bg-cyan-50 hover:shadow-md dark:bg-dark-input dark:hover:bg-cyan-950/20 sm:p-4">
-                <Monitor className="mb-3 h-5 w-5 text-violet-500" />
+                <Monitor className="mb-3 h-5 w-5 text-blue-500" />
                 <p className="text-[10px] font-bold uppercase tracking-wide text-light-muted dark:text-dark-muted sm:text-xs">Desktop today</p>
                 <p className="mt-1 text-2xl font-black">{stats?.usage?.desktopSessionsToday ?? 0}</p>
               </Link>
@@ -350,7 +350,7 @@ const AdminDashboardPage = () => {
 
           <SectionCard
             title="Financial Health"
-            subtitle="Real booking value and platform fee aggregation"
+            subtitle="Real booking value and service fee aggregation"
             action={<Link to="/admin/revenue" className="text-xs font-bold text-cyan-500">Open</Link>}
           >
             <div className="grid grid-cols-2 gap-2 sm:gap-3">
@@ -361,7 +361,7 @@ const AdminDashboardPage = () => {
               </Link>
               <Link to="/admin/revenue" className="rounded-2xl bg-light-bg p-3 transition hover:-translate-y-0.5 hover:bg-cyan-50 hover:shadow-md dark:bg-dark-input dark:hover:bg-cyan-950/20 sm:p-4">
                 <TrendingUp className="mb-3 h-5 w-5 text-cyan-500" />
-                <p className="text-[10px] font-bold uppercase tracking-wide text-light-muted dark:text-dark-muted sm:text-xs">Platform fee</p>
+                <p className="text-[10px] font-bold uppercase tracking-wide text-light-muted dark:text-dark-muted sm:text-xs">Service fee</p>
                 <p className="mt-1 truncate text-[15px] font-black sm:text-lg">{money(revenue?.summary?.platformFees)}</p>
               </Link>
             </div>
@@ -388,11 +388,11 @@ const AdminDashboardPage = () => {
 
           <SectionCard
             title="Support Load"
-            subtitle="Tickets and unresolved platform issues"
+            subtitle="Tickets and unresolved rental issues"
             action={<Link to="/admin/tickets" className="text-xs font-bold text-cyan-500">Open</Link>}
           >
             <Link to="/admin/tickets" className="block rounded-2xl bg-light-bg p-4 transition hover:-translate-y-0.5 hover:bg-cyan-50 hover:shadow-md dark:bg-dark-input dark:hover:bg-cyan-950/20">
-              <Headphones className="mb-3 h-5 w-5 text-violet-500" />
+              <Headphones className="mb-3 h-5 w-5 text-blue-500" />
               <p className="text-xs font-bold uppercase tracking-wide text-light-muted dark:text-dark-muted">Open tickets</p>
               <p className="mt-1 text-3xl font-black">{supportOpenCount}</p>
               <p className="mt-2 text-xs font-semibold text-light-muted dark:text-dark-muted">
@@ -410,20 +410,20 @@ const AdminDashboardPage = () => {
                   <AreaChart data={usageTrendData} margin={{ top: 10, right: 18, left: -14, bottom: 0 }}>
                     <defs>
                       <linearGradient id="adminUsageSessions" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#06b6d4" stopOpacity={0.3} />
-                        <stop offset="95%" stopColor="#06b6d4" stopOpacity={0} />
+                        <stop offset="5%" stopColor="#1a73e8" stopOpacity={0.3} />
+                        <stop offset="95%" stopColor="#1a73e8" stopOpacity={0} />
                       </linearGradient>
                       <linearGradient id="adminUsageViews" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.25} />
-                        <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} />
+                        <stop offset="5%" stopColor="#188038" stopOpacity={0.25} />
+                        <stop offset="95%" stopColor="#188038" stopOpacity={0} />
                       </linearGradient>
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.22)" />
                     <XAxis dataKey="date" tick={{ fill: 'currentColor', fontSize: 11 }} />
                     <YAxis allowDecimals={false} tick={{ fill: 'currentColor', fontSize: 11 }} />
                     <Tooltip />
-                    <Area type="monotone" dataKey="pageViews" name="Page views" stroke="#8b5cf6" strokeWidth={2.5} fill="url(#adminUsageViews)" />
-                    <Area type="monotone" dataKey="sessions" name="Sessions" stroke="#06b6d4" strokeWidth={2.5} fill="url(#adminUsageSessions)" />
+                    <Area type="monotone" dataKey="pageViews" name="Page views" stroke="#188038" strokeWidth={2.5} fill="url(#adminUsageViews)" />
+                    <Area type="monotone" dataKey="sessions" name="Sessions" stroke="#1a73e8" strokeWidth={2.5} fill="url(#adminUsageSessions)" />
                   </AreaChart>
                 </ResponsiveContainer>
               ) : (
@@ -473,15 +473,15 @@ const AdminDashboardPage = () => {
                   <AreaChart data={signupData} margin={{ top: 10, right: 18, left: -14, bottom: 0 }}>
                     <defs>
                       <linearGradient id="adminSignupGradient" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#06b6d4" stopOpacity={0.35} />
-                        <stop offset="95%" stopColor="#06b6d4" stopOpacity={0} />
+                        <stop offset="5%" stopColor="#1a73e8" stopOpacity={0.35} />
+                        <stop offset="95%" stopColor="#1a73e8" stopOpacity={0} />
                       </linearGradient>
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.22)" />
                     <XAxis dataKey="date" tick={{ fill: 'currentColor', fontSize: 11 }} />
                     <YAxis allowDecimals={false} tick={{ fill: 'currentColor', fontSize: 11 }} />
                     <Tooltip />
-                    <Area type="monotone" dataKey="count" name="New Users" stroke="#06b6d4" strokeWidth={3} fill="url(#adminSignupGradient)" />
+                    <Area type="monotone" dataKey="count" name="New Users" stroke="#1a73e8" strokeWidth={3} fill="url(#adminSignupGradient)" />
                   </AreaChart>
                 </ResponsiveContainer>
               ) : (
@@ -572,7 +572,7 @@ const AdminDashboardPage = () => {
                   <p className="mt-2 text-2xl font-black">{item.count}</p>
                 </div>
               )) : (
-                <div className="col-span-2 rounded-2xl border border-dashed border-light-border p-8 text-center text-sm font-semibold text-light-muted dark:border-dark-border dark:text-dark-muted">No application data yet.</div>
+                <div className="col-span-2 rounded-2xl border border-dashed border-light-border p-8 text-center text-sm font-semibold text-light-muted dark:border-dark-border dark:text-dark-muted">No booking request data yet.</div>
               )}
             </div>
           </SectionCard>

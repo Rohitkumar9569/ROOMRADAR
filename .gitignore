@@ -7,6 +7,9 @@
 /.env
 *.env
 .env.*
+!.env.example
+!client/.env.example
+!server/.env.example
 
 # Build output
 /client/dist

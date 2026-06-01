@@ -1,9 +1,10 @@
 import React, { useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { BadgeCheck, Banknote, Camera, CheckCircle2, Home, Landmark, Loader2, Mail, MapPin, Phone, ShieldCheck, Sparkles, UserRound, Wallet, X } from 'lucide-react';
+import { BadgeCheck, Banknote, Camera, CheckCircle2, Home, Landmark, Loader2, Mail, MapPin, Phone, ShieldCheck, UserRound, Wallet, X } from 'lucide-react';
 import api from '../../../api';
 import { useAuth } from '../../../context/AuthContext';
+import { getAvatarColorStyle, getAvatarInitial } from '../../../utils/avatar';
 import { isValidIndianMobile, phoneInputProps, sanitizePhoneInput } from '../../../utils/phoneUtils';
 import { switchRoleSmoothly } from '../../../utils/roleSwitch';
 
@@ -14,7 +15,7 @@ const studentFields = [
   { key: 'mobileNumber', label: 'Mobile number', type: 'tel' },
   { key: 'city', label: 'Current city', type: 'text' },
   { key: 'gender', label: 'Gender', type: 'select', options: ['', 'Male', 'Female', 'Other', 'Prefer not to say'] },
-  { key: 'occupation', label: 'Travelling type', type: 'text' },
+  { key: 'occupation', label: 'Stay type', type: 'text' },
 ];
 
 const hostFields = [
@@ -24,12 +25,10 @@ const hostFields = [
   { key: 'occupation', label: 'Hosting title', type: 'text' },
 ];
 
-const getInitial = (name) => (name || 'R').charAt(0).toUpperCase();
-
-const normalizeTravellingText = (value, fallback = 'Travelling') => {
+const normalizeTravellingText = (value, fallback = 'Room seeker') => {
   const text = String(value || '').trim();
   if (!text) return fallback;
-  return /^students?$/i.test(text) ? 'Travelling' : text;
+  return /^(students?|travelling)$/i.test(text) ? 'Room seeker' : text;
 };
 
 const calculateCompletion = (form, isHost) => {
@@ -83,7 +82,6 @@ function PremiumProfileEditor({ mode = 'student' }) {
 
   const profileFields = useMemo(() => (isHost ? hostFields : studentFields), [isHost]);
   const completion = useMemo(() => calculateCompletion(form, isHost), [form, isHost]);
-  const userInitial = getInitial(form.name || user?.name);
   const currentProfilePhoto = form.avatarUrl || form.profilePicture || '';
   const accountEmail = user?.email || '';
   const verifications = user?.verifications || {};
@@ -197,7 +195,7 @@ function PremiumProfileEditor({ mode = 'student' }) {
       setSaving(true);
       const { data } = await api.put('/users/profile', { ...form, profileRole: roleKey });
       updateUser(data.user);
-      toast.success(`${isHost ? 'Host' : 'Travelling'} profile updated.`, { id: toastId });
+      toast.success(`${isHost ? 'Host' : 'Room seeker'} profile updated.`, { id: toastId });
     } catch (error) {
       toast.error(error.response?.data?.message || 'Could not update profile.', { id: toastId });
     } finally {
@@ -236,37 +234,33 @@ function PremiumProfileEditor({ mode = 'student' }) {
   };
 
   const copy = {
-    roleBadge: isHost ? '' : 'Travelling profile',
+    roleBadge: isHost ? '' : 'Room seeker profile',
     completionHint: isHost
       ? 'Only your host-side details update here.'
-      : 'Only your travelling-side details update here.',
+      : 'Only your room seeker details update here.',
     detailsIntro: isHost
       ? 'Used across your listings, booking approvals, and host inbox.'
-      : 'Used across booking requests, saved rooms, and travelling inbox.',
+      : 'Used across booking requests, saved rooms, and host chats.',
     bioPlaceholder: isHost
       ? 'Describe your hosting style, property standards, availability, and support process.'
       : 'Describe your travel/work routine, stay preferences, and move-in needs.',
-    switchAction: isHost ? 'Open travelling profile' : (user?.roles?.includes('Landlord') ? 'Open host dashboard' : 'List your room'),
+    switchAction: isHost ? 'Open room seeker profile' : (user?.roles?.includes('Landlord') ? 'Open host dashboard' : 'List your room'),
   };
 
   return (
-    <div className="rr-profile-editor relative min-h-screen overflow-hidden bg-[radial-gradient(circle_at_18%_0%,rgba(6,182,212,0.12),transparent_28rem),linear-gradient(180deg,#f8fafc_0%,#eef6fb_46%,#f8fafc_100%)] p-2 pb-28 text-light-text dark:bg-[radial-gradient(circle_at_14%_0%,rgba(6,182,212,0.16),transparent_26rem),linear-gradient(180deg,#0f172a_0%,#111827_52%,#0f172a_100%)] dark:text-dark-text sm:p-4 md:p-6">
+    <div className="rr-profile-editor relative min-h-screen overflow-hidden bg-slate-50 p-2 pb-28 text-light-text dark:bg-dark-bg dark:text-dark-text sm:p-4 md:p-6">
       <div className="pointer-events-none absolute -right-24 top-20 h-56 w-56 rounded-full bg-brand/10 blur-3xl dark:bg-brand/15" />
       <div className="pointer-events-none absolute -left-24 top-72 h-56 w-56 rounded-full bg-cyan-400/10 blur-3xl dark:bg-cyan-400/15" />
 
       <div className="relative mx-auto max-w-5xl">
         <section className="rr-profile-shell overflow-hidden rounded-[1.6rem] border border-white/60 bg-white/70 shadow-[0_28px_80px_-54px_rgba(15,23,42,0.85)] backdrop-blur-2xl dark:border-white/10 dark:bg-white/[0.045] dark:shadow-[0_30px_90px_-54px_rgba(0,0,0,0.95)] sm:rounded-[2rem]">
-          <div className={`rr-profile-hero relative min-h-[15.25rem] overflow-hidden px-4 pb-4 pt-5 text-white md:min-h-[18rem] md:px-8 md:pt-8 ${
-            isHost
-              ? 'bg-[linear-gradient(135deg,rgba(6,182,212,0.95)_0%,rgba(15,23,42,0.98)_45%,rgba(255,56,92,0.92)_100%)]'
-              : 'bg-[linear-gradient(135deg,rgba(255,56,92,0.95)_0%,rgba(88,28,135,0.98)_46%,rgba(6,182,212,0.9)_100%)]'
-          }`}>
-            <div className="rr-profile-hero-glow absolute inset-0 bg-[radial-gradient(circle_at_18%_8%,rgba(255,255,255,0.28),transparent_18rem),radial-gradient(circle_at_90%_0%,rgba(255,255,255,0.2),transparent_16rem)]" />
+          <div className="rr-profile-hero relative min-h-[15.25rem] overflow-hidden bg-slate-950 px-4 pb-4 pt-5 text-white md:min-h-[18rem] md:px-8 md:pt-8">
+            <div className="rr-profile-hero-glow absolute inset-0 bg-transparent" />
             <div className="rr-profile-hero-fade absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-slate-950/62 to-transparent" />
             <div className="relative flex items-start justify-between gap-3">
               {copy.roleBadge ? (
                 <span className="inline-flex items-center gap-2 rounded-full border border-white/22 bg-white/12 px-3 py-1.5 text-[clamp(9px,2.6vw,11px)] font-black uppercase tracking-[0.12em] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.18)] backdrop-blur-xl">
-                  <Sparkles className="h-3.5 w-3.5 text-cyan-100" />
+                  <BadgeCheck className="h-3.5 w-3.5 text-cyan-100" />
                   {copy.roleBadge}
                 </span>
               ) : <span />}
@@ -284,7 +278,13 @@ function PremiumProfileEditor({ mode = 'student' }) {
                 aria-label={currentProfilePhoto ? 'Open profile photo' : 'Add profile photo'}
                 className="relative flex h-[clamp(74px,22vw,112px)] w-[clamp(74px,22vw,112px)] flex-shrink-0 items-center justify-center overflow-hidden rounded-[1.35rem] bg-white/16 text-3xl font-black text-white ring-4 ring-white/24 shadow-[0_22px_52px_-28px_rgba(0,0,0,0.9)] backdrop-blur-xl transition hover:ring-white/40 active:scale-[0.98] disabled:cursor-wait disabled:opacity-80 md:rounded-[1.8rem] md:text-4xl"
               >
-                {currentProfilePhoto ? <img src={currentProfilePhoto} alt={form.name || 'Profile'} className="h-full w-full object-cover" /> : userInitial}
+                {currentProfilePhoto ? (
+                  <img src={currentProfilePhoto} alt={form.name || 'Profile'} className="h-full w-full object-cover" />
+                ) : (
+                  <span className="rr-avatar-initial" style={getAvatarColorStyle(user?.id || user?._id || accountEmail, form.name || accountEmail)} aria-hidden="true">
+                    {getAvatarInitial(form.name, accountEmail)}
+                  </span>
+                )}
                 <span className="absolute bottom-1.5 right-1.5 flex h-7 w-7 items-center justify-center rounded-full bg-white text-brand shadow-lg md:bottom-2 md:right-2 md:h-8 md:w-8">
                   {uploadingPhoto ? <Loader2 className="h-3.5 w-3.5 animate-spin md:h-4 md:w-4" /> : <Camera className="h-3.5 w-3.5 md:h-4 md:w-4" />}
                 </span>
@@ -307,7 +307,7 @@ function PremiumProfileEditor({ mode = 'student' }) {
             <div className="relative mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
               <ProfileSignal icon={Phone} label="Phone" value={form.mobileNumber ? 'Added' : 'Missing'} />
               <ProfileSignal icon={Mail} label="Email" value={accountEmail || 'Missing'} />
-              <ProfileSignal icon={Home} label={isHost ? 'Host' : 'Profile'} value={isHost ? 'Landlord' : normalizeTravellingText(form.occupation, 'Travelling')} />
+              <ProfileSignal icon={Home} label={isHost ? 'Host' : 'Profile'} value={isHost ? 'Landlord' : normalizeTravellingText(form.occupation, 'Room seeker')} />
               <ProfileSignal icon={ShieldCheck} label="Trust" value={`${verifiedCount}/4`} />
             </div>
           </div>
@@ -319,7 +319,7 @@ function PremiumProfileEditor({ mode = 'student' }) {
                 <span className="text-[clamp(18px,5vw,24px)] font-black text-brand">{completion}%</span>
               </div>
               <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-200/90 dark:bg-slate-800">
-                <div className="h-full rounded-full bg-gradient-to-r from-brand via-rose-400 to-cyan-400 transition-all duration-500" style={{ width: `${completion}%` }} />
+                <div className="h-full rounded-full bg-brand transition-all duration-500" style={{ width: `${completion}%` }} />
               </div>
               <p className="mt-2 text-[clamp(11px,3vw,12px)] font-semibold text-light-muted dark:text-dark-muted">
                 {copy.completionHint}
@@ -340,7 +340,7 @@ function PremiumProfileEditor({ mode = 'student' }) {
                   {copy.detailsIntro}
                 </p>
               </div>
-              <button type="submit" disabled={saving} className="min-h-11 flex-shrink-0 rounded-2xl bg-gradient-to-r from-brand to-rose-500 px-4 text-[clamp(12px,3.2vw,14px)] font-black text-white shadow-[0_14px_34px_-22px_rgba(255,56,92,0.9)] transition active:scale-[0.97] disabled:opacity-50">
+              <button type="submit" disabled={saving} className="min-h-11 flex-shrink-0 rounded-2xl bg-brand px-4 text-[clamp(12px,3.2vw,14px)] font-black text-white shadow-[0_14px_34px_-22px_rgba(255,0,51,0.72)] transition active:scale-[0.97] disabled:opacity-50">
                 {saving ? 'Saving...' : 'Save changes'}
               </button>
             </div>

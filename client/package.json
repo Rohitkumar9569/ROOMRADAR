@@ -8,6 +8,7 @@
     "dev": "npm-run-all -p tailwind vite",
     "vite": "vite",
     "build": "vite build",
+    "check": "npm run lint && npm run build",
     "lint": "eslint . --ext js,jsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview"
   },

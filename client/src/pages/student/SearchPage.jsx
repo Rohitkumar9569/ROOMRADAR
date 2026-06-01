@@ -20,8 +20,8 @@ import {
   Loader2,
   Map,
   Scale,
+  Search,
   SlidersHorizontal,
-  Sparkles,
   X,
 } from 'lucide-react';
 
@@ -604,6 +604,7 @@ function SearchPage() {
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
   const [naturalQuery, setNaturalQuery] = useState(searchParams.get('q') || '');
   const [smartLoading, setSmartLoading] = useState(false);
   const [showMap, setShowMap] = useState(false);
@@ -838,8 +839,10 @@ function SearchPage() {
       setTotal(cached.total || 0);
       setTotalPages(cached.totalPages || 1);
       setSearchMeta(cached.meta || null);
+      setLoadError('');
       setLoading(false);
     } else {
+      setLoadError('');
       setLoading(true);
     }
 
@@ -860,12 +863,16 @@ function SearchPage() {
       setTotal(nextSearchData.total);
       setTotalPages(nextSearchData.totalPages);
       setSearchMeta(nextSearchData.meta);
+      setLoadError('');
     } catch (error) {
       if (!cached) {
         setRooms([]);
         setTotal(0);
         setTotalPages(1);
         setSearchMeta(null);
+        setLoadError('Rooms could not load. Check your connection and try again.');
+      } else {
+        setLoadError('Showing saved rooms. Refresh to get the latest results.');
       }
     } finally {
       setLoading(false);
@@ -1194,6 +1201,7 @@ function SearchPage() {
 
     try {
       setSmartLoading(true);
+      setLoadError('');
       const { data } = await api.post('/search/smart', { query });
       const smartFilters = data.filters || {};
       const nextOccupants = smartFilters.maxOccupants ? Math.max(1, Number(smartFilters.maxOccupants) || 1) : '';
@@ -1226,6 +1234,7 @@ function SearchPage() {
         fallback: data.fallback || null,
         exactTotal: data.exactCount,
       });
+      setLoadError('');
       if (smartFilters.sort) setSort(smartFilters.sort);
       trackUsageEvent('search_run', {
         metadata: {
@@ -1248,6 +1257,7 @@ function SearchPage() {
       setTotal(0);
       setTotalPages(1);
       setSearchMeta(null);
+      setLoadError('Quick search could not load rooms. Try a normal search or retry.');
     } finally {
       setSmartLoading(false);
     }
@@ -1326,7 +1336,7 @@ function SearchPage() {
         <form onSubmit={handleSmartSearch} className="mb-4 rounded-2xl bg-transparent p-0 shadow-none sm:mb-6">
           <div className="grid grid-cols-[1fr_auto] gap-2 md:flex md:items-center md:gap-3">
             <div className="relative flex-1">
-              <Sparkles className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-brand sm:left-4 sm:h-5 sm:w-5" />
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-brand sm:left-4 sm:h-5 sm:w-5" />
               <input
                 value={naturalQuery}
                 onChange={(event) => setNaturalQuery(event.target.value)}
@@ -1335,8 +1345,8 @@ function SearchPage() {
               />
             </div>
             <button type="submit" disabled={smartLoading || !naturalQuery.trim()} className="btn-primary inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-3 py-2 text-sm disabled:opacity-60 md:px-6">
-              {smartLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-              <span className="hidden sm:inline">Smart search</span>
+              {smartLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+              <span className="hidden sm:inline">Quick search</span>
             </button>
           </div>
         </form>
@@ -1358,6 +1368,15 @@ function SearchPage() {
         {searchMeta?.fallback && (
           <div className="mb-5 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold leading-6 text-amber-900 dark:border-amber-500/25 dark:bg-amber-500/10 dark:text-amber-100">
             {searchMeta.fallback.message || 'No exact match found. Showing closest matching rooms.'}
+          </div>
+        )}
+
+        {loadError && rooms.length > 0 && (
+          <div className="mb-5 flex flex-col gap-3 rounded-2xl border border-[#e9edef] bg-white px-4 py-3 text-sm font-bold leading-6 text-[#54656f] shadow-sm dark:border-[#26343d] dark:bg-[#111b21] dark:text-[#aebac1] sm:flex-row sm:items-center sm:justify-between">
+            <span>{loadError}</span>
+            <button type="button" onClick={fetchRooms} className="inline-flex min-h-10 items-center justify-center rounded-full bg-[#00a884] px-4 text-xs font-black text-white">
+              Refresh
+            </button>
           </div>
         )}
 
@@ -1385,6 +1404,18 @@ function SearchPage() {
             ) : loading ? (
               <div className="mobile-room-grid grid gap-3 sm:gap-5 lg:[grid-template-columns:repeat(auto-fill,minmax(280px,1fr))]">
                 {Array.from({ length: 9 }).map((_, index) => <RoomCardSkeleton key={index} />)}
+              </div>
+            ) : loadError && !rooms.length ? (
+              <div className="rr-search-empty-state rr-search-error-state rounded-3xl border border-light-border bg-light-card p-8 text-center shadow-sm dark:border-dark-border dark:bg-dark-card sm:p-12">
+                <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[#fff1f2] text-brand dark:bg-brand/15">
+                  <X className="h-7 w-7" />
+                </div>
+                <h2 className="mt-5 text-xl font-black sm:text-2xl">Rooms did not load</h2>
+                <p className="mx-auto mt-2 max-w-sm text-sm font-semibold leading-6 text-light-muted dark:text-dark-muted">{loadError}</p>
+                <div className="rr-search-empty-actions mt-6 flex flex-col justify-center gap-3 sm:flex-row">
+                  <button type="button" onClick={fetchRooms} className="btn-primary min-h-11">Retry</button>
+                  <button type="button" onClick={clearFilters} className="btn-outline min-h-11">Clear filters</button>
+                </div>
               </div>
             ) : rooms.length ? (
               <>
@@ -1431,11 +1462,11 @@ function SearchPage() {
                 </div>
               </>
             ) : (
-              <div className="rounded-3xl border border-dashed border-light-border bg-light-card p-12 text-center dark:border-dark-border dark:bg-dark-card">
+              <div className="rr-search-empty-state rounded-3xl border border-dashed border-light-border bg-light-card p-12 text-center dark:border-dark-border dark:bg-dark-card">
                 <SlidersHorizontal className="mx-auto h-10 w-10 text-brand" />
                 <h2 className="mt-5 text-2xl font-black">No rooms found</h2>
                 <p className="mt-2 text-sm font-semibold text-light-muted dark:text-dark-muted">Save this demand or loosen the filters to see nearby options.</p>
-                <div className="mt-6 flex flex-col justify-center gap-3 sm:flex-row">
+                <div className="rr-search-empty-actions mt-6 flex flex-col justify-center gap-3 sm:flex-row">
                   <button onClick={() => saveSearchAlert('rooms_no_results')} className="btn-primary">Notify me</button>
                   <button onClick={relaxFilters} className="btn-outline">Relax filters</button>
                   <button onClick={clearFilters} className="btn-outline">Clear all</button>
@@ -1479,7 +1510,7 @@ function SearchPage() {
       )}
 
       {isFilterSheetOpen && (
-        <div className="fixed inset-x-0 bottom-[calc(var(--rr-bottom-nav-height)+env(safe-area-inset-bottom,0px))] top-[var(--rr-mobile-header-offset)] z-40 bg-light-bg shadow-2xl dark:bg-dark-bg lg:hidden">
+        <div className="rooms-filter-sheet fixed inset-x-0 bottom-[calc(var(--rr-bottom-nav-height)+env(safe-area-inset-bottom,0px))] top-[var(--rr-mobile-header-offset)] z-40 bg-light-bg shadow-2xl dark:bg-dark-bg lg:hidden">
           <FilterPanel
             filters={filters}
             setFilters={updateFilters}

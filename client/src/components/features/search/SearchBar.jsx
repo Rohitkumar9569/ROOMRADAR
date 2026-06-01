@@ -56,21 +56,28 @@ const SuggestionsBox = ({ suggestions, onSelect, query, loading }) => (
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: 12 }}
-        className="location-suggestions-popover absolute left-0 right-0 top-[calc(100%+0.55rem)] z-[10000] w-full overflow-hidden rounded-[1.35rem] border border-light-border bg-white shadow-lg shadow-slate-950/12 dark:border-dark-border dark:bg-dark-card md:rounded-3xl"
+        transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
+        className="location-suggestions-popover rr-search-suggestions absolute left-0 right-0 top-[calc(100%+0.55rem)] z-[10000] w-full overflow-hidden rounded-[1.35rem] border border-light-border bg-white shadow-lg shadow-slate-950/12 dark:border-dark-border dark:bg-dark-card md:rounded-3xl"
     >
         <div className="border-b border-light-border px-4 py-3 dark:border-dark-border">
             <p className="text-xs font-black uppercase tracking-[0.08em] text-cyan-600 dark:text-cyan-300">Choose location</p>
             <p className="mt-0.5 truncate text-sm font-semibold text-light-muted dark:text-dark-muted">{query || 'Search city or area'}</p>
         </div>
         <ul className="max-h-[min(52vh,24rem)] overflow-y-auto">
+            {loading && (
+                <li className="rr-search-suggestion-loading flex items-center gap-3 border-b border-light-border px-4 py-3 text-sm font-semibold text-light-muted dark:border-dark-border dark:text-dark-muted">
+                    <span className="rr-search-loading-dot" aria-hidden="true" />
+                    Searching locations...
+                </li>
+            )}
             {suggestions.map((place) => (
                 <li key={place.properties.place_id || `${getPlaceTitle(place)}-${getPlaceSubtitle(place)}`}>
                     <button
                         type="button"
                         onClick={() => onSelect(place)}
-                        className="flex w-full cursor-pointer items-center gap-3 border-b border-light-border px-4 py-3 text-left transition hover:bg-cyan-500/10 active:bg-cyan-500/15 dark:border-dark-border dark:hover:bg-dark-input last:border-0"
+                        className="rr-search-suggestion-item flex w-full cursor-pointer items-center gap-3 border-b border-light-border px-4 py-3 text-left transition hover:bg-cyan-500/10 active:bg-cyan-500/15 dark:border-dark-border dark:hover:bg-dark-input last:border-0"
                     >
-                        <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-2xl bg-cyan-500/10 text-cyan-600 dark:text-cyan-300">
+                        <span className="rr-search-suggestion-icon flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-2xl bg-cyan-500/10 text-cyan-600 dark:text-cyan-300">
                             <MapPinIcon className="h-5 w-5" />
                         </span>
                         <span className="min-w-0">
@@ -104,6 +111,8 @@ function SearchBar({ criteria, onCriteriaChange, onSearch, onClear, inputId = 'h
     const recognitionRef = useRef(null);
     const listeningRef = useRef(false);
     const supportsVoiceSearch = typeof window !== 'undefined' && (window.SpeechRecognition || window.webkitSpeechRecognition);
+    const hasQuery = Boolean(query.trim() || criteria.location);
+    const isSearchOpen = activePopover === 'location';
 
     useEffect(() => {
         if (criteria.location) {
@@ -299,9 +308,17 @@ function SearchBar({ criteria, onCriteriaChange, onSearch, onClear, inputId = 'h
     }, [inputId]);
 
     return (
-        <div ref={searchBarRef} className="rr-location-search-root relative z-[9999] w-full">
-            <form
+        <div
+            ref={searchBarRef}
+            className={`rr-location-search-root relative z-[9999] w-full ${isSearchOpen ? 'is-open' : ''} ${hasQuery ? 'has-query' : ''} ${listening ? 'is-listening' : ''}`}
+        >
+            <motion.form
                 onSubmit={handleSubmitSearch}
+                role="search"
+                aria-label="Search rooms by location"
+                initial={false}
+                animate={{ y: isSearchOpen ? -1 : 0 }}
+                transition={{ duration: 0.16, ease: [0.22, 1, 0.36, 1] }}
                 className="home-location-search-form relative z-[9999] flex min-h-14 w-full flex-grow items-center justify-between rounded-full border-[2px] border-slate-800 bg-white px-4 shadow-none dark:border-white/80 dark:bg-dark-sidebar sm:min-h-16 sm:px-5"
             >
                 <div className="relative h-full min-w-0 flex-grow">
@@ -309,6 +326,9 @@ function SearchBar({ criteria, onCriteriaChange, onSearch, onClear, inputId = 'h
                         onClick={() => setActivePopover('location')}
                         className="home-location-search-input flex min-h-12 w-full items-center text-left sm:min-h-14"
                     >
+                        <span className="home-location-leading-icon mr-2 hidden h-9 w-9 flex-shrink-0 items-center justify-center rounded-full text-[#1a73e8] sm:inline-flex" aria-hidden="true">
+                            <MapPinIcon className="h-5 w-5" />
+                        </span>
                         <div className="min-w-0 flex-grow">
                             <input
                                 id={inputId}
@@ -351,7 +371,7 @@ function SearchBar({ criteria, onCriteriaChange, onSearch, onClear, inputId = 'h
                 <button type="submit" className="home-location-search-submit ml-2 flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full bg-transparent text-slate-900 transition-all active:scale-[0.94] dark:text-white sm:h-12 sm:w-12" aria-label="Search rooms">
                     <SearchIcon className="h-6 w-6 sm:h-7 sm:w-7" strokeWidth={2.65} />
                 </button>
-            </form>
+            </motion.form>
 
             <AnimatePresence>
                 {activePopover === 'location' && (

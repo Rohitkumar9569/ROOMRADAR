@@ -17,6 +17,7 @@ import { formatListingTitle } from '../../utils/listingDisplay';
 import { trackUsageEvent } from '../../utils/usageAnalytics';
 import { triggerHaptic } from '../../utils/haptics';
 import { shareContent } from '../../utils/nativeShare';
+import { getAvatarColorStyle, getAvatarInitial } from '../../utils/avatar';
 import {
     ArrowLeft,
     BadgeCheck,
@@ -37,9 +38,9 @@ import {
     ReceiptText,
     Share2,
     ShieldCheck,
-    Sparkles,
     Star,
     TrainFront,
+    UserRound,
     Users,
     Wifi,
 } from 'lucide-react';
@@ -182,7 +183,9 @@ const Avatar = ({ user }) => (
         {user?.avatarUrl || user?.profilePicture ? (
             <img src={user.avatarUrl || user.profilePicture} alt={user.name || 'Host'} className="h-full w-full object-cover" loading="lazy" decoding="async" />
         ) : (
-            user?.name?.charAt(0)?.toUpperCase() || 'H'
+            <span className="rr-avatar-initial" style={getAvatarColorStyle(user?._id || user?.email, user?.name)} aria-hidden="true">
+                {getAvatarInitial(user?.name, user?.email)}
+            </span>
         )}
         {user?.isOnline && (
             <span className="absolute bottom-1 right-1 h-3.5 w-3.5 rounded-full border-2 border-white bg-emerald-500 dark:border-dark-bg" />
@@ -413,7 +416,7 @@ const RoomDetailsPage = () => {
             ? { title: 'Popular listing', text: `${Number(room.views || 0).toLocaleString('en-IN')} room views recorded.`, Icon: Eye, tone: 'amber' }
             : null,
         Number(room.activeApplicationsCount || 0) > 0
-            ? { title: 'High intent', text: `${room.activeApplicationsCount} active request${Number(room.activeApplicationsCount) > 1 ? 's' : ''} from seekers.`, Icon: Flame, tone: 'rose' }
+            ? { title: 'Active demand', text: `${room.activeApplicationsCount} active request${Number(room.activeApplicationsCount) > 1 ? 's' : ''} from seekers.`, Icon: Flame, tone: 'rose' }
             : null,
         Number(room.responseRate || 0) >= 80
             ? { title: 'Fast responder', text: `${room.responseRate}% host response rate.`, Icon: MessageCircle, tone: 'cyan' }
@@ -608,7 +611,7 @@ const RoomDetailsPage = () => {
                     </div>
                 </section>
 
-                <section className="mb-7 overflow-hidden rounded-2xl border border-light-border bg-white p-1.5 shadow-xl shadow-slate-950/5 dark:border-dark-border dark:bg-dark-card dark:shadow-black/20 md:mb-10 md:rounded-3xl md:p-2">
+                <section className="rr-gallery-shell mb-7 overflow-hidden rounded-2xl border border-light-border bg-white p-1.5 shadow-xl shadow-slate-950/5 dark:border-dark-border dark:bg-dark-card dark:shadow-black/20 md:mb-10 md:rounded-3xl md:p-2">
                     <ImageGallery images={images} />
                 </section>
 
@@ -777,9 +780,9 @@ const RoomDetailsPage = () => {
                         <section id="reviews" className="border-b border-light-border pb-8 dark:border-dark-border">
                             {sentiment?.reviewCount > 0 && (
                                 <div className="mb-6 rounded-2xl border border-emerald-100 bg-emerald-50 p-4 dark:border-emerald-500/20 dark:bg-emerald-500/10">
-                                    <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-700 dark:text-emerald-200">AI review sentiment</p>
-                                    <p className="mt-1 text-2xl font-black">{sentiment.positivePercentage}% Positive</p>
-                                    {sentiment.summary && <p className="mt-1 text-sm font-semibold text-emerald-800 dark:text-emerald-100">{sentiment.summary}</p>}
+                                    <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-700 dark:text-emerald-200">Guest feedback</p>
+                                    <p className="mt-1 text-2xl font-black">{sentiment.positivePercentage}% positive guest reviews</p>
+                                    <p className="mt-1 text-sm font-semibold text-emerald-800 dark:text-emerald-100">Based on verified guest reviews.</p>
                                 </div>
                             )}
                             <ReviewsSection reviews={reviews} averageRating={room.averageRating} numReviews={room.numReviews} ratingBreakdown={room.ratingBreakdown} />
@@ -815,7 +818,7 @@ const RoomDetailsPage = () => {
                                 <div key={similarRoom._id} className="min-w-[232px] sm:min-w-[252px] md:min-w-0">
                                     {similarRoom._recommendation?.reason && (
                                         <div className="mb-2 inline-flex max-w-full rounded-full border border-cyan-100 bg-cyan-50 px-3 py-1 text-[11px] font-black text-cyan-700 dark:border-cyan-500/20 dark:bg-cyan-500/10 dark:text-cyan-200">
-                                            <span className="truncate">{similarRoom._recommendation.reason}</span>
+                                            <span className="truncate">Similar stay</span>
                                         </div>
                                     )}
                                     <RoomCard room={similarRoom} compact position={index + 1} trackingContext="similar_rooms" />
@@ -846,7 +849,7 @@ const RoomDetailsPage = () => {
                             ? (isBooked
                                 ? (availableLabel !== 'Available now' ? `Next move-in ${availableLabel}` : 'Currently booked')
                                 : 'Not accepting requests')
-                            : 'Platform protection included'}
+                            : 'Booking protection included'}
                     </span>
                 </div>
                 <div className="grid grid-cols-2 gap-2">
@@ -856,7 +859,7 @@ const RoomDetailsPage = () => {
                         disabled={!isBookable}
                         className="flex min-h-12 min-w-0 items-center justify-center gap-1.5 rounded-2xl bg-brand px-2 text-[12px] font-black text-white shadow-lg shadow-brand/30 transition active:scale-[0.97] disabled:cursor-not-allowed disabled:bg-slate-400 sm:text-sm"
                     >
-                        <Sparkles className="h-4 w-4 flex-shrink-0" />
+                        <ShieldCheck className="h-4 w-4 flex-shrink-0" />
                         <span className="truncate">{isBooked ? 'Already booked' : isBookable ? 'Request to book' : 'Not available'}</span>
                     </button>
                     <button

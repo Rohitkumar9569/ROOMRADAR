@@ -7,9 +7,10 @@ const transition = {
   ease: [0.22, 1, 0.36, 1],
 };
 
-function RouteTransition({ context, className = '' }) {
+function RouteTransition({ context, className = '', includeSearch = true }) {
   const location = useLocation();
   const reduceMotion = useReducedMotion();
+  const routeKey = includeSearch ? `${location.pathname}${location.search}` : location.pathname;
 
   if (reduceMotion) {
     return className ? (
@@ -23,7 +24,7 @@ function RouteTransition({ context, className = '' }) {
 
   return (
     <motion.div
-      key={`${location.pathname}${location.search}`}
+      key={routeKey}
       className={className}
       initial={{ opacity: 0.96, y: 5 }}
       animate={{ opacity: 1, y: 0 }}

@@ -1,5 +1,5 @@
 import React, { lazy, Suspense, useEffect, useState } from 'react';
-import { Outlet, useLocation } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 import ScrollToTop from '../components/common/ScrollToTop';
 import Spinner from '../components/common/Spinner';
 import MaintenancePage from '../pages/MaintenancePage';
@@ -8,6 +8,7 @@ import CommandPalette from '../components/common/CommandPalette';
 import InstantInteractionLayer from '../components/common/InstantInteractionLayer';
 import UsageAnalyticsTracker from '../components/common/UsageAnalyticsTracker';
 import TabScrollRestoration from '../components/common/TabScrollRestoration';
+import RouteTransition from '../components/common/RouteTransition';
 import BottomNavBar from '../components/layout/student/BottomNavBar';
 import SmartAppHeader from '../components/layout/mobile/SmartAppHeader';
 import { useAuth } from '../context/AuthContext';
@@ -94,7 +95,7 @@ function RootLayout() {
             <InstantInteractionLayer />
             <CommandPalette />
             {showAppHeader && <SmartAppHeader />}
-            <Outlet />
+            <RouteTransition includeSearch={false} />
             {showStudentBottomNav && <BottomNavBar />}
             {chatbotReady && (
                 <Suspense fallback={null}>

@@ -10,14 +10,13 @@ import 'react-datepicker/dist/react-datepicker.css';
 import { 
     Plus, Minus, User, Smartphone, Users, Calendar, 
     VenetianMask, Mail, X, Home, ArrowRight, CheckCircle,
-    Sparkles, Shield
+    Shield
 } from 'lucide-react';
 import { isValidIndianMobile, phoneInputProps, sanitizePhoneInput } from '../../../utils/phoneUtils';
 import { formatListingTitle } from '../../../utils/listingDisplay';
 import { trackUsageEvent } from '../../../utils/usageAnalytics';
 
-// --- Ultra-Premium Input Styles ---
-const baseInputStyles = "block w-full rounded-xl border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/80 shadow-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 dark:focus:border-indigo-400 dark:focus:ring-indigo-400/30 sm:text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 transition-all duration-300 hover:border-slate-300 dark:hover:border-slate-600";
+const baseInputStyles = "block w-full rounded-xl border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/80 shadow-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:focus:border-blue-400 dark:focus:ring-blue-400/30 sm:text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 transition-all duration-300 hover:border-slate-300 dark:hover:border-slate-600";
 
 // --- Compact Premium Number Stepper Component ---
 const NumberStepper = ({ label, value, onValueChange, min = 0, max = Infinity }) => {
@@ -37,7 +36,7 @@ const NumberStepper = ({ label, value, onValueChange, min = 0, max = Infinity })
                     disabled={value <= min}
                     whileHover={value > min ? { scale: 1.1 } : {}}
                     whileTap={value > min ? { scale: 0.9 } : {}}
-                    className="p-2 rounded-lg bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-600 text-slate-700 dark:text-slate-300 hover:from-indigo-100 hover:to-indigo-200 dark:hover:from-indigo-900 dark:hover:to-indigo-800 disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-200 shadow-sm"
+                    className="p-2 rounded-lg bg-slate-100 text-slate-700 shadow-sm transition-all duration-200 hover:bg-slate-200 disabled:cursor-not-allowed disabled:opacity-30 dark:bg-slate-700 dark:text-slate-300 dark:hover:bg-slate-600"
                 >
                     <Minus className="w-4 h-4" />
                 </motion.button>
@@ -48,7 +47,7 @@ const NumberStepper = ({ label, value, onValueChange, min = 0, max = Infinity })
                     disabled={value >= max}
                     whileHover={value < max ? { scale: 1.1 } : {}}
                     whileTap={value < max ? { scale: 0.9 } : {}}
-                    className="p-2 rounded-lg bg-gradient-to-br from-indigo-500 to-violet-500 text-white hover:from-indigo-600 hover:to-violet-600 disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-200 shadow-md shadow-indigo-500/25"
+                    className="p-2 rounded-lg bg-blue-600 text-white shadow-md shadow-blue-500/20 transition-all duration-200 hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-30"
                 >
                     <Plus className="w-4 h-4" />
                 </motion.button>
@@ -98,7 +97,7 @@ function BookingRequestModal({ mode = 'create', applicationData = null, room, on
     }, []);
 
     const [formData, setFormData] = useState({
-        fullName: '', mobileNumber: '', profileType: 'Travelling',
+        fullName: '', mobileNumber: '', profileType: 'Student / Individual',
         adults: 1, children: 0, gender: '', males: 0, females: 0,
         occupantComposition: '', checkInDate: new Date(), checkOutDate: null, message: '',
     });
@@ -111,7 +110,7 @@ function BookingRequestModal({ mode = 'create', applicationData = null, room, on
             setFormData({
                 fullName: applicationData.fullName || '',
                 mobileNumber: sanitizePhoneInput(applicationData.mobileNumber || ''),
-                profileType: applicationData.profileType || 'Travelling',
+                profileType: applicationData.profileType || 'Student / Individual',
                 adults: applicationData.occupants?.adults || 1,
                 children: applicationData.occupants?.children || 0,
                 gender: applicationData.gender || '',
@@ -191,7 +190,7 @@ function BookingRequestModal({ mode = 'create', applicationData = null, room, on
 
             if (mode === 'edit') {
                 await api.patch(`/applications/${applicationData._id}`, payload);
-                toast.success("Application updated successfully!");
+                toast.success("Room request updated successfully!");
             } else {
                 const response = await api.post('/applications', payload);
                 const conversationId = response.data.conversationId;
@@ -239,8 +238,7 @@ function BookingRequestModal({ mode = 'create', applicationData = null, room, on
                 className="relative flex h-full max-h-full w-full flex-col overflow-hidden border-0 bg-slate-50 shadow-none dark:bg-slate-900 md:h-[95vh] md:max-w-[1400px] md:rounded-2xl md:border md:border-slate-200 md:shadow-2xl md:dark:border-slate-700"
                 onClick={(e) => e.stopPropagation()}
             >
-                {/* Header - Premium Indigo/Violet */}
-                <div className="relative flex-shrink-0 bg-gradient-to-r from-indigo-600 via-violet-600 to-purple-600 px-4 py-3 shadow-lg dark:from-indigo-700 dark:via-violet-700 dark:to-purple-800 md:px-6 md:py-4">
+                <div className="relative flex-shrink-0 bg-slate-950 px-4 py-3 shadow-lg md:px-6 md:py-4">
                     <div className="absolute top-2 right-2 md:top-3 md:right-4 z-10">
                         <motion.button
                             onClick={onClose}
@@ -259,15 +257,15 @@ function BookingRequestModal({ mode = 'create', applicationData = null, room, on
                         </div>
                         <div className="min-w-0">
                             <h2 className="text-lg font-bold text-white md:text-xl">
-                                {mode === 'edit' ? 'Edit Your Request' : 'Request to Book'}
+                                {mode === 'edit' ? 'Edit room request' : 'Request this room'}
                             </h2>
-                            <p className="text-indigo-100 text-sm mt-0.5 truncate max-w-md">{displayTitle}</p>
+                            <p className="text-blue-100 text-sm mt-0.5 truncate max-w-md">{displayTitle}</p>
                         </div>
                     </div>
                 </div>
 
                 {/* Content - Full height scrollable area with bottom padding for visibility */}
-                <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-gradient-to-b from-slate-50 to-slate-100 p-3 dark:from-slate-900 dark:to-slate-800 md:p-6 md:pb-4">
+                <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-slate-50 p-3 dark:bg-slate-900 md:p-6 md:pb-4">
                 <form onSubmit={handleSubmit} className="min-h-full">
                     {/* Multi-Column Grid Layout - No Scrolling on Desktop */}
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6">
@@ -277,8 +275,8 @@ function BookingRequestModal({ mode = 'create', applicationData = null, room, on
                             {/* Personal Info */}
                             <div className="bg-white dark:bg-slate-800/60 rounded-2xl p-4 border border-slate-100 dark:border-slate-700/50 shadow-lg shadow-slate-200/50 dark:shadow-black/20">
                                 <h3 className="flex items-center gap-2 text-sm font-bold text-slate-800 dark:text-slate-100 mb-4 uppercase tracking-wide">
-                                    <div className="p-1.5 bg-indigo-100 dark:bg-indigo-900/30 rounded-lg">
-                                        <User className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                                    <div className="p-1.5 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
+                                        <User className="w-4 h-4 text-blue-600 dark:text-blue-400" />
                                     </div>
                                     Personal Info
                                 </h3>
@@ -303,17 +301,17 @@ function BookingRequestModal({ mode = 'create', applicationData = null, room, on
                             {/* Profile Type */}
                             <div className="bg-white dark:bg-slate-800/60 rounded-2xl p-4 border border-slate-100 dark:border-slate-700/50 shadow-lg shadow-slate-200/50 dark:shadow-black/20">
                                 <h3 className="flex items-center gap-2 text-sm font-bold text-slate-800 dark:text-slate-100 mb-4 uppercase tracking-wide">
-                                    <div className="p-1.5 bg-violet-100 dark:bg-violet-900/30 rounded-lg">
-                                        <Users className="w-4 h-4 text-violet-600 dark:text-violet-400" />
+                                    <div className="p-1.5 bg-emerald-100 dark:bg-emerald-900/30 rounded-lg">
+                                        <Users className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                                     </div>
                                     Profile
                                 </h3>
                                 <div>
-                                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">Your Profile *</label>
+                                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">Who will stay? *</label>
                                     <div className="relative">
                                         <Users className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 w-4 h-4" />
                                         <select name="profileType" value={formData.profileType} onChange={handleChange} className={`${baseInputStyles} pl-10 pr-3 py-2.5 text-sm appearance-none cursor-pointer`} required>
-                                            <option>Travelling</option>
+                                            <option>Student / Individual</option>
                                             <option>Working Professional</option>
                                             <option>Family</option>
                                         </select>
@@ -330,8 +328,8 @@ function BookingRequestModal({ mode = 'create', applicationData = null, room, on
                         <div className="space-y-4">
                             <div className="bg-white dark:bg-slate-800/60 rounded-2xl p-4 border border-slate-100 dark:border-slate-700/50 shadow-lg shadow-slate-200/50 dark:shadow-black/20">
                                 <h3 className="flex items-center gap-2 text-sm font-bold text-slate-800 dark:text-slate-100 mb-4 uppercase tracking-wide">
-                                    <div className="p-1.5 bg-fuchsia-100 dark:bg-fuchsia-900/30 rounded-lg">
-                                        <VenetianMask className="w-4 h-4 text-fuchsia-600 dark:text-fuchsia-400" />
+                                    <div className="p-1.5 bg-amber-100 dark:bg-amber-900/30 rounded-lg">
+                                        <VenetianMask className="w-4 h-4 text-amber-600 dark:text-amber-400" />
                                     </div>
                                     Occupants
                                 </h3>
@@ -352,10 +350,10 @@ function BookingRequestModal({ mode = 'create', applicationData = null, room, on
                                 <motion.div 
                                     initial={{ opacity: 0, scale: 0.95 }}
                                     animate={{ opacity: 1, scale: 1 }}
-                                    className="bg-gradient-to-r from-indigo-500/10 to-violet-500/10 dark:from-indigo-500/20 dark:to-violet-500/20 p-3 rounded-xl border border-indigo-200/50 dark:border-indigo-700/30 flex items-center justify-center gap-2 shadow-sm"
+                                    className="flex items-center justify-center gap-2 rounded-xl border border-blue-200/50 bg-blue-50 p-3 shadow-sm dark:border-blue-700/30 dark:bg-blue-500/10"
                                 >
-                                    <Calendar className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-                                    <span className="text-sm font-bold text-indigo-700 dark:text-indigo-300">{durationString}</span>
+                                    <Calendar className="w-4 h-4 text-blue-600 dark:text-blue-300" />
+                                    <span className="text-sm font-bold text-blue-700 dark:text-blue-300">{durationString}</span>
                                 </motion.div>
                             )}
                         </div>
@@ -364,8 +362,8 @@ function BookingRequestModal({ mode = 'create', applicationData = null, room, on
                             {/* Dates - Airbnb Style */}
                             <div className="bg-white dark:bg-slate-800/60 rounded-2xl border border-slate-100 dark:border-slate-700/50 shadow-lg shadow-slate-200/50 dark:shadow-black/20">
                                 <h3 className="flex items-center gap-2 text-sm font-bold text-slate-800 dark:text-slate-100 p-4 pb-2 uppercase tracking-wide">
-                                    <div className="p-1.5 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
-                                        <Calendar className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                                    <div className="p-1.5 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
+                                        <Calendar className="w-4 h-4 text-blue-600 dark:text-blue-400" />
                                     </div>
                                     Stay Dates
                                 </h3>
@@ -463,15 +461,8 @@ function BookingRequestModal({ mode = 'create', applicationData = null, room, on
                             disabled={loading || !!validationError}
                             whileHover={!loading && !validationError ? { scale: 1.01 } : {}}
                             whileTap={!loading && !validationError ? { scale: 0.99 } : {}}
-                            className="group relative w-full overflow-hidden bg-gradient-to-r from-indigo-600 via-violet-600 to-purple-600 hover:from-indigo-700 hover:via-violet-700 hover:to-purple-700 text-white font-bold py-3 px-6 rounded-xl transition-all duration-300 shadow-lg shadow-indigo-500/25 hover:shadow-indigo-500/40 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                            className="group relative flex w-full items-center justify-center gap-2 overflow-hidden rounded-xl bg-brand px-6 py-3 font-bold text-white shadow-lg shadow-brand/20 transition-all duration-300 hover:bg-red-600 disabled:cursor-not-allowed disabled:opacity-50"
                         >
-                            {/* Shine Effect */}
-                            <motion.div
-                                className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent skew-x-12"
-                                animate={{ x: loading ? 200 : [-200, 200] }}
-                                transition={{ duration: 1.5, repeat: loading ? 0 : Infinity, repeatDelay: 3 }}
-                            />
-                            
                             {loading ? (
                                 <>
                                     <motion.div
@@ -483,7 +474,7 @@ function BookingRequestModal({ mode = 'create', applicationData = null, room, on
                                 </>
                             ) : (
                                 <>
-                                    <Sparkles className="w-4 h-4" />
+                                    <Shield className="w-4 h-4" />
                                     <span className="text-base">{mode === 'edit' ? 'Update Request' : 'Submit Request'}</span>
                                     <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                                 </>
@@ -494,10 +485,10 @@ function BookingRequestModal({ mode = 'create', applicationData = null, room, on
                         <div className="mt-4 hidden flex-wrap items-center justify-center gap-2 text-xs text-slate-500 dark:text-slate-400 md:flex md:gap-6">
                             <span className="flex items-center gap-2 bg-emerald-50 dark:bg-emerald-900/20 px-3 py-1.5 rounded-full">
                                 <CheckCircle className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                                <span className="font-semibold">Platform protection</span>
+                                <span className="font-semibold">Booking protection</span>
                             </span>
-                            <span className="flex items-center gap-2 bg-indigo-50 dark:bg-indigo-900/20 px-3 py-1.5 rounded-full">
-                                <Shield className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                            <span className="flex items-center gap-2 bg-blue-50 dark:bg-blue-900/20 px-3 py-1.5 rounded-full">
+                                <Shield className="w-4 h-4 text-blue-600 dark:text-blue-400" />
                                 <span className="font-semibold">Verified landlord</span>
                             </span>
                         </div>

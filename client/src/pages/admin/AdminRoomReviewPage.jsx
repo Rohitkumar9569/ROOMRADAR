@@ -36,6 +36,7 @@ import { formatListingTitle } from '../../utils/listingDisplay';
 import { notifyAdminCountsChanged } from '../../utils/adminEvents';
 import { triggerHaptic } from '../../utils/haptics';
 import { hasAdminPermission } from '../../utils/adminPermissions';
+import { getAvatarColorStyle, getAvatarInitial } from '../../utils/avatar';
 import fallbackRoomImage from '../../assets/background_img.jpg';
 
 const money = (value) => new Intl.NumberFormat('en-IN', {
@@ -133,7 +134,7 @@ const AdminDecisionPanel = ({ room, onApprove, onReject, canModerate }) => {
 
   return (
     <aside className="overflow-hidden rounded-[1.15rem] border border-slate-200/80 bg-white/92 shadow-[0_16px_48px_rgba(15,23,42,0.09)] backdrop-blur-xl dark:border-white/10 dark:bg-slate-900/88 dark:shadow-[0_18px_52px_rgba(0,0,0,0.34)]">
-      <div className="border-b border-slate-200/80 bg-gradient-to-br from-slate-50 to-white p-3.5 dark:border-white/10 dark:from-slate-900 dark:to-slate-950">
+      <div className="border-b border-slate-200/80 bg-white p-3.5 dark:border-white/10 dark:bg-slate-900">
         <p className="text-[10px] font-black uppercase tracking-[0.18em] text-cyan-600 dark:text-cyan-300">Admin decision</p>
         <h2 className="mt-1 text-[clamp(17px,3vw,20px)] font-black text-slate-950 dark:text-white">Publish review</h2>
         <p className="mt-1 text-[11px] font-semibold leading-5 text-slate-500 dark:text-slate-400">
@@ -469,7 +470,13 @@ const HostCard = ({ host }) => {
       <p className="text-[10px] font-black uppercase tracking-[0.16em] text-cyan-600 dark:text-cyan-300">Host profile</p>
       <div className="mt-4 flex items-center gap-3">
         <div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-2xl bg-cyan-500/10 text-xl font-black text-cyan-600 dark:text-cyan-200">
-          {image ? <img src={image} alt={hostName} className="h-full w-full object-cover" /> : hostName.charAt(0).toUpperCase()}
+          {image ? (
+            <img src={image} alt={hostName} className="h-full w-full object-cover" />
+          ) : (
+            <span className="rr-avatar-initial" style={getAvatarColorStyle(host?._id || host?.email, hostName)} aria-hidden="true">
+              {getAvatarInitial(hostName, host?.email)}
+            </span>
+          )}
         </div>
         <div className="min-w-0">
           <h3 className="truncate text-base font-black text-slate-950 dark:text-white">{hostName}</h3>
@@ -499,7 +506,7 @@ const RecentApplications = ({ applications = [] }) => (
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <p className="truncate text-sm font-black text-slate-950 dark:text-white">
-                {application.fullName || application.student?.name || 'Applicant'}
+                {application.fullName || application.student?.name || 'Room seeker'}
               </p>
               <p className="mt-0.5 text-xs font-semibold text-slate-500 dark:text-slate-400">
                 {safeDate(application.checkInDate, 'Move-in not set')} - {safeDate(application.checkOutDate, 'Move-out not set')}
@@ -512,7 +519,7 @@ const RecentApplications = ({ applications = [] }) => (
         </div>
       )) : (
         <p className="rounded-2xl border border-dashed border-slate-200 p-4 text-sm font-semibold text-slate-500 dark:border-white/10 dark:text-slate-400">
-          No booking requests yet.
+          No room requests yet.
         </p>
       )}
     </div>
@@ -603,7 +610,7 @@ const AdminRoomReviewPage = () => {
   const displayTitle = formatListingTitle(room.title);
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,rgba(6,182,212,0.10),transparent_26rem),#f8fafc] text-slate-950 dark:bg-[radial-gradient(circle_at_top_left,rgba(6,182,212,0.15),transparent_26rem),#0f172a] dark:text-white">
+    <div className="rr-admin-review-page min-h-screen bg-slate-50 text-slate-950 dark:bg-dark-bg dark:text-white">
       <div className="mx-auto max-w-[92rem] px-3 py-4 pb-28 sm:px-6 lg:px-8">
         <button
           onClick={() => navigate('/admin/rooms')}

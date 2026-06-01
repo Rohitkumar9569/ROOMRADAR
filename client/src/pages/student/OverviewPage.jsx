@@ -80,7 +80,7 @@ function OverviewPage() {
                 setWishlist(wishlistResponse.data?.wishlist || []);
                 setError('');
             } catch (err) {
-                if (active) setError(err.response?.data?.message || 'Could not load your travelling dashboard.');
+                if (active) setError(err.response?.data?.message || 'Could not load your room search dashboard.');
             } finally {
                 if (active) setLoading(false);
             }
@@ -117,9 +117,9 @@ function OverviewPage() {
                 <section className="overflow-hidden rounded-3xl border border-light-border bg-light-card shadow-sm dark:border-dark-border dark:bg-dark-card">
                     <div className="grid gap-6 p-5 md:grid-cols-[1fr_340px] md:p-8">
                         <div>
-                            <p className="text-xs font-bold uppercase tracking-[0.22em] text-brand">Travelling dashboard</p>
+                            <p className="text-xs font-bold uppercase tracking-[0.22em] text-brand">Room seeker dashboard</p>
                             <h1 className="mt-3 text-3xl font-semibold md:text-4xl">
-                                {getGreeting()}, {user?.name || 'Travelling'}
+                                {getGreeting()}, {user?.name || 'Room seeker'}
                             </h1>
                             <p className="mt-3 max-w-2xl text-sm leading-6 text-light-muted dark:text-dark-muted">
                                 Track requests, approvals, wishlist rooms, and your next move-in from one clean workspace.
@@ -130,7 +130,7 @@ function OverviewPage() {
                                     Find rooms
                                 </Link>
                                 <Link to="/profile/my-applications" className="btn-outline inline-flex items-center gap-2">
-                                    My applications
+                                    My room requests
                                     <ArrowRight className="h-4 w-4" />
                                 </Link>
                             </div>
@@ -174,7 +174,7 @@ function OverviewPage() {
 
                         <div className="mt-5 space-y-4">
                             {recentApplications.length === 0 ? (
-                                <EmptyState icon={Home} title="No applications yet" text="Rooms you request will appear here with their approval timeline." link="/rooms" linkText="Browse rooms" />
+                                <EmptyState icon={Home} title="No room requests yet" text="Rooms you request will appear here with their approval timeline." link="/rooms" linkText="Browse rooms" />
                             ) : (
                                 recentApplications.map((application) => (
                                     <ApplicationRow key={application._id} application={application} />

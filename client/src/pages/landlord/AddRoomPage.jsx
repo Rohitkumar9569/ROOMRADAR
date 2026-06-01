@@ -17,7 +17,6 @@ import {
   MapPin,
   Ruler,
   ShieldCheck,
-  Sparkles,
   Trash2,
   UploadCloud,
 } from 'lucide-react';
@@ -191,7 +190,7 @@ const limitFieldValue = (key, value) => applyFieldLimit(roomFieldByKey.get(key),
 const stepIconMap = {
   basicDetails: Home,
   location: MapPin,
-  amenities: Sparkles,
+  amenities: CheckCircle2,
   pricing: IndianRupee,
   rules: ShieldCheck,
   nearby: MapPin,
@@ -683,7 +682,7 @@ function AddRoomPage() {
   };
 
   const renderField = (field) => {
-    const Icon = iconMap[field.key] || Sparkles;
+    const Icon = iconMap[field.key] || CheckCircle2;
     const isDenseOptionStep = currentStep.id === 'amenities' || currentStep.id === 'rules';
     const isPhoneField = isPhoneFieldKey(field.key);
     const renderLimitHint = () => {
@@ -712,7 +711,7 @@ function AddRoomPage() {
           onClick={() => updateField(field.key, !formData[field.key])}
           className={`relative flex min-h-[4.25rem] flex-col justify-between rounded-[1.1rem] border p-3 text-left transition active:scale-[0.98] sm:min-h-12 sm:flex-row sm:items-center sm:px-4 sm:py-3 ${
             formData[field.key]
-              ? 'border-brand/35 bg-gradient-to-br from-rose-50 via-white to-cyan-50 text-brand shadow-[0_12px_26px_rgba(255,56,92,0.10)] dark:border-cyan-300/30 dark:from-cyan-300/12 dark:via-slate-900/75 dark:to-brand/10 dark:text-cyan-100'
+              ? 'border-brand/35 bg-white text-brand shadow-[0_12px_26px_rgba(255,0,51,0.08)] dark:border-cyan-300/30 dark:bg-slate-900/75 dark:text-cyan-100'
               : 'border-slate-200/80 bg-white/82 text-slate-500 hover:border-brand/50 dark:border-slate-700/80 dark:bg-slate-900/70 dark:text-slate-400'
           }`}
         >
@@ -838,12 +837,12 @@ function AddRoomPage() {
   if (loading) return <div className="flex min-h-screen items-center justify-center"><Spinner /></div>;
 
   return (
-    <form onSubmit={handleSubmit} className="rr-add-room-page min-h-screen overflow-x-hidden bg-[radial-gradient(circle_at_top_left,rgba(6,182,212,0.09),transparent_22rem),linear-gradient(180deg,#f8fafc_0%,#eef4f8_100%)] px-2 pb-32 pt-3 text-slate-900 dark:bg-[radial-gradient(circle_at_top_left,rgba(6,182,212,0.16),transparent_22rem),linear-gradient(180deg,#0f172a_0%,#111827_100%)] dark:text-slate-50 sm:px-6 sm:pb-10 sm:pt-4 lg:px-8">
+    <form onSubmit={handleSubmit} className="rr-add-room-page min-h-screen overflow-x-hidden bg-slate-50 px-2 pb-32 pt-3 text-slate-900 dark:bg-dark-bg dark:text-slate-50 sm:px-6 sm:pb-10 sm:pt-4 lg:px-8">
       <div className="mx-auto max-w-6xl">
         <div className="rr-add-room-shell mb-4 overflow-hidden rounded-[1.65rem] border border-white/75 bg-white/82 shadow-[0_18px_50px_rgba(15,23,42,0.08)] backdrop-blur-xl dark:border-white/10 dark:bg-slate-900/72 dark:shadow-[0_24px_70px_rgba(0,0,0,0.34)] sm:rounded-[2rem]">
           <div className="h-1.5 bg-slate-100 dark:bg-slate-800">
             <div
-              className="h-full rounded-r-full bg-gradient-to-r from-brand via-rose-400 to-cyan-400 transition-all duration-500"
+              className="h-full rounded-r-full bg-brand transition-all duration-500"
               style={{ width: `${stepProgress}%` }}
             />
           </div>
@@ -861,7 +860,7 @@ function AddRoomPage() {
                 Complete only real property details. Edits go for admin approval when required.
               </p>
             </div>
-            <div className="rr-add-room-summary mt-4 grid grid-cols-[auto_1fr] items-center gap-3 rounded-[1.35rem] border border-brand/15 bg-gradient-to-br from-brand/10 via-white/70 to-cyan-400/10 p-3 dark:border-cyan-300/15 dark:from-cyan-300/10 dark:via-slate-950/20 dark:to-brand/10 md:mt-0 md:min-w-[13rem]">
+            <div className="rr-add-room-summary mt-4 grid grid-cols-[auto_1fr] items-center gap-3 rounded-[1.35rem] border border-brand/15 bg-white p-3 dark:border-cyan-300/15 dark:bg-slate-950/35 md:mt-0 md:min-w-[13rem]">
               <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-brand shadow-sm dark:bg-slate-950/55 dark:text-cyan-200">
                 <CurrentStepIcon className="h-5 w-5" />
               </span>
@@ -887,7 +886,7 @@ function AddRoomPage() {
                 onClick={() => setStep(index)}
                 className={`rr-add-room-step-tab ${isActive ? 'is-active' : ''} flex min-h-[3.25rem] w-[8.35rem] flex-shrink-0 items-center gap-2 rounded-[1.15rem] border px-3 py-2 text-left transition active:scale-[0.98] md:w-auto ${
                   isActive
-                    ? 'border-brand/40 bg-gradient-to-br from-brand to-rose-500 text-white shadow-[0_14px_34px_rgba(255,56,92,0.24)]'
+                    ? 'border-brand/40 bg-brand text-white shadow-[0_14px_34px_rgba(255,0,51,0.22)]'
                     : isComplete
                       ? 'border-emerald-200 bg-emerald-50/90 text-emerald-700 dark:border-emerald-400/20 dark:bg-emerald-400/10 dark:text-emerald-100'
                       : 'border-white/75 bg-white/78 text-slate-500 shadow-sm backdrop-blur dark:border-white/10 dark:bg-slate-900/65 dark:text-slate-400'
@@ -919,12 +918,12 @@ function AddRoomPage() {
                   Higher quality listings are easier to approve, trust, and rank in search.
                 </p>
               </div>
-              <div className="flex h-20 w-20 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-brand/12 to-cyan-400/14 text-brand ring-1 ring-brand/10 dark:text-cyan-200 dark:ring-cyan-300/10">
+              <div className="flex h-20 w-20 flex-shrink-0 items-center justify-center rounded-full bg-brand/10 text-brand ring-1 ring-brand/10 dark:bg-cyan-300/10 dark:text-cyan-200 dark:ring-cyan-300/10">
                 <span className="text-2xl font-black">{listingQuality.score}</span>
               </div>
             </div>
             <div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
-              <div className="h-full rounded-full bg-gradient-to-r from-brand via-rose-400 to-cyan-400 transition-all duration-500" style={{ width: `${listingQuality.score}%` }} />
+              <div className="h-full rounded-full bg-brand transition-all duration-500" style={{ width: `${listingQuality.score}%` }} />
             </div>
             <div className="mt-4 grid grid-cols-2 gap-2 md:grid-cols-4">
               {listingQuality.segments.map((segment) => (
@@ -955,9 +954,9 @@ function AddRoomPage() {
           transition={{ duration: 0.35 }}
           className="rr-add-room-step-panel overflow-hidden rounded-[1.65rem] border border-white/75 bg-white/86 shadow-[0_18px_50px_rgba(15,23,42,0.08)] backdrop-blur-xl dark:border-white/10 dark:bg-slate-900/74 dark:shadow-[0_24px_70px_rgba(0,0,0,0.36)] sm:rounded-[2rem]"
         >
-          <div className="rr-add-room-step-head border-b border-slate-100/90 bg-gradient-to-br from-white/80 to-slate-50/70 p-4 dark:border-slate-800/80 dark:from-slate-900/70 dark:to-slate-950/35 sm:p-5">
+          <div className="rr-add-room-step-head border-b border-slate-100/90 bg-white p-4 dark:border-slate-800/80 dark:bg-slate-900/70 sm:p-5">
             <div className="flex items-start gap-3">
-              <span className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-brand/12 to-cyan-400/14 text-brand ring-1 ring-brand/10 dark:text-cyan-200 dark:ring-cyan-300/10">
+              <span className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-2xl bg-brand/10 text-brand ring-1 ring-brand/10 dark:bg-cyan-300/10 dark:text-cyan-200 dark:ring-cyan-300/10">
                 <CurrentStepIcon className="h-5 w-5" />
               </span>
               <div className="min-w-0">
@@ -996,7 +995,7 @@ function AddRoomPage() {
               )}
 
               {priceSuggestion && ['basicDetails', 'location'].includes(currentStep.id) && (
-                <div className="mt-5 rounded-[1.35rem] border border-brand/20 bg-gradient-to-br from-brand/10 to-cyan-400/10 p-4 text-sm text-slate-800 dark:text-slate-100">
+                <div className="mt-5 rounded-[1.35rem] border border-brand/20 bg-white p-4 text-sm text-slate-800 dark:bg-slate-950/35 dark:text-slate-100">
                   <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                     <div>
                       <p className="font-black text-brand dark:text-cyan-200">Price suggestion</p>
@@ -1027,7 +1026,7 @@ function AddRoomPage() {
             </>
           ) : (
             <div>
-              <label htmlFor="room-photos" className="group flex min-h-36 cursor-pointer flex-col items-center justify-center rounded-[1.35rem] border border-dashed border-cyan-300/70 bg-gradient-to-br from-cyan-50/90 via-white/80 to-rose-50/70 p-4 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.75)] transition hover:border-brand hover:from-brand/5 dark:border-cyan-300/20 dark:from-cyan-300/8 dark:via-slate-950/20 dark:to-brand/8 sm:min-h-44 sm:p-6">
+              <label htmlFor="room-photos" className="group flex min-h-36 cursor-pointer flex-col items-center justify-center rounded-[1.35rem] border border-dashed border-cyan-300/70 bg-white p-4 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.75)] transition hover:border-brand dark:border-cyan-300/20 dark:bg-slate-950/30 sm:min-h-44 sm:p-6">
                 <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-brand shadow-[0_14px_34px_rgba(15,23,42,0.10)] ring-1 ring-slate-200/70 transition group-active:scale-95 dark:bg-slate-950/70 dark:text-cyan-200 dark:ring-white/10">
                   <UploadCloud className="h-6 w-6" />
                 </span>

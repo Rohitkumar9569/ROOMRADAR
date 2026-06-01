@@ -45,7 +45,7 @@ const AccountRestrictedPage = ({ restrictionScope }) => {
   const alternativeAccess = effectiveScope === 'student' && user?.roles?.includes('Landlord') && !isScopeRestricted(user, 'landlord')
     ? { label: 'Continue to Landlord', path: '/landlord/overview' }
     : effectiveScope === 'landlord' && !isScopeRestricted(user, 'student')
-      ? { label: 'Continue travelling', path: '/' }
+      ? { label: 'Continue room search', path: '/' }
       : null;
   const [appealMessage, setAppealMessage] = useState(
     restriction.appealMessage || 'Please review my account restriction. I have checked my profile, listings, bookings, and messages, and I can share any required proof.'
@@ -99,7 +99,7 @@ const AccountRestrictedPage = ({ restrictionScope }) => {
   };
 
   return (
-    <main className="rr-restricted-page min-h-screen bg-[linear-gradient(180deg,#f8fbff_0%,#eef7fb_42%,#ffffff_100%)] px-4 py-6 text-light-text dark:bg-[linear-gradient(180deg,#080b12_0%,#0f172a_48%,#05070b_100%)] dark:text-dark-text sm:px-6 sm:py-10">
+    <main className="rr-restricted-page min-h-screen bg-slate-50 px-4 py-6 text-light-text dark:bg-dark-bg dark:text-dark-text sm:px-6 sm:py-10">
       <div className="rr-restricted-root mx-auto flex w-full max-w-5xl flex-col gap-5">
         <header className="rr-restricted-header flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
@@ -118,7 +118,7 @@ const AccountRestrictedPage = ({ restrictionScope }) => {
 
         <section className="rr-restricted-shell overflow-hidden rounded-[2rem] border border-red-200/70 bg-white shadow-[0_24px_70px_-50px_rgba(15,23,42,0.6)] dark:border-red-400/20 dark:bg-dark-sidebar">
           <div className="rr-restricted-grid grid gap-0 lg:grid-cols-[1.05fr_0.95fr]">
-            <div className="rr-restricted-hero bg-[linear-gradient(135deg,#fb3f46_0%,#172033_62%,#0891b2_100%)] p-6 text-white sm:p-8">
+            <div className="rr-restricted-hero bg-slate-950 p-6 text-white sm:p-8">
               <div className="rr-restricted-icon flex h-16 w-16 items-center justify-center rounded-3xl bg-white/14 ring-1 ring-white/20">
                 <ShieldAlert className="h-8 w-8" />
               </div>

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { StarIcon } from '@heroicons/react/24/solid';
 import { format } from 'date-fns';
+import { getAvatarColorStyle, getAvatarInitial } from '../../../utils/avatar';
 
 const clampRatingFill = (value) => Math.max(0, Math.min(1, value));
 
@@ -10,7 +11,7 @@ const RatingBreakdownItem = ({ label, score = 0 }) => (
         <div className="flex items-center gap-2">
             <div className="h-1.5 w-24 overflow-hidden rounded-full bg-neutral-200 dark:bg-white/10">
                 <div
-                    className="h-full rounded-full bg-gradient-to-r from-amber-400 via-yellow-300 to-cyan-400 shadow-[0_0_16px_rgba(251,191,36,0.28)]"
+                    className="h-full rounded-full bg-amber-400 shadow-[0_0_16px_rgba(251,191,36,0.18)]"
                     style={{ width: `${Math.max(0, Math.min(100, (score / 5) * 100))}%` }}
                 />
             </div>
@@ -39,10 +40,9 @@ const StarRatingDisplay = ({ rating = 0, size = 'h-5 w-5' }) => (
 const ReviewAvatar = ({ student }) => {
     const [imageFailed, setImageFailed] = useState(false);
     const imageUrl = !imageFailed ? (student?.avatarUrl || student?.profilePicture) : '';
-    const initial = (student?.name || 'Anonymous').trim().charAt(0).toUpperCase() || 'A';
 
     return (
-        <div className="mr-4 flex h-12 w-12 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-cyan-500 via-sky-500 to-amber-400 text-lg font-black text-white shadow-lg shadow-cyan-500/15 ring-1 ring-white/70 dark:ring-white/10">
+        <div className="mr-4 flex h-12 w-12 items-center justify-center overflow-hidden rounded-full bg-cyan-500 text-lg font-black text-white shadow-lg shadow-cyan-500/15 ring-1 ring-white/70 dark:ring-white/10">
             {imageUrl ? (
                 <img
                     src={imageUrl}
@@ -51,7 +51,9 @@ const ReviewAvatar = ({ student }) => {
                     onError={() => setImageFailed(true)}
                 />
             ) : (
-                <span>{initial}</span>
+                <span className="rr-avatar-initial" style={getAvatarColorStyle(student?._id || student?.email, student?.name)} aria-hidden="true">
+                    {getAvatarInitial(student?.name, student?.email)}
+                </span>
             )}
         </div>
     );

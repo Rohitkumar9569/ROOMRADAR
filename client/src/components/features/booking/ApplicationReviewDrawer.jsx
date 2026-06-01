@@ -73,7 +73,7 @@ const buildOccupantSummary = (application) => {
 const getApplicantName = (application) => (
   application?.fullName
   || application?.student?.name
-  || 'Applicant'
+  || 'Room seeker'
 );
 
 const getApplicantPhone = (application) => (
@@ -166,7 +166,7 @@ const ApplicationReviewDrawer = ({
         <div className="fixed inset-0 z-[90]">
           <motion.button
             type="button"
-            aria-label="Close applicant details"
+            aria-label="Close room seeker details"
             className="absolute inset-0 bg-slate-950/50 backdrop-blur-sm dark:bg-black/70"
             onClick={onClose}
             initial={{ opacity: 0 }}
@@ -177,7 +177,7 @@ const ApplicationReviewDrawer = ({
           <motion.aside
             role="dialog"
             aria-modal="true"
-            aria-label="Applicant booking details"
+            aria-label="Room seeker booking details"
             className="absolute inset-x-0 bottom-0 max-h-[92vh] overflow-hidden rounded-t-[1.75rem] border border-light-border bg-light-card text-light-text shadow-2xl dark:border-dark-border dark:bg-dark-card dark:text-dark-text md:inset-y-0 md:left-auto md:right-0 md:h-full md:max-h-none md:w-[min(560px,calc(100vw-2rem))] md:rounded-none md:border-y-0 md:border-r-0"
             initial={{ y: 48, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
@@ -246,7 +246,7 @@ const ApplicationReviewDrawer = ({
 
                 <div className="mt-5 space-y-5">
                   <section>
-                    <SectionTitle>Applicant profile</SectionTitle>
+                    <SectionTitle>Room seeker profile</SectionTitle>
                     <div className="mt-3 grid gap-3 sm:grid-cols-2">
                       <DetailItem icon={UserRound} label="Full name" value={applicantName} />
                       <DetailItem icon={Phone} label="Phone" value={applicantPhone} />
@@ -281,7 +281,7 @@ const ApplicationReviewDrawer = ({
                       <DetailItem
                         icon={ShieldCheck}
                         label="Terms"
-                        value={application.agreedToTerms ? 'Accepted by applicant' : 'Not accepted'}
+                        value={application.agreedToTerms ? 'Accepted by room seeker' : 'Not accepted'}
                       />
                       <DetailItem icon={UserRound} label="Emergency contact" value={application.emergencyContact?.name} />
                       <DetailItem icon={Phone} label="Emergency phone" value={application.emergencyContact?.phone} />
@@ -289,7 +289,7 @@ const ApplicationReviewDrawer = ({
                   </section>
 
                   <section>
-                    <SectionTitle>Applicant note</SectionTitle>
+                    <SectionTitle>Stay note</SectionTitle>
                     <div className="mt-3 rounded-2xl border border-light-border bg-light-bg p-4 dark:border-dark-border dark:bg-dark-sidebar">
                       <p className="whitespace-pre-line text-sm font-semibold leading-6 text-light-muted dark:text-dark-muted">
                         {application.message || 'No message added.'}
@@ -302,7 +302,7 @@ const ApplicationReviewDrawer = ({
                     <div className="mt-3 rounded-2xl border border-light-border bg-light-bg p-4 dark:border-dark-border dark:bg-dark-sidebar">
                       <AmountRow label={`Rent x ${amount.durationMonths || application.durationMonths || 1} month(s)`} value={(amount.rent || room.rent || 0) * (amount.durationMonths || application.durationMonths || 1)} />
                       <AmountRow label="Security deposit" value={amount.securityDeposit || room.securityDeposit || room.rent || 0} />
-                      <AmountRow label="Platform fee" value={amount.platformFee || 0} />
+                      <AmountRow label="Service fee" value={amount.platformFee || 0} />
                       <div className="my-2 border-t border-light-border dark:border-dark-border" />
                       <AmountRow label="Total due" value={amount.total || 0} strong />
                       <p className="mt-2 inline-flex rounded-full bg-slate-100 px-3 py-1 text-xs font-black capitalize text-slate-600 dark:bg-slate-800 dark:text-slate-300">

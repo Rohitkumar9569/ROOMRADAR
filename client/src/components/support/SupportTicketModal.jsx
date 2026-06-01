@@ -57,6 +57,13 @@ const ALLOWED_PROOF_FILE_TYPES = new Set([
 
 const trimText = (value, maxLength) => String(value || '').trim().slice(0, maxLength);
 
+const formatSupportScope = (scope = '') => ({
+  travelling: 'room seeker',
+  student: 'room seeker',
+  landlord: 'host',
+  platform: 'RoomRadar',
+}[String(scope || '').toLowerCase()] || scope);
+
 const normalizeEvidenceLinks = (value = '') => String(value || '')
   .split(/\n|,/)
   .map((item) => item.trim())
@@ -92,7 +99,7 @@ const AdminSupportMark = ({ size = 'mobile' }) => {
       }`}
       aria-hidden="true"
     >
-      <span className="absolute inset-0 rounded-2xl bg-[linear-gradient(145deg,#0f172a_0%,#0e7490_48%,#7c3aed_100%)]" />
+      <span className="absolute inset-0 rounded-2xl bg-slate-950" />
       <span className="relative flex h-[72%] w-[72%] items-center justify-center rounded-full bg-white/14 ring-1 ring-white/20">
         <ShieldCheck className={isDesktop ? 'h-6 w-6' : 'h-5 w-5'} strokeWidth={2.35} />
       </span>
@@ -222,7 +229,7 @@ function SupportTicketModal({
     const uploadToastId = proofFiles.length ? toast.loading('Attaching proof files...') : null;
     try {
       const contextLines = [
-        context.scope ? `Scope: ${context.scope}` : '',
+        context.scope ? `Scope: ${formatSupportScope(context.scope)}` : '',
         context.path ? `Page: ${context.path}` : '',
         context.roomTitle ? `Room: ${context.roomTitle}` : '',
         user?.email ? `User email: ${user.email}` : '',
@@ -280,7 +287,7 @@ function SupportTicketModal({
           <AdminSupportMark />
         </div>
 
-        <div className="hidden flex-shrink-0 items-start justify-between gap-4 bg-[linear-gradient(135deg,#0ea5e9_0%,#0f172a_58%,#ef4444_100%)] p-5 text-white md:flex sm:p-6">
+        <div className="rr-support-solid-header hidden flex-shrink-0 items-start justify-between gap-4 bg-slate-950 p-5 text-white md:flex sm:p-6">
           <div className="flex min-w-0 gap-3">
             <AdminSupportMark size="desktop" />
             <div className="min-w-0">

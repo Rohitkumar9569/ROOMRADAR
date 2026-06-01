@@ -82,7 +82,7 @@ export const describeAdminPermission = (permission = '') => ({
   'analytics:view': 'Analytics access',
   'users:view': 'User management access',
   'users:restrict': 'Trust and Safety restriction access',
-  'users:roles': 'RBAC role management access',
+  'users:roles': 'Operations role management access',
   'users:verify': 'Verification access',
   'rooms:view': 'Listing moderation access',
   'rooms:moderate': 'Approve/reject listing access',
@@ -91,5 +91,5 @@ export const describeAdminPermission = (permission = '') => ({
   'revenue:view': 'Financial report access',
   'tickets:manage': 'Support queue access',
   'logs:view': 'Audit log access',
-  'settings:manage': 'Platform settings access',
+  'settings:manage': 'Rental settings access',
 }[permission] || 'Admin access');

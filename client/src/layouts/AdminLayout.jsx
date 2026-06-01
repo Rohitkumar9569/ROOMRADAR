@@ -15,10 +15,10 @@ import { prefetchRoute } from '../utils/routePrefetch';
 import RouteTransition from '../components/common/RouteTransition';
 
 const getMobileAdminLabel = (name) => ({
-    'Analytics & Reports': 'Reports',
-    'User Management': 'Users',
+    'Rental Insights': 'Insights',
+    'Users & Hosts': 'Users',
     'Landlord Hub': 'Landlords',
-    'KYC & Verifications': 'KYC',
+    'Trust Checks': 'Checks',
     'All Rooms': 'Rooms',
     'Pending Approvals': 'Pending',
     'Revenue & Commission': 'Revenue',
@@ -117,7 +117,7 @@ const AdminLayout = () => {
                                 <p className="mt-5 text-xs font-black uppercase tracking-[0.16em] text-amber-600 dark:text-amber-300">Permission required</p>
                                 <h1 className="mt-2 text-2xl font-black">This admin section is restricted</h1>
                                 <p className="mt-3 max-w-lg text-sm font-semibold leading-6 text-light-muted dark:text-dark-muted">
-                                    Your current admin role does not include {describeAdminPermission(requiredPermission)}. Ask a Super Admin or Admin to update your RBAC role if you need this workflow.
+                                    Your current admin role does not include {describeAdminPermission(requiredPermission)}. Ask a Super Admin or Admin to update your operations access if you need this workflow.
                                 </p>
                             </div>
                         </div>

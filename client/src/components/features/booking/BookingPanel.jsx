@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ArrowRight, CalendarDays, CheckCircle2, MessageCircle, ShieldCheck, Sparkles, Users } from 'lucide-react';
+import { ArrowRight, CalendarDays, CheckCircle2, MessageCircle, ShieldCheck, Users } from 'lucide-react';
 import { triggerHaptic } from '../../../utils/haptics';
 
 const money = (value) => `\u20B9${Number(value || 0).toLocaleString('en-IN')}`;
@@ -20,7 +20,6 @@ const formatMoveInLabel = (availableFrom, fallback = 'Available now') => {
 
 const BookingPanel = ({ room, onContactLandlord }) => {
     const navigate = useNavigate();
-    const [isHovered, setIsHovered] = useState(false);
     const rentPerMonth = Number(room.rent || 0);
     const securityDeposit = parseMoneyValue(room.securityDeposit) ?? rentPerMonth;
     const discount = room.originalRent ? Math.round(((room.originalRent - room.rent) / room.originalRent) * 100) : 0;
@@ -42,7 +41,7 @@ const BookingPanel = ({ room, onContactLandlord }) => {
                 transition={{ duration: 0.45, ease: [0.23, 1, 0.32, 1] }}
                 className="relative overflow-hidden rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl shadow-slate-200/70 dark:border-secondary-700 dark:bg-secondary-800 dark:shadow-black/30"
             >
-                <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-cyan-400 via-amber-300 to-rose-400" />
+                <div className="absolute inset-x-0 top-0 h-1 bg-brand" />
 
                 <div className="flex items-start justify-between gap-4">
                     <div>
@@ -70,7 +69,7 @@ const BookingPanel = ({ room, onContactLandlord }) => {
                             <p className={`mt-1 text-xs font-semibold leading-5 ${!isBookable ? 'text-slate-600 dark:text-secondary-300' : 'text-cyan-700 dark:text-cyan-200'}`}>
                                 {!isBookable
                                     ? `This listing stays visible for trust and planning. Message the host about the next move-in window${moveInLabel !== 'Ask host' ? ` from ${moveInLabel}` : ''}.`
-                                    : 'Request first, get landlord approval, then confirm to lock the room.'}
+                                    : 'Send a request first, get host approval, then confirm to lock the room.'}
                             </p>
                         </div>
                     </div>
@@ -95,7 +94,7 @@ const BookingPanel = ({ room, onContactLandlord }) => {
                         <span className="font-black text-slate-950 dark:text-white">{money(securityDeposit)}</span>
                     </div>
                     <div className="mt-2 flex items-center justify-between text-sm">
-                        <span className="font-semibold text-slate-500 dark:text-secondary-300">Platform protection</span>
+                        <span className="font-semibold text-slate-500 dark:text-secondary-300">Booking protection</span>
                         <span className="font-black text-slate-950 dark:text-white">Included</span>
                     </div>
                 </div>
@@ -104,18 +103,11 @@ const BookingPanel = ({ room, onContactLandlord }) => {
                     type="button"
                     onClick={handleRequestToBook}
                     disabled={!isBookable}
-                    onMouseEnter={() => setIsHovered(true)}
-                    onMouseLeave={() => setIsHovered(false)}
                     whileHover={isBookable ? { scale: 1.015 } : {}}
                     whileTap={isBookable ? { scale: 0.985 } : {}}
                     className="group relative mt-5 flex w-full items-center justify-center gap-2 overflow-hidden rounded-2xl bg-slate-950 px-5 py-4 text-sm font-black text-white shadow-xl shadow-slate-950/15 transition hover:bg-cyan-700 disabled:cursor-not-allowed disabled:bg-slate-400 dark:bg-white dark:text-slate-950 dark:hover:bg-cyan-200"
                 >
-                    <motion.span
-                        className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent"
-                        animate={{ x: isHovered ? 260 : -260 }}
-                        transition={{ duration: 0.6 }}
-                    />
-                    <Sparkles className="relative h-5 w-5" />
+                    <ShieldCheck className="relative h-5 w-5" />
                     <span className="relative">{bookingButtonLabel}</span>
                     <ArrowRight className="relative h-5 w-5 transition group-hover:translate-x-1" />
                 </motion.button>

@@ -11,7 +11,7 @@ const landlordNavItems = [
     { path: '/landlord/overview', label: 'Today', Icon: LayoutDashboard, activePrefixes: ['/landlord/overview', '/landlord/calendar', '/landlord/applications'] },
     { path: '/landlord/my-rooms', label: 'Listings', Icon: List },
     { path: '/landlord/add-room', label: 'Add', Icon: PlusCircle, center: true, ariaLabel: 'Add room' },
-    { path: '/landlord/inbox', label: 'Inbox', Icon: Mail, badge: true },
+    { path: '/landlord/inbox', label: 'Inbox', Icon: Mail, badge: true, badgeKind: 'messages' },
     { path: '/landlord/profile', label: 'Me', Icon: User, end: true, avatar: true },
 ];
 
