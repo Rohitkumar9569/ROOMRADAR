@@ -16764,3 +16764,94 @@ html:not(.dark) .home-hero-search-shell .rr-search-suggestion-loading {
     font-size: clamp(1.36rem, 6.3vw, 1.62rem) !important;
   }
 }
+
+/* Final VIP mobile wordmark: keep RoomRadar visible after scroll instead of collapsing to R. */
+@media (max-width: 767px) {
+  .smart-app-header.is-compact .smart-header-brand,
+  .smart-app-header.is-compact .smart-header-logo-stack,
+  .smart-app-header--home.is-scrolled .smart-header-brand,
+  .smart-app-header--home.is-scrolled .smart-header-logo-stack,
+  .smart-app-header--search.is-scrolled .smart-header-brand,
+  .smart-app-header--search.is-scrolled .smart-header-logo-stack {
+    width: clamp(6.62rem, 30vw, 7.4rem) !important;
+    max-width: clamp(6.62rem, 30vw, 7.4rem) !important;
+    overflow: visible !important;
+  }
+
+  .smart-app-header.is-compact .smart-header-logo-compact,
+  .smart-app-header--home.is-scrolled .smart-header-logo-compact,
+  .smart-app-header--search.is-scrolled .smart-header-logo-compact {
+    display: none !important;
+    opacity: 0 !important;
+    transform: none !important;
+    pointer-events: none !important;
+  }
+
+  .smart-app-header.is-compact .smart-header-logo-full,
+  .smart-app-header--home.is-scrolled .smart-header-logo-full,
+  .smart-app-header--search.is-scrolled .smart-header-logo-full {
+    position: relative !important;
+    display: inline-flex !important;
+    align-items: baseline !important;
+    gap: 0 !important;
+    opacity: 1 !important;
+    transform: none !important;
+    pointer-events: auto !important;
+    color: #202124 !important;
+    font-size: clamp(1.15rem, 5.05vw, 1.38rem) !important;
+    font-weight: 950 !important;
+    letter-spacing: 0 !important;
+    line-height: 1 !important;
+    text-shadow: none !important;
+  }
+
+  .smart-app-header.is-compact .smart-header-logo-full::after,
+  .smart-app-header--home.is-scrolled .smart-header-logo-full::after,
+  .smart-app-header--search.is-scrolled .smart-header-logo-full::after {
+    content: '' !important;
+    position: absolute !important;
+    right: 0.06rem !important;
+    bottom: -0.28rem !important;
+    width: 2.05rem !important;
+    height: 0.16rem !important;
+    border-radius: 999px !important;
+    background: #ff385c !important;
+    box-shadow: none !important;
+  }
+
+  .smart-app-header.is-compact .smart-header-logo-full span:first-child,
+  .smart-app-header--home.is-scrolled .smart-header-logo-full span:first-child,
+  .smart-app-header--search.is-scrolled .smart-header-logo-full span:first-child {
+    color: #e31c4f !important;
+  }
+
+  .smart-app-header.is-compact .smart-header-logo-full span:last-child,
+  .smart-app-header--home.is-scrolled .smart-header-logo-full span:last-child,
+  .smart-app-header--search.is-scrolled .smart-header-logo-full span:last-child {
+    color: #111827 !important;
+  }
+
+  .dark .smart-app-header.is-compact .smart-header-logo-full span:last-child,
+  .dark .smart-app-header--home.is-scrolled .smart-header-logo-full span:last-child,
+  .dark .smart-app-header--search.is-scrolled .smart-header-logo-full span:last-child {
+    color: #f1f3f4 !important;
+  }
+}
+
+@media (max-width: 360px) {
+  .smart-app-header.is-compact .smart-header-brand,
+  .smart-app-header.is-compact .smart-header-logo-stack,
+  .smart-app-header--home.is-scrolled .smart-header-brand,
+  .smart-app-header--home.is-scrolled .smart-header-logo-stack,
+  .smart-app-header--search.is-scrolled .smart-header-brand,
+  .smart-app-header--search.is-scrolled .smart-header-logo-stack {
+    width: 6.25rem !important;
+    max-width: 6.25rem !important;
+  }
+
+  .smart-app-header.is-compact .smart-header-logo-full,
+  .smart-app-header--home.is-scrolled .smart-header-logo-full,
+  .smart-app-header--search.is-scrolled .smart-header-logo-full {
+    font-size: 1.08rem !important;
+  }
+}
